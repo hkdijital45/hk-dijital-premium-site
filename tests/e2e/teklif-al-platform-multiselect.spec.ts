@@ -189,6 +189,30 @@ test.describe("/teklif-al - Platform İhtiyacınız adımı: çoklu seçim", () 
     await expect(platformCard(page, "Google")).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("iletişim adımında isteğe bağlı Açık Adres alanı vardır ve gönderilen adres lead ile iletilir", async ({ page }) => {
+    const getBody = await interceptLeadSubmission(page);
+    await reachPlatformStep(page);
+    await platformCard(page, "Meta").click();
+    await continueButton(page).click();
+    await completeStepsThroughAnalysis(page);
+    const address = page.getByRole("textbox", { name: "Açık Adres" });
+    await expect(address).toBeVisible();
+    await expect(page.getByRole("button", { name: "Analizimi Gönder" })).toBeVisible();
+    await page.getByLabel(/Ad Soyad/).fill("Test Kullanıcı");
+    await page.getByLabel(/Firma Adı/).fill("Test Firma");
+    await page.getByLabel(/E-posta/).fill("test@example.com");
+    await page.getByRole("textbox", { name: /Telefon/ }).fill("5551234567");
+    await address.fill("Yunusemre Mah. 1. Sokak No: 5");
+    await page.getByRole("button", { name: "Analizimi Gönder" }).click();
+    await expect.poll(() => getBody()).not.toBeNull();
+    expect(getBody()?.address).toBe("Yunusemre Mah. 1. Sokak No: 5");
+  });
+
+  test("teklif-al sayfasında tek bir H1 başlığı vardır", async ({ page }) => {
+    await page.goto("/teklif-al", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  });
+
   test("analiz ekranında paket, fiyat veya AI öneri arayüzü bulunmaz", async ({ page }) => {
     await reachPlatformStep(page);
     await platformCard(page, "Meta").click();

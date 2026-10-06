@@ -1,3 +1,4 @@
+import { resolvePublicPhoneE164 } from "@/lib/public-contact";
 import type { Metadata } from "next";
 import { getSiteContent } from "@/lib/content";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
@@ -23,7 +24,7 @@ export default async function Home() {
           name: content.brand.companyName,
           url: SITE_URL,
           email: content.contact.email,
-          telephone: content.contact.phone,
+          telephone: resolvePublicPhoneE164(content.contact.phone) ?? undefined,
           founder: content.brand.founder,
           areaServed: ["Manisa", "Türkiye"],
           sameAs: Object.values(content.socials).filter((url) => url && !/^https:\/\/(instagram|facebook|youtube|x|linkedin|tiktok)\.com\/?$/.test(url))
@@ -40,7 +41,7 @@ export default async function Home() {
             addressCountry: "TR"
           },
           areaServed: ["Manisa", "Türkiye"],
-          telephone: content.contact.phone,
+          telephone: resolvePublicPhoneE164(content.contact.phone) ?? undefined,
           email: content.contact.email
         },
         {

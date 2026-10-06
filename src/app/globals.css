@@ -6483,6 +6483,20 @@ table.admin-data-grid {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+@media (max-width: 640px) {
+  .marketing-contact-dock {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    gap: 8px;
+  }
+
+  .marketing-contact-dock .marketing-dock-item {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.8125rem;
+  }
+}
+
 .marketing-dock-item {
   display: inline-flex;
   align-items: center;

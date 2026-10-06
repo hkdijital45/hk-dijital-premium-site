@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolvePublicWhatsappNumber, resolvePublicWhatsappUrl } from "../../src/lib/whatsapp-contact.ts";
+import { realPhoneDigits, resolvePublicPhoneNumber, resolvePublicTelHref, resolvePublicWhatsappNumber, resolvePublicWhatsappUrl } from "../../src/lib/public-contact.ts";
 
 test("the placeholder content number never becomes a live WhatsApp number", () => {
   assert.equal(resolvePublicWhatsappNumber("+905550000000", undefined), null);

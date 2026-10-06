@@ -116,9 +116,8 @@ test("arbitrary uncategorized custom sectors still resolve safely (no crash, san
   assert.equal(classifySectorProfile("Fotoğrafçı"), "generic_local");
 });
 
-test("/api/ai/ad-budget-research validation contract mirrors business-category rules for generic sector values", () => {
-  // Pure-function proof that the same generic-category rule used by the
-  // route's 400 guard also governs the client's own resolvedBusinessCategory
-  // fallback text, so the two layers cannot disagree about what "generic" means.
+test("generic sector values resolve to an empty category through the shared business-category rule", () => {
+  // Pure-function proof that the generic-category rule shared by /api/leads and
+  // the wizard's resolved category agrees on what "generic" means.
   assert.equal(resolveBusinessCategory("other", ""), "");
 });

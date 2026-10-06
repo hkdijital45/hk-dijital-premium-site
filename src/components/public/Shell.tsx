@@ -1,4 +1,4 @@
-import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
+import { resolvePublicTelHref, resolvePublicWhatsappUrl } from "@/lib/public-contact";
 import type { ReactNode } from "react";
 import { getSiteContent } from "@/lib/content";
 import { Header } from "./Header";
@@ -19,7 +19,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
   };
   const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber);
   const performanceMode = content.settings.performanceMode || "balanced";
-  const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
+  const phoneHref = resolvePublicTelHref(content.contact.phone);
 
   return (
     <>

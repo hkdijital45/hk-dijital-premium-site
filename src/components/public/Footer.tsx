@@ -1,3 +1,4 @@
+import { resolvePublicTelHref } from "@/lib/public-contact";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
@@ -6,7 +7,7 @@ import { SocialLinks } from "./SocialLinks";
 import { platformMarks } from "./PlatformIcons";
 
 export function Footer({ content }: { content: SiteContent }) {
-  const phoneHref = content.contact.phone ? `tel:${content.contact.phone.replace(/[^\d+]/g, "")}` : "";
+  const phoneHref = resolvePublicTelHref(content.contact.phone);
   return (
     <footer className="marketing-footer relative border-t border-white/10">
       <div className="relative mx-auto max-w-7xl px-4 pt-16 sm:px-6 lg:px-8">
@@ -59,7 +60,7 @@ export function Footer({ content }: { content: SiteContent }) {
           <div className="mt-4 space-y-2 text-sm text-slate-300">
             <p>{content.contact.address}</p>
             <a className="block transition hover:text-white" href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
-            {phoneHref ? <a className="block transition hover:text-white" href={phoneHref}>{content.contact.phone}</a> : <p>{content.contact.phone}</p>}
+            {phoneHref && <a className="block transition hover:text-white" href={phoneHref}>{content.contact.phone}</a>}
           </div>
           <SocialLinks content={content} />
         </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
-import { getOrCreatePreparation, savePreparation, buildLeadPreAuditPrompt, LeadPreAuditPrepValidationError, LeadNotFoundError } from "@/lib/lead-pre-audit-preparation";
+import { getOrCreatePreparation, savePreparation, buildLeadPreAuditPrompt, loadLeadPreAuditSnapshot, LeadPreAuditPrepValidationError, LeadNotFoundError } from "@/lib/lead-pre-audit-preparation";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -12,7 +12,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   try {
     const preparation = await getOrCreatePreparation(id);
-    return NextResponse.json({ preparation, prompt: buildLeadPreAuditPrompt(id) });
+    const lead = await loadLeadPreAuditSnapshot(id);
+    return NextResponse.json({ preparation, prompt: buildLeadPreAuditPrompt(id, lead) });
   } catch (error) {
     if (error instanceof LeadNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Hazırlık verisi alınamadı." }, { status: 500 });

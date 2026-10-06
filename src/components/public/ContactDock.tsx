@@ -13,7 +13,7 @@ import { trackMetaCtaClick } from "@/lib/meta-pixel";
  * fabricated channels). The "scroll to top" item is a UI utility, not a
  * contact channel, so it carries no real-data constraint.
  */
-export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUrl: string | null; phoneHref: string; phoneLabel: string }) {
+export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUrl: string | null; phoneHref: string | null; phoneLabel: string }) {
   const [showTop, setShowTop] = useState(false);
 
   useEffect(() => {

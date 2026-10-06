@@ -5,6 +5,7 @@ import type { Lead, LeadStatus } from "@/lib/types";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { isGenericBusinessCategory, sanitizeBusinessCategory } from "@/lib/business-category";
 import { normalizePlatformSelection } from "@/lib/platform-selection";
+import { preAnalysisLeadFields } from "@/lib/pre-analysis-lead";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
@@ -18,6 +19,19 @@ export async function GET() {
     return NextResponse.json({ leads });
   }
   return NextResponse.json({ leads: content.leads ?? [] });
+}
+
+// pre_analysis is a new column: until its migration is applied, the insert is
+// retried without it so lead capture never fails on a schema mismatch.
+async function insertLeadRow(row: Record<string, unknown>) {
+  try {
+    return await supabaseRest("leads", { method: "POST", body: JSON.stringify(row) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("pre_analysis")) throw error;
+    const { pre_analysis: _omitted, ...withoutPreAnalysis } = row;
+    return supabaseRest("leads", { method: "POST", body: JSON.stringify(withoutPreAnalysis) });
+  }
 }
 
 export async function POST(request: Request) {
@@ -41,9 +55,8 @@ export async function POST(request: Request) {
       const contactFilter = email ? `email=eq.${encodeURIComponent(email)}` : `phone=eq.${encodeURIComponent(phone)}`;
       const existing = await supabaseRest<any[]>(`leads?${contactFilter}&source=eq.${encodeURIComponent(source)}&created_at=gte.${encodeURIComponent(recentThreshold)}&select=*&order=created_at.desc&limit=1`).catch(() => []);
       if (existing[0]) return NextResponse.json({ ok: true, lead: existing[0], duplicatePrevented: true, message: "Talebiniz daha önce alındı; ikinci kayıt oluşturulmadı." });
-      const rows = await supabaseRest("leads", {
-        method: "POST",
-        body: JSON.stringify({
+      const rows = await insertLeadRow({
+          ...preAnalysisLeadFields(payload),
           source,
           name,
           company,
@@ -58,7 +71,6 @@ export async function POST(request: Request) {
           requested_platforms: normalizePlatformSelection(payload.platforms ?? payload.platformNeed),
           message: payload.note || "",
           status: "Yeni"
-        })
       });
       if (source === "İletişim Formu") {
         await supabaseRest("contact_forms", {

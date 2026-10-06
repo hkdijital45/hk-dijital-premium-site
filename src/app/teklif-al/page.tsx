@@ -17,7 +17,7 @@ export default async function QuotePage() {
   return (
     <PublicShell>
       <div className="marketing-shell">
-        <MarketingPageHero eyebrow="Dijital Pazarlama Ön Analizi" title="İşletmenizin Dijital Pazarlama İhtiyacını Belirleyin" text="1 dakikalık ön analiz ile hedeflerinizi ve ihtiyaçlarınızı netleştirin." visual={<MarketingNetworkBackground variant="converge" />} />
+        <MarketingPageHero eyebrow="ÜCRETSİZ DİJİTAL PAZARLAMA ÖN ANALİZİ" title="İşletmenizin Dijital Pazarlama İhtiyacını Belirleyin" text="1 dakikalık ön analiz ile hedeflerinizi ve ihtiyaçlarınızı netleştirin." visual={<MarketingNetworkBackground variant="converge" />} />
         <section className="px-4 py-16 sm:px-6 lg:px-8">
           <QuoteWizard content={{ quoteWizard: content.quoteWizard, packages: content.packages, contact: content.contact }} />
         </section>

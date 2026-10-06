@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { Fragment, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
@@ -9,7 +9,7 @@ import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, packageCh
 import { businessCards, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, MAX_BUSINESS_CATEGORY_LENGTH, resolveBusinessCategory } from "@/lib/business-category";
 import { PLATFORM_OPTIONS, isAllPlatformsSelected, platformSelectionLabel, toggleAllPlatforms, togglePlatform, type PlatformKey } from "@/lib/platform-selection";
 import { trackEvent } from "./TrackingPlaceholders";
-import { resolvePublicWhatsappNumber } from "@/lib/whatsapp-contact";
+import { resolvePublicWhatsappNumber } from "@/lib/public-contact";
 
 type Answers = Record<string, string>;
 type QuoteContent = Pick<SiteContent, "quoteWizard" | "packages" | "contact">;
@@ -159,7 +159,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="max-w-3xl">
               <p className="marketing-eyebrow">Dijital pazarlama ön analizi</p>
-              <h2 className="mt-5 text-3xl font-black leading-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>İşletmenizin Dijital Pazarlama İhtiyacını Belirleyin</h2>
+              <h2 className="mt-5 text-3xl font-black leading-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>İşletmenizi Tanıyalım</h2>
               <p className="mt-4 max-w-2xl text-base leading-8 sm:text-lg" style={{ color: "var(--mk-ink-soft)" }}>1 dakikalık ön analiz ile hedeflerinizi ve ihtiyaçlarınızı netleştirin.</p>
             </div>
             <div className="rounded-xl border p-4 text-right" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>
@@ -469,6 +469,16 @@ function PreAnalysisResult({ summary, platforms, whatsappUrl, onNext }: { summar
   );
 }
 
+function AddressField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold md:col-span-2" style={{ color: "var(--mk-ink)" }}>
+      Açık Adres
+      <input type="text" autoComplete="street-address" maxLength={500} value={value} onChange={(event) => onChange(event.target.value)} placeholder="Mahalle, sokak, bina ve kapı no" className="min-h-14 rounded-xl border px-4 outline-none focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
+      <span className="text-xs font-normal leading-5" style={{ color: "var(--mk-ink-faint)" }}>Yerel işletme ön incelemesinde konum ve bölge değerlendirmesi için kullanılır.</span>
+    </label>
+  );
+}
+
 function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, back }: ContactStepProps) {
   return (
     <div>
@@ -479,6 +489,8 @@ function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, 
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         {wizard.formFields.map((field: QuoteFormField) => (
+          <Fragment key={field.id}>
+          {field.type === "textarea" && <AddressField value={form.address || ""} onChange={(address) => setForm((current: Answers) => ({ ...current, address }))} />}
           <label key={field.id} className={`grid gap-2 text-sm font-semibold ${field.type === "textarea" ? "md:col-span-2" : ""}`} style={{ color: "var(--mk-ink)" }}>
             {field.label}{field.required ? " *" : ""}
             {field.type === "textarea" ? (
@@ -487,6 +499,7 @@ function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, 
               <input type={field.type} value={form[field.id] || ""} onChange={(event) => setForm((current: Answers) => ({ ...current, [field.id]: event.target.value }))} className="min-h-14 rounded-xl border px-4 outline-none focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
             )}
           </label>
+          </Fragment>
         ))}
       </div>
       {error && <p className="mt-5 rounded-2xl p-4 text-sm" style={{ background: "rgba(220,38,38,.06)", color: "#b91c1c" }}>{error}</p>}
@@ -502,7 +515,7 @@ function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, 
       )}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <button onClick={back} className="marketing-btn marketing-btn-secondary"><ArrowLeft size={17} /> Geri</button>
-        <button onClick={submit} className="marketing-btn marketing-btn-primary">{wizard.ctaTexts.submit}</button>
+        <button onClick={submit} className="marketing-btn marketing-btn-primary">Analizimi Gönder</button>
       </div>
     </div>
   );

@@ -62,6 +62,7 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { PLATFORM_LABELS, type PlatformKey } from "@/lib/platform-selection";
 import { businessCategoryLabel } from "@/lib/business-category-label";
 import { DISCOVERY_OTHER_LABEL, cleanDiscoveryValue, discoveryEffectiveSearch, discoveryFieldState } from "@/lib/discovery-custom-values";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -6338,7 +6339,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
         <button onClick={downloadLeadPdfAudit} className="hk-button hk-button-warning"><Download size={15} /> PDF Audit Oluştur</button>
-        <button onClick={() => setPrepOpen(true)} className="hk-button hk-button-ai">Ön İncelemeye Hazırla</button>
+        <button onClick={() => setPrepOpen(true)} className="hk-button hk-button-ai">Ön İnceleme Yap</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="hk-button" style={{ background: "#25D366", color: "#062611" }}>Hızlı WhatsApp</a>}
         {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="hk-button hk-button-warning">Reddet</button>}
         {!deleted && <button onClick={() => setConfirmAction("delete")} className="hk-button hk-button-danger">Sil</button>}
@@ -6461,6 +6462,11 @@ function CreateLeadModal({ close, onCreated, onFindExisting }: any) {
 // api/admin/pre-audit/lead/[id]). This panel's own status
 // (not_prepared/preparing/ready/sent_to_claude/completed/failed) never
 // touches leads.status.
+function formPlatformLabels(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  return value.map((key) => PLATFORM_LABELS[key as PlatformKey] || String(key)).filter(Boolean).join(", ");
+}
+
 function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActive }: any) {
   const [prep, setPrep] = useState<any>(null);
   const [prompt, setPrompt] = useState("");
@@ -6517,13 +6523,26 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
     <div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-3xl overflow-auto rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ön İncelemeye Hazırla</p>
+          <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">Ön İnceleme Yap</p>
           <h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">{lead.company || lead.name}</h2>
           <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-black ${LEAD_PRE_AUDIT_PREP_STATUS_CLASS[prep.status] || "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]"}`}>{LEAD_PRE_AUDIT_PREP_STATUS_LABELS[prep.status] || prep.status}</span>
         </div>
         <button onClick={close} className="grid size-10 place-items-center rounded-full border border-[var(--admin-border)]"><X size={18} /></button>
       </div>
 
+      <div className="mb-4 rounded-[8px] border border-[var(--admin-border)] p-3">
+        <p className="mb-2 text-xs font-black uppercase tracking-[.12em] text-cyan-700">Ön analiz formu</p>
+        <div className="grid gap-2 text-sm text-[var(--admin-text-secondary)] md:grid-cols-2">
+          <InfoItem label="Açık Adres" value={lead.address || "Belirtilmedi"} />
+          <InfoItem label="Ana Hedef" value={lead.goal || "Belirtilmedi"} />
+          <InfoItem label="Platformlar" value={formPlatformLabels(lead.requested_platforms) || "Belirtilmedi"} />
+          <InfoItem label="Aylık Reklam Bütçesi" value={lead.budget || "Belirtilmedi"} />
+          <InfoItem label="İçerik İhtiyacı" value={lead.pre_analysis?.contentNeed || "Belirtilmedi"} />
+          <InfoItem label="Başlangıç Zamanlaması" value={lead.pre_analysis?.startTiming || "Belirtilmedi"} />
+          <InfoItem label="Mevcut Sosyal Medya Durumu" value={lead.pre_analysis?.socialStatus || "Belirtilmedi"} />
+          <InfoItem label="Müşteri Notu" value={lead.message || "Belirtilmedi"} />
+        </div>
+      </div>
       <div className="grid gap-2 md:grid-cols-2 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-3 text-sm text-[var(--admin-text-secondary)]">
         <InfoItem label="İşletme Adı" value={lead.company || lead.name || "-"} />
         <InfoItem label="Sektör" value={lead.business_type || lead.businessType || "-"} />
@@ -6553,7 +6572,7 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
         <p className="text-xs font-black uppercase tracking-[.14em] text-cyan-700">Claude Promptu</p>
         <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-[8px] bg-[var(--admin-surface)] p-3 text-xs leading-5 text-[var(--admin-text-primary)]">{prompt}</pre>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button onClick={copyPrompt} className="hk-button hk-button-primary">{copied ? "Kopyalandı ✓" : "Kopyala"}</button>
+          <button onClick={copyPrompt} className="hk-button hk-button-primary">{copied ? "Kopyalandı ✓" : "Promptu Kopyala"}</button>
         </div>
       </div>
 

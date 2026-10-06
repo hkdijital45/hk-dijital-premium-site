@@ -1,5 +1,5 @@
 "use client";
-import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
+import { resolvePublicWhatsappUrl } from "@/lib/public-contact";
 
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";

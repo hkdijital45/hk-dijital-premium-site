@@ -1,5 +1,5 @@
 "use client";
-import { resolvePublicWhatsappUrl } from "@/lib/whatsapp-contact";
+import { resolvePublicWhatsappUrl } from "@/lib/public-contact";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";

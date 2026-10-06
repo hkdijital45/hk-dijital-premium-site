@@ -180,11 +180,13 @@ test("getOrCreatePreparation: status is reconciled to 'completed' once a pre_aud
   }
 });
 
-test("buildLeadPreAuditPrompt: stays short, references the real lead ID, never dumps full lead data into the prompt text", async () => {
+test("buildLeadPreAuditPrompt: references the real lead ID, embeds only the stored form values (never name/email/phone), and keeps the MCP save instruction", async () => {
   const { buildLeadPreAuditPrompt } = await import("../../../src/lib/lead-pre-audit-preparation.ts");
-  const prompt = buildLeadPreAuditPrompt("11111111-2222-3333-4444-555555555555");
+  const prompt = buildLeadPreAuditPrompt("11111111-2222-3333-4444-555555555555", { company: "Örnek Pasta", address: "Yunusemre Mah. 1. Sokak", name: "Ayşe Yılmaz", email: "ayse@example.com" } as never);
   assert.match(prompt, /11111111-2222-3333-4444-555555555555/);
-  assert.ok(prompt.length < 1200, "prompt must stay short — real data is fetched by Claude through MCP, not embedded here");
+  assert.match(prompt, /Firma:\nÖrnek Pasta/);
+  assert.match(prompt, /Açık Adres:\nYunusemre Mah\. 1\. Sokak/);
+  assert.doesNotMatch(prompt, /Ayşe Yılmaz|ayse@example\.com/);
   assert.match(prompt, /HK Dijital MCP/);
 });
 

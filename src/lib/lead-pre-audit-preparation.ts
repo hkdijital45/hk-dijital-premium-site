@@ -7,6 +7,8 @@
 // what this table exists to avoid. One row per lead (lead_id unique).
 import "server-only";
 import { supabaseRest } from "@/lib/supabase";
+import { PLATFORM_LABELS, type PlatformKey } from "@/lib/platform-selection";
+import { buildPreAuditLeadPrompt, type PreAuditLeadSnapshot } from "@/lib/pre-audit-lead-prompt";
 
 export const LEAD_PRE_AUDIT_PREP_TABLE = "lead_pre_audit_preparations";
 
@@ -97,34 +99,24 @@ function req(cond: unknown, message: string) {
   if (!cond) throw new LeadPreAuditPrepValidationError(message);
 }
 
-/** Pure, deterministic, intentionally short — the full lead/prep/
- * integration context is fetched by Claude Project itself through
- * get_pre_audit_context(leadId), never duplicated into the prompt text. */
-export function buildLeadPreAuditPrompt(leadId: string): string {
-  return [
-    "HK Dijital MCP üzerinden bu lead'in Ön İnceleme bağlamını getir.",
-    "",
-    `Lead ID: ${leadId}`,
-    "",
-    "HK Dijital Ön İnceleme metodolojisini kullanarak işletmeyi değerlendir.",
-    "",
-    "Mevcut:",
-    "- lead verilerini,",
-    "- hazırlık notlarını,",
-    "- Instagram bilgilerini,",
-    "- web sitesi bilgilerini,",
-    "- Google/Maps bilgilerini,",
-    "- reklam/dijital görünürlük sinyallerini",
-    "",
-    "HK Dijital MCP üzerinden kullan.",
-    "",
-    "Analiz tamamlandığında mevcut HK Dijital MCP Ön İnceleme kayıt aracını kullanarak raporu aynı lead ID ile Ön İnceleme Merkezi'ne kaydet.",
-    "",
-    "Yeni lead oluşturma.",
-    "Yeni işletme oluşturma.",
-    "Aynı raporu ikinci kez oluşturma.",
-    "Mevcut kayıt varsa güncel bağlama göre güvenli şekilde işle.",
-    "",
-    "Sonuçta sadece işlem özetini bildir."
-  ].join("\n");
+const LEAD_SNAPSHOT_COLUMNS = "company,business_type,address,instagram,website,goal,budget,requested_platforms,message";
+
+/** Reads the lead fields the pre-audit prompt uses. pre_analysis is selected
+ * separately and only when its column exists, so older schemas keep working. */
+export async function loadLeadPreAuditSnapshot(leadId: string): Promise<PreAuditLeadSnapshot> {
+  await assertLeadExists(leadId);
+  const base = await supabaseRest<Array<Record<string, unknown>>>(`leads?id=eq.${encodeURIComponent(leadId)}&select=${LEAD_SNAPSHOT_COLUMNS}&limit=1`);
+  const row = base[0] || {};
+  const withPre = await supabaseRest<Array<{ pre_analysis?: PreAuditLeadSnapshot["pre_analysis"] }>>(`leads?id=eq.${encodeURIComponent(leadId)}&select=pre_analysis&limit=1`).catch(() => []);
+  return {
+    ...(row as PreAuditLeadSnapshot),
+    platforms_label: Array.isArray(row.requested_platforms)
+      ? row.requested_platforms.map((key) => PLATFORM_LABELS[key as PlatformKey] || String(key)).join(", ")
+      : "",
+    pre_analysis: withPre[0]?.pre_analysis ?? null
+  };
+}
+
+export function buildLeadPreAuditPrompt(leadId: string, lead: PreAuditLeadSnapshot): string {
+  return buildPreAuditLeadPrompt(leadId, lead);
 }
