@@ -62,6 +62,8 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { AdminActionCard, AdminKpiCard } from "@/components/admin/ui/AdminKpiCard";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
+import { classifyNotification, matchesFilter, notificationSummary, priorityLabel, sortForAttention, type NotificationFilter } from "@/lib/admin-notification-priority";
+import { formatReportTimestamp } from "@/lib/report-timestamp";
 import { PLATFORM_LABELS, type PlatformKey } from "@/lib/platform-selection";
 import { businessCategoryLabel } from "@/lib/business-category-label";
 import { DISCOVERY_OTHER_LABEL, cleanDiscoveryValue, discoveryEffectiveSearch, discoveryFieldState } from "@/lib/discovery-custom-values";
@@ -398,6 +400,7 @@ export function AdminDashboard({
   const [favoritesSaving, setFavoritesSaving] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [notificationState, setNotificationState] = useState({ read: [], archived: [] });
+  const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>("all");
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
   const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
@@ -691,6 +694,8 @@ export function AdminDashboard({
   const aiHeaderModeLabel = realAiStatusForSelected && unreadyAiStatusLabels.has(realAiStatusForSelected) ? realAiStatusForSelected : aiStatus.mode;
   const aiHeaderModeIsWarning = realAiStatusForSelected ? unreadyAiStatusLabels.has(realAiStatusForSelected) : false;
   const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
+  const notificationCounts = notificationSummary(headerNotifications, notificationState.read);
+  const visibleNotifications = sortForAttention(headerNotifications.filter((item) => matchesFilter(item, notificationFilter)), notificationState.read);
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
   const userInitials = String(currentSession?.fullName || currentSession?.email || "HK")
     .split(/\s|@/)
@@ -799,9 +804,9 @@ export function AdminDashboard({
             <Bot size={17} className="text-[#7557D9]" /> HK Copilot
           </button>
           <div className="relative">
-            <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative grid size-10 shrink-0 place-items-center rounded-[10px]" aria-label="Bildirimler">
+            <button onClick={() => setNotificationsOpen((current) => !current)} className="admin-icon-action relative grid size-10 shrink-0 place-items-center rounded-[10px]" aria-label={notificationCounts.highPriorityUnread > 0 ? `Bildirimler, ${notificationCounts.highPriorityUnread} öncelikli okunmamış` : "Bildirimler"}>
               <Bell size={17} />
-              {unreadNotifications.length > 0 && <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-300 px-1 text-[10px] font-black text-[var(--admin-text-primary)] shadow-[0_0_18px_rgba(250,204,21,.8)]">{unreadNotifications.length}</span>}
+              {unreadNotifications.length > 0 && <span className={`absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-black ${notificationCounts.highPriorityUnread > 0 ? "bg-red-600 text-white shadow-[0_0_14px_rgba(220,38,38,.45)]" : "bg-amber-300 text-[var(--admin-text-primary)] shadow-[0_0_18px_rgba(250,204,21,.8)]"}`}>{unreadNotifications.length}</span>}
             </button>
           </div>
           <div className="admin-profile-card" title={currentSession?.email || "HK Admin"}>
@@ -845,43 +850,65 @@ export function AdminDashboard({
         <>
           {notificationsOpen && (
             <div className="fixed inset-0 z-[80] flex justify-end bg-black/40" onMouseDown={() => setNotificationsOpen(false)}>
-              <aside className="admin-drawer-panel h-full w-full max-w-md overflow-y-auto border-l p-5 shadow-2xl" style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }} onMouseDown={(event) => event.stopPropagation()}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">HK Operating System</p>
-                    <h2 className="mt-1 text-2xl font-black">Bildirim Merkezi</h2>
-                    <p className="mt-2 text-sm leading-6" style={{ color: "var(--admin-text-muted)" }}>Tahsilat, görev, kampanya, rakip sinyali, API uyarısı ve müşteri taleplerini tek akışta izleyin.</p>
-                  </div>
-                  <button onClick={() => setNotificationsOpen(false)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Kapat"><X size={18} /></button>
-                </div>
-                <div className="mt-5 grid gap-3">
-                  {headerNotifications.map((item) => (
-                    <div key={item.id} className={`rounded-[8px] border p-3 ${item.tone === "cyan" ? "border-cyan-200/20 bg-cyan-300/[0.08]" : item.tone === "emerald" ? "border-emerald-200/20 bg-emerald-300/[0.08]" : item.tone === "purple" ? "border-purple-200/20 bg-purple-300/[0.08]" : "border-amber-200/20 bg-amber-300/[0.08]"}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="text-sm font-black text-[var(--admin-text-primary)]">{item.label}</p>
-                        {!notificationState.read.includes(item.id) && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[9px] font-black text-[var(--admin-text-primary)]">Yeni</span>}
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-black">
-                        {item.priority && <span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[var(--admin-text-secondary)] ring-1 ring-slate-200">Öncelik: {item.priority}</span>}
-                        {item.source && <span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[var(--admin-text-secondary)] ring-1 ring-slate-200">Kaynak: {item.source}</span>}
-                        {item.companyId && <span className="rounded-full bg-[var(--admin-surface)] px-2 py-1 text-[var(--admin-text-secondary)] ring-1 ring-slate-200">Müşteri: {companyName(content, item.companyId)}</span>}
-                        <span className={`rounded-full px-2 py-1 ring-1 ${item.showToCustomer ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)] ring-slate-200"}`}>{item.showToCustomer ? "Müşteriye açık" : "Sadece admin"}</span>
-                      </div>
-                      <p className="mt-1 text-sm leading-6 text-[var(--admin-text-secondary)]">{item.text}</p>
-                      <div className="mt-3 flex flex-wrap justify-end gap-2">
-                        <button onClick={() => markNotificationRead(item.id)} className="rounded-full border border-emerald-300/30 px-3 py-1.5 text-[11px] font-bold text-emerald-700">Okundu yap</button>
-                        <button onClick={() => archiveNotification(item.id)} className="rounded-full border border-[var(--admin-border)] px-3 py-1.5 text-[11px] font-bold text-[var(--admin-text-secondary)]">Arşivle</button>
-                        <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-black text-purple-700">Göreve dönüştür</button>
-                        <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-full bg-cyan-300 px-3 py-1.5 text-[11px] font-black text-[var(--admin-text-primary)]">İlgili kaydı aç</button>
-                      </div>
+              <aside role="dialog" aria-modal="true" aria-labelledby="notification-center-title" className="admin-drawer-panel flex h-full w-full max-w-[min(28rem,100vw)] flex-col overflow-hidden border-l shadow-2xl" style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }} onMouseDown={(event) => event.stopPropagation()}>
+                <header className="border-b p-5 pb-4" style={{ borderColor: "var(--admin-border)" }}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[.16em] text-cyan-700">HK Operating System</p>
+                      <h2 id="notification-center-title" className="mt-1 text-xl font-black">Bildirim Merkezi</h2>
+                      <p className="mt-1.5 text-sm leading-6" style={{ color: "var(--admin-text-muted)" }}>Önemli aksiyonlar, müşteri fırsatları ve operasyon bildirimleri.</p>
                     </div>
+                    <button onClick={() => setNotificationsOpen(false)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Bildirim merkezini kapat"><X size={18} /></button>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2" aria-live="polite">
+                    <span className="rounded-full px-2.5 py-1 text-xs font-black" style={{ background: notificationCounts.highPriorityUnread ? "var(--hk-danger-bg, #FEF2F2)" : "var(--admin-surface-soft)", color: notificationCounts.highPriorityUnread ? "var(--hk-danger-text, #B42318)" : "var(--admin-text-muted)" }}>{notificationCounts.highPriorityUnread} öncelikli</span>
+                    <span className="rounded-full px-2.5 py-1 text-xs font-black" style={{ background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>{notificationCounts.unread} okunmamış</span>
+                  </div>
+                </header>
+                <div role="group" aria-label="Bildirimleri filtrele" className="flex flex-wrap gap-1.5 border-b px-5 py-3" style={{ borderColor: "var(--admin-border)" }}>
+                  {([["all", "Tümü"], ["priority", "Öncelikli"], ["leads", "Leadler"], ["operations", "Operasyon"]] as const).map(([key, label]) => (
+                    <button key={key} type="button" aria-pressed={notificationFilter === key} onClick={() => setNotificationFilter(key)} className="rounded-full border px-3 py-1.5 text-xs font-black" style={notificationFilter === key ? { background: "var(--admin-primary, var(--hk-primary))", color: "#fff", borderColor: "transparent" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>{label}</button>
                   ))}
-                  {!headerNotifications.length && <p className="rounded-[8px] border border-dashed border-[var(--admin-border)] p-5 text-sm text-slate-400">Aktif bildirim bulunmuyor.</p>}
                 </div>
-                <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <div className="flex-1 overflow-y-auto p-5">
+                  <div className="grid gap-3">
+                    {visibleNotifications.map((item: any) => {
+                      const unread = !notificationState.read.includes(item.id);
+                      const isLead = item.kind === "lead_new";
+                      const railColor = item.priority === "critical" || isLead ? "var(--hk-danger-solid, #DC2626)" : item.kind === "lead_followup" || item.priority === "high" ? "var(--hk-warning-solid, #B47A0C)" : item.kind === "system" ? "var(--hk-success-solid, #167A3C)" : "var(--hk-info-solid, #2563EB)";
+                      const categoryLabel = isLead ? "Yeni Lead" : item.kind === "lead_followup" ? "Lead takibi" : item.kind === "lead" ? "Lead" : item.kind === "system" ? "Sistem" : "Operasyon";
+                      return (
+                        <article key={item.id} className="relative overflow-hidden rounded-[12px] border p-4 pl-5" style={{ borderColor: isLead && unread ? "var(--hk-danger-border, #FECACA)" : "var(--admin-border)", background: "var(--admin-card)", opacity: unread ? 1 : 0.75 }}>
+                          <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: unread ? railColor : "var(--admin-border)" }} />
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex min-w-0 items-center gap-2">
+                              {isLead && unread && <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-black text-white" style={{ background: "var(--hk-danger-solid, #DC2626)" }}>!</span>}
+                              <span className="text-[11px] font-black uppercase tracking-[.08em]" style={{ color: isLead ? "var(--hk-danger-text, #B42318)" : "var(--admin-text-muted)" }}>{categoryLabel}</span>
+                            </div>
+                            <span className="shrink-0 text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>{priorityLabel(item.priority)}{item.time ? ` · ${item.time}` : ""}</span>
+                          </div>
+                          <p className={`mt-2 text-sm leading-5 ${unread ? "font-black" : "font-bold"}`} style={{ color: "var(--admin-text-primary)" }}>
+                            {item.label}{unread && <span className="sr-only"> (okunmamış)</span>}
+                          </p>
+                          <p className="mt-1 text-sm leading-6" style={{ color: "var(--admin-text-secondary)" }}>{item.text}</p>
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-2 text-xs font-black text-white" style={{ background: isLead ? "var(--hk-danger-solid, #DC2626)" : "var(--admin-primary, var(--hk-primary))" }}>{isLead ? "Leadi Aç" : "İlgili kaydı aç"}</button>
+                            <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-[8px] border px-3 py-2 text-xs font-bold" style={{ borderColor: "var(--admin-border-strong)", color: "var(--admin-text-secondary)" }}>Göreve dönüştür</button>
+                            <span className="flex gap-3 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+                              <button onClick={() => markNotificationRead(item.id)} className="underline-offset-2 hover:underline">Okundu yap</button>
+                              <button onClick={() => archiveNotification(item.id)} className="underline-offset-2 hover:underline">Arşivle</button>
+                            </span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {!visibleNotifications.length && <p className="rounded-[8px] border border-dashed border-[var(--admin-border)] p-5 text-sm" style={{ color: "var(--admin-text-muted)" }}>Bu filtrede bildirim yok.</p>}
+                  </div>
+                </div>
+                <footer className="flex flex-wrap justify-end gap-2 border-t p-4" style={{ borderColor: "var(--admin-border)" }}>
                   <button onClick={() => setNotificationsOpen(false)} className="rounded-[8px] border border-[var(--admin-border)] px-4 py-2 text-sm font-bold text-[var(--admin-text-secondary)]">Kapat</button>
                   <button onClick={() => markAllNotificationsRead(headerNotifications)} className="rounded-[8px] bg-cyan-300 px-4 py-2 text-sm font-black text-[var(--admin-text-primary)]">Tümünü Okundu Yap</button>
-                </div>
+                </footer>
               </aside>
             </div>
           )}
@@ -1136,7 +1163,6 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
   const newRequests = leads.filter((lead) => ["Yeni", "Yeni Başvuru"].includes(lead.status || "Yeni"));
   const followUpLeads = leads.filter((lead) => (lead.follow_up_date || lead.next_action_at) && String(lead.follow_up_date || lead.next_action_at).slice(0, 10) <= today && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Reddedildi"].includes(lead.status));
   const proposalFollowUps = leads.filter((lead) => pipelineStageForLead(lead) === "Teklif Gönderildi" && !["Kazanıldı", "Kaybedildi"].includes(lead.status));
-  const latestLead = newRequests[0];
   const notifications = [
     followUpLeads.length && {
       id: `lead-follow-up-${followUpLeads.length}-${followUpLeads[0]?.id || "lead"}`,
@@ -1180,10 +1206,19 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
       tone: "emerald",
       target: "Kampanyalar"
     },
-    newRequests.length && {
-      id: `new-requests-${newRequests.length}-${latestLead?.id || "lead"}`,
-      label: "Yeni müşteri talepleri",
-      text: `${newRequests.length} yeni talep takip bekliyor. Son kayıt: ${latestLead?.company || latestLead?.name || "Yeni başvuru"}`,
+    ...newRequests.slice(0, 5).map((lead) => ({
+      id: `new-lead-${lead.id || lead.company || lead.name}`,
+      label: "Yeni müşteri talebi",
+      text: `${lead.company || lead.name || "İsimsiz talep"} · ${lead.sector || lead.business_type || "Sektör belirtilmedi"} · ${lead.pre_analysis || lead.source === "Teklif Formu" ? "Dijital Pazarlama Ön Analizi formu gönderildi." : "Yeni talep kaydedildi."}`,
+      time: formatReportTimestamp(lead.created_at),
+      tone: "red",
+      target: "Leadler",
+      leadId: lead.id
+    })),
+    newRequests.length > 5 && {
+      id: `new-requests-more-${newRequests.length}`,
+      label: "Diğer yeni talepler",
+      text: `${newRequests.length - 5} yeni talep daha takip bekliyor.`,
       tone: "cyan",
       target: "Leadler"
     },
@@ -1218,7 +1253,7 @@ function buildAdminNotifications(content: any, startupApiData: any = {}) {
       tone: startupApiData?.lastTestTime ? "emerald" : "amber",
       target: "Sistem Sağlığı"
     }
-  ].filter(Boolean);
+  ].filter(Boolean).map((item: any) => ({ ...item, ...classifyNotification(item.id, item.priority) }));
   return notifications;
 }
 
