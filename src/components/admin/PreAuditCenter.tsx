@@ -2,8 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ContentPlanningCenter.tsx */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Archive, ArchiveRestore, ChevronDown, Copy, Eye, ExternalLink, FileDown, Pencil, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { Activity, Archive, ArchiveRestore, ArrowRight, Building2, CheckCircle2, ChevronDown, Clock, Copy, Eye, ExternalLink, FileDown, Gauge, Inbox, Layers, Pencil, Plus, RefreshCw, Search, Sparkles, Trash2, UserCheck, X, XCircle } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
@@ -283,6 +282,82 @@ function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: Queu
   );
 }
 
+type Accent = "cyan" | "amber" | "blue" | "green" | "red" | "slate" | "violet";
+const ACCENT: Record<Accent, { fg: string; bg: string; border: string }> = {
+  cyan: { fg: "#0e7490", bg: "#ecfeff", border: "#a5f3fc" },
+  amber: { fg: "#92400e", bg: "#fffbeb", border: "#fde68a" },
+  blue: { fg: "#1d4ed8", bg: "#eff6ff", border: "#bfdbfe" },
+  green: { fg: "#166534", bg: "#f0fdf4", border: "#bbf7d0" },
+  red: { fg: "#be123c", bg: "#fff1f2", border: "#fecdd3" },
+  slate: { fg: "#334155", bg: "#f1f5f9", border: "#cbd5e1" },
+  violet: { fg: "#6d28d9", bg: "#f5f3ff", border: "#ddd6fe" }
+};
+
+function KpiCard({ icon, label, value, note, accent }: { icon: React.ReactNode; label: string; value: React.ReactNode; note?: string; accent: Accent }) {
+  return (
+    <article className="flex min-w-0 flex-col gap-3 rounded-[16px] border bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.04)] motion-safe:transition-shadow motion-safe:hover:shadow-[0_6px_18px_rgba(15,23,42,.08)]" style={{ borderColor: "var(--admin-border)" }}>
+      <span className="grid size-9 place-items-center rounded-[10px]" style={{ background: ACCENT[accent].bg, color: ACCENT[accent].fg }} aria-hidden>{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs font-bold uppercase tracking-[.08em] text-[#475569]">{label}</p>
+        <p className="mt-1 text-[28px] font-black leading-none text-[#0f172a] tabular-nums">{value}</p>
+        {note && <p className="mt-1.5 text-[13px] font-semibold leading-5 text-[#64748b]">{note}</p>}
+      </div>
+    </article>
+  );
+}
+
+function StageCard({ icon, label, count, accent, active, onSelect }: { icon: React.ReactNode; label: string; count: number; accent: Accent; active: boolean; onSelect: () => void }) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onSelect} className="flex min-h-[72px] items-center gap-3 rounded-[14px] border bg-white px-4 py-3 text-left motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={{ borderColor: active ? ACCENT[accent].fg : "var(--admin-border)", boxShadow: active ? `inset 0 0 0 1px ${ACCENT[accent].fg}` : undefined }}>
+      <span className="grid size-10 shrink-0 place-items-center rounded-[11px]" style={{ background: ACCENT[accent].bg, color: ACCENT[accent].fg }} aria-hidden>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold text-[#334155]">{label}</span>
+        <span className="block text-xl font-black leading-tight text-[#0f172a] tabular-nums">{count}</span>
+      </span>
+    </button>
+  );
+}
+
+const ACTION_TONE: Record<"primary" | "neutral" | "amber" | "purple" | "green" | "danger", { bg: string; fg: string; border: string }> = {
+  primary: { bg: "#0891b2", fg: "#ffffff", border: "#0891b2" },
+  neutral: { bg: "#ffffff", fg: "#334155", border: "#cbd5e1" },
+  amber: { bg: "#fffbeb", fg: "#92400e", border: "#fde68a" },
+  purple: { bg: "#f5f3ff", fg: "#6d28d9", border: "#ddd6fe" },
+  green: { bg: "#f0fdf4", fg: "#166534", border: "#bbf7d0" },
+  danger: { bg: "#fff1f2", fg: "#be123c", border: "#fecdd3" }
+};
+
+function ActionButton({ icon, label, tone, onClick, disabled, busy, href }: { icon?: React.ReactNode; label: string; tone: keyof typeof ACTION_TONE; onClick?: () => void; disabled?: boolean; busy?: boolean; href?: string }) {
+  const style = { background: ACTION_TONE[tone].bg, color: ACTION_TONE[tone].fg, borderColor: ACTION_TONE[tone].border };
+  const className = "inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] border px-3.5 text-sm font-bold motion-safe:transition-colors hover:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600 disabled:cursor-not-allowed disabled:opacity-50";
+  if (href) return <a href={href} className={className} style={style}>{icon}{label}</a>;
+  return <button type="button" onClick={onClick} disabled={disabled || busy} className={className} style={style}>{busy ? "…" : icon}{label}</button>;
+}
+
+function StatusChip({ archived }: { archived: boolean }) {
+  const accent: Accent = archived ? "slate" : "green";
+  return <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black" style={{ background: ACCENT[accent].bg, color: ACCENT[accent].fg }}><span className="size-1.5 rounded-full" style={{ background: ACCENT[accent].fg }} aria-hidden />{archived ? "Arşivlendi" : "Tamamlandı"}</span>;
+}
+
+function EmptyState({ icon, title, text, ctaLabel, ctaHref }: { icon: React.ReactNode; title: string; text: string; ctaLabel?: string; ctaHref?: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-[16px] border border-dashed bg-white px-6 py-10 text-center" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}>
+      <span className="grid size-12 place-items-center rounded-full bg-[#f1f5f9] text-[#475569]" aria-hidden>{icon}</span>
+      <p className="text-base font-black text-[#0f172a]">{title}</p>
+      <p className="max-w-md text-sm font-semibold leading-6 text-[#64748b]">{text}</p>
+      {ctaLabel && ctaHref && <ActionButton tone="primary" label={ctaLabel} href={ctaHref} icon={<ArrowRight size={15} />} />}
+    </div>
+  );
+}
+
+function SkeletonRows() {
+  return (
+    <div className="grid gap-3" aria-hidden>
+      {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-[16px] border bg-[#f8fafc] motion-safe:animate-pulse motion-reduce:animate-none" style={{ borderColor: "var(--admin-border)" }} />)}
+    </div>
+  );
+}
+
 export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab; initialLeadId?: string } = {}) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState<string>("");
@@ -294,7 +369,7 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   const [summary, setSummary] = useState<Summary | null>(null);
   const [tablesReady, setTablesReady] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<FullReport | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [verifyCompanyName, setVerifyCompanyName] = useState("");
@@ -315,6 +390,13 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState({ title: "" });
   const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
+  const [drawerGroupId, setDrawerGroupId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!drawerGroupId) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setDrawerGroupId(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawerGroupId]);
 
   useEffect(() => {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
@@ -532,43 +614,44 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
     setEditingGroupId(null);
   }
 
-  function renderGroupFooter(groupId: string, first: ListItem, displayName: string, archived: boolean) {
+  function renderGroupFooter(groupId: string, first: ListItem, displayName: string, archived: boolean, options: { showView?: boolean } = {}) {
     const busy = busyGroupId === groupId;
     if (deleteGroupId === groupId) {
       return (
-        <div className="mt-3 rounded-[10px] border p-3" style={{ borderColor: "#fecaca", background: "#fef2f2" }}>
-          <p className="text-sm font-black text-[#991b1b]">Bu ön incelemeyi kalıcı olarak silmek istediğinize emin misiniz?</p>
-          <p className="mt-1 text-xs font-bold text-[#7f1d1d]">{displayName} · Bu işlem geri alınamaz. Emin değilseniz arşivleyebilirsiniz.</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <AdminButton compact variant="danger" loading={busy} disabled={busy} onClick={async () => { await runGroupAction(groupId, { method: "DELETE" }, "Ön inceleme kalıcı olarak silindi."); setDeleteGroupId(null); }}>Kalıcı Olarak Sil</AdminButton>
-            <AdminButton compact variant="secondary" disabled={busy} onClick={() => setDeleteGroupId(null)}>Vazgeç</AdminButton>
+        <div role="alertdialog" aria-labelledby={`delete-title-${groupId}`} className="grid gap-3 rounded-[12px] border p-4" style={{ borderColor: "#fecdd3", background: "#fff1f2" }}>
+          <p id={`delete-title-${groupId}`} className="text-sm font-black text-[#9f1239]">Bu ön incelemeyi kalıcı olarak silmek istediğinize emin misiniz?</p>
+          <p className="text-sm font-semibold leading-6 text-[#881337]">{displayName} için Dahili ve Müşteri raporları birlikte silinir. Bu işlem geri alınamaz; emin değilseniz arşivleyebilirsiniz.</p>
+          <div className="flex flex-wrap gap-2">
+            <ActionButton tone="danger" label="Kalıcı Olarak Sil" icon={<Trash2 size={15} />} busy={busy} onClick={async () => { await runGroupAction(groupId, { method: "DELETE" }, "Ön inceleme kalıcı olarak silindi."); setDeleteGroupId(null); }} />
+            <ActionButton tone="neutral" label="Vazgeç" onClick={() => setDeleteGroupId(null)} disabled={busy} />
           </div>
         </div>
       );
     }
     if (editingGroupId === groupId) {
       return (
-        <div className="mt-3 grid gap-2 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
-          <label className="grid gap-1 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>
+        <div className="grid gap-3 rounded-[12px] border bg-[#f8fafc] p-4" style={{ borderColor: "var(--admin-border)" }}>
+          <label className="grid gap-1.5 text-sm font-bold text-[#334155]">
             Rapor başlığı
-            <input value={editDraft.title} onChange={(e) => setEditDraft({ title: e.target.value })} maxLength={200} className="rounded-full border px-3.5 py-2 text-sm font-bold" style={{ borderColor: "var(--admin-border)" }} />
+            <input value={editDraft.title} onChange={(e) => setEditDraft({ title: e.target.value })} maxLength={200} aria-invalid={!editDraft.title.trim()} className="min-h-11 rounded-[10px] border bg-white px-3.5 text-sm font-semibold text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }} />
           </label>
+          {!editDraft.title.trim() && <p role="alert" className="text-xs font-bold text-[#be123c]">Başlık boş bırakılamaz (1–200 karakter).</p>}
           <div className="flex flex-wrap gap-2">
-            <AdminButton compact variant="primary" loading={busy} disabled={busy || !editDraft.title.trim()} onClick={() => saveGroupEdit(groupId)}>Kaydet</AdminButton>
-            <AdminButton compact variant="secondary" disabled={busy} onClick={() => setEditingGroupId(null)}>Vazgeç</AdminButton>
+            <ActionButton tone="primary" label="Kaydet" busy={busy} disabled={!editDraft.title.trim()} onClick={() => saveGroupEdit(groupId)} />
+            <ActionButton tone="neutral" label="Vazgeç" disabled={busy} onClick={() => setEditingGroupId(null)} />
           </div>
         </div>
       );
     }
     return (
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
-        <AdminButton compact variant="secondary" icon={<Pencil size={13} />} disabled={busy} onClick={() => { setEditingGroupId(groupId); setEditDraft({ title: first.title || "" }); }}>Düzenle</AdminButton>
-        <div className="flex flex-wrap gap-1.5">
-          {archived
-            ? <AdminButton compact variant="success" icon={<ArchiveRestore size={13} />} loading={busy} disabled={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: false } }, "Ön inceleme arşivden çıkarıldı.")}>Arşivden Çıkar</AdminButton>
-            : <AdminButton compact variant="warning" icon={<Archive size={13} />} loading={busy} disabled={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: true } }, "Ön inceleme arşivlendi.")}>Arşivle</AdminButton>}
-          <AdminButton compact variant="danger" icon={<Trash2 size={13} />} disabled={busy} onClick={() => setDeleteGroupId(groupId)}>Sil</AdminButton>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {options.showView !== false && <ActionButton tone="primary" label="Görüntüle" icon={<Eye size={15} />} onClick={() => { setDrawerGroupId(groupId); openReport(first.id); }} />}
+        <ActionButton tone="amber" label="Düzenle" icon={<Pencil size={15} />} disabled={busy} onClick={() => { setEditingGroupId(groupId); setEditDraft({ title: first.title || "" }); }} />
+        {archived
+          ? <ActionButton tone="green" label="Arşivden Çıkar" icon={<ArchiveRestore size={15} />} busy={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: false } }, "Ön inceleme arşivden çıkarıldı.")} />
+          : <ActionButton tone="purple" label="Arşivle" icon={<Archive size={15} />} busy={busy} onClick={() => runGroupAction(groupId, { method: "PATCH", body: { archived: true } }, "Ön inceleme arşivlendi.")} />}
+        <span className="ml-auto" />
+        <ActionButton tone="danger" label="Sil" icon={<Trash2 size={15} />} disabled={busy} onClick={() => setDeleteGroupId(groupId)} />
       </div>
     );
   }
@@ -586,163 +669,243 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   const archivedGroups = useMemo(() => grouped.filter(([, items]) => isArchivedPreAuditReport(items[0])), [grouped]);
   const visibleGroups = tab === "arsiv" ? archivedGroups : sortedGroups(liveGroups);
 
+  const drawerGroup = drawerGroupId ? grouped.find(([id]) => id === drawerGroupId) || null : null;
+  const drawerFirst = drawerGroup ? drawerGroup[1][0] : null;
+  const drawerCompany = drawerFirst ? companies.find((c) => c.id === drawerFirst.company_id) : undefined;
+  const drawerName = drawerFirst ? (drawerCompany?.name || drawerFirst.title || "Aday") : "";
+  const filtersActive = Boolean(search.trim() || companyId || sortKey !== "new");
+  const conversionRate = summary && summary.totalPreAudits > 0 ? `%${Math.round((summary.convertedCompanies / summary.totalPreAudits) * 100)}` : "—";
+  const stages: Array<{ key: Tab; label: string; count: number; accent: Accent; icon: React.ReactNode }> = [
+    { key: "bekleyen", label: "Bekleyen", count: queue.pending.length, accent: "amber", icon: <Clock size={18} /> },
+    { key: "inceleniyor", label: "İnceleniyor", count: queue.inReview.length, accent: "blue", icon: <Activity size={18} /> },
+    { key: "tamamlanan", label: "Tamamlanan", count: liveGroups.length, accent: "green", icon: <CheckCircle2 size={18} /> },
+    { key: "iptal", label: "İptal Edilenler", count: queue.rejected.length, accent: "red", icon: <XCircle size={18} /> },
+    { key: "arsiv", label: "Arşiv", count: archivedGroups.length, accent: "slate", icon: <Archive size={18} /> }
+  ];
+  const tabOrder: Tab[] = stages.map((stage) => stage.key);
+  const emptyForTab: Record<Tab, { title: string; text: string }> = {
+    bekleyen: { title: "Bekleyen ön inceleme bulunmuyor.", text: "Müşteri Keşfi'nden yeni bir firma seçerek ön inceleme sürecini başlatabilirsiniz." },
+    inceleniyor: { title: "İncelemede ön inceleme yok.", text: "Bekleyen bir adayı incelemeye aldığınızda burada görünür." },
+    tamamlanan: { title: companyName ? `${companyName} için henüz ön inceleme yok.` : "Henüz tamamlanmış ön inceleme yok.", text: "Müşteri Keşfi'nden bir firma seçip ön inceleme sürecini başlatın." },
+    iptal: { title: "İptal edilen aday yok.", text: "Reddedilen ön incelemeler burada listelenir." },
+    arsiv: { title: "Arşivlenmiş ön inceleme yok.", text: "Arşivlediğiniz raporlar burada kalır ve geri alınabilir." }
+  };
+
   return (
-    <div className="grid gap-5">
-      <div>
-        <p className="text-[11px] font-black uppercase tracking-[.16em] text-cyan-700">Satış &amp; Keşif</p>
-        <h2 className="mt-1 text-xl font-black">Ön İnceleme Merkezi</h2>
-        <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Potansiyel müşterileri analiz edin, önceliklendirin ve satış fırsatına dönüştürün.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Link href="/hk-admin/musteri-kesfi" className="hk-button hk-button-primary hk-button-compact inline-flex items-center gap-1.5"><Plus size={14} /> Yeni Ön İnceleme</Link>
+    <div className="grid gap-6">
+      <header className="flex flex-col gap-5 rounded-[18px] border bg-white p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between" style={{ borderColor: "var(--admin-border)" }}>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[.16em] text-[#0e7490]">Satış &amp; Keşif</p>
+          <h2 className="mt-1.5 text-2xl font-black text-[#0f172a]">Ön İnceleme Merkezi</h2>
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#475569]">Potansiyel müşterileri analiz edin, önceliklendirin ve satış fırsatına dönüştürün.</p>
+          <p className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-[#475569]">
+            <span className="size-2 rounded-full" style={{ background: tablesReady === false ? "#d97706" : loadError ? "#be123c" : reports === null ? "#94a3b8" : "#16a34a" }} aria-hidden />
+            {tablesReady === false ? "Veri yapısı bekleniyor" : loadError ? "Veri yüklenemedi" : reports === null ? "Veriler yükleniyor" : "Veriler güncel"}
+          </p>
         </div>
-      </div>
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <ActionButton tone="primary" label="Yeni Ön İnceleme" icon={<Plus size={16} />} href="/hk-admin/musteri-kesfi" />
+          <ActionButton tone="neutral" label="Yenile" icon={<RefreshCw size={15} />} onClick={load} />
+        </div>
+      </header>
 
       {tablesReady === false && (
-        <Card><p className="text-sm font-bold text-[#b45309]">Ön İnceleme veri yapısı henüz etkin değil. Migration uygulanmadan bu ekran boş görünür.</p></Card>
+        <div role="status" className="rounded-[14px] border p-4 text-sm font-bold text-[#92400e]" style={{ borderColor: "#fde68a", background: "#fffbeb" }}>Ön İnceleme veri yapısı henüz etkin değil. Migration uygulanmadan bu ekran boş görünür.</div>
       )}
+      {loadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border p-4" style={{ borderColor: "#fecdd3", background: "#fff1f2" }}>
+          <p className="text-sm font-bold text-[#9f1239]">Ön inceleme verileri yüklenemedi. {loadError}</p>
+          <ActionButton tone="neutral" label="Tekrar dene" icon={<RefreshCw size={15} />} onClick={load} />
+        </div>
+      )}
+      {actionMessage && <p role="status" className="rounded-[12px] border bg-[#f8fafc] px-4 py-3 text-sm font-bold text-[#334155]" style={{ borderColor: "var(--admin-border)" }}>{actionMessage}</p>}
 
       {summary && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Toplam Ön İnceleme</p><p className="mt-1 text-2xl font-black">{summary.totalPreAudits}</p></Card>
-          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Bu Ay</p><p className="mt-1 text-2xl font-black">{summary.thisMonth}</p></Card>
-          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Potansiyel Müşteriler</p><p className="mt-1 text-2xl font-black">{summary.potentialCompanies}</p></Card>
-          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Müşteriye Dönüşenler</p><p className="mt-1 text-2xl font-black">{summary.convertedCompanies}</p></Card>
-          <Card><p className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Dönüşüm Oranı</p><p className="mt-1 text-2xl font-black">{summary.totalPreAudits > 0 ? `%${Math.round((summary.convertedCompanies / summary.totalPreAudits) * 100)}` : "—"}</p><p className="mt-0.5 text-[11px] font-bold" style={{ color: "var(--admin-text-muted)" }}>Müşteriye dönüşen / toplam ön inceleme</p></Card>
-        </div>
+        <section aria-label="Özet" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <KpiCard icon={<Layers size={18} />} label="Toplam ön inceleme" value={summary.totalPreAudits} accent="cyan" note="Tüm kayıtlı raporlar" />
+          <KpiCard icon={<Gauge size={18} />} label="Bu ay" value={summary.thisMonth} accent="blue" note="Bu ayki yeni raporlar" />
+          <KpiCard icon={<Building2 size={18} />} label="Potansiyel müşteriler" value={summary.potentialCompanies} accent="amber" note="Satış sürecindeki adaylar" />
+          <KpiCard icon={<UserCheck size={18} />} label="Müşteriye dönüşen" value={summary.convertedCompanies} accent="green" note="Müşteri kaydına dönüşenler" />
+          <KpiCard icon={<Sparkles size={18} />} label="Dönüşüm oranı" value={conversionRate} accent="violet" note={summary.totalPreAudits > 0 ? "Dönüşen ÷ toplam ön inceleme" : "Henüz ön inceleme yok"} />
+        </section>
       )}
 
-      <Card>
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <p className="text-sm font-black">Claude Firma Doğrulama</p>
-          <AdminStatusBadge tone="ai">Hazır Claude Promptu</AdminStatusBadge>
+      <section aria-labelledby="pipeline-title" className="grid gap-3">
+        <h3 id="pipeline-title" className="text-sm font-black uppercase tracking-[.08em] text-[#475569]">Ön İnceleme Akışı</h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {stages.map((stage) => (
+            <StageCard key={stage.key} icon={stage.icon} label={stage.label} count={stage.count} accent={stage.accent} active={tab === stage.key} onSelect={() => setTab(stage.key)} />
+          ))}
         </div>
-        <p className="mb-3 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>Claude Ön İnceleme projesinde firmayı HK Dijital bağlantısı üzerinden doğrulamak için hazır prompt.</p>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={verifyCompanyName}
-            onChange={(e) => setVerifyCompanyName(e.target.value)}
-            placeholder="Firma adı (örn. ABC Klima)"
-            className="min-w-[200px] flex-1 rounded-full border py-2 px-3.5 text-sm font-bold"
-            style={{ borderColor: "var(--admin-border)" }}
-          />
-          <AdminButton variant="secondary" compact icon={<Copy size={14} />} disabled={!verifyCompanyName.trim()} onClick={copyVerificationPrompt}>
-            {verifyCopied ? "Kopyalandı ✓" : "Promptu Kopyala"}
-          </AdminButton>
-        </div>
-      </Card>
+      </section>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <section aria-labelledby="claude-title" className="grid gap-3 rounded-[16px] border bg-white p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center" style={{ borderColor: "var(--admin-border)" }}>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 id="claude-title" className="text-base font-black text-[#0f172a]">Claude Firma Doğrulama</h3>
+            <AdminStatusBadge tone="ai">Hazır Claude Promptu</AdminStatusBadge>
+          </div>
+          <p className="mt-1.5 text-sm font-semibold leading-6 text-[#475569]">Ön İnceleme projesinde doğru firmayı HK Dijital bağlantısı üzerinden doğrulamak için hazır doğrulama promptu oluşturun.</p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <label className="sr-only" htmlFor="verify-company">Firma adı</label>
+          <input id="verify-company" value={verifyCompanyName} onChange={(e) => setVerifyCompanyName(e.target.value)} placeholder="Firma adı (örn. ABC Klima)" className="min-h-11 min-w-0 flex-1 rounded-[10px] border bg-white px-3.5 text-sm font-semibold text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }} />
+          <ActionButton tone="neutral" label={verifyCopied ? "Prompt kopyalandı ✓" : "Promptu Kopyala"} icon={<Copy size={15} />} disabled={!verifyCompanyName.trim()} onClick={copyVerificationPrompt} />
+        </div>
+      </section>
+
+      <section aria-label="Arama ve filtreler" className="flex flex-wrap items-center gap-2 rounded-[14px] border bg-white p-3" style={{ borderColor: "var(--admin-border)" }}>
         <div className="relative">
-          <button type="button" onClick={() => setPickerOpen((v) => !v)} className="flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black" style={{ borderColor: "var(--admin-border)" }}>
-            {companyName || "Tüm firmalar"} <ChevronDown size={14} />
+          <button type="button" aria-haspopup="listbox" aria-expanded={pickerOpen} onClick={() => setPickerOpen((v) => !v)} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border bg-white px-3.5 text-sm font-bold text-[#334155] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}>
+            <Building2 size={15} aria-hidden /> {companyName || "Tüm firmalar"} <ChevronDown size={15} aria-hidden />
           </button>
           {pickerOpen && (
-            <div className="absolute z-10 mt-1 max-h-72 w-64 overflow-y-auto rounded-[12px] border bg-white p-1 shadow-lg" style={{ borderColor: "var(--admin-border)" }}>
-              <button type="button" onClick={() => { setCompanyId(""); setPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#F3F2EE]">Tüm firmalar</button>
+            <div role="listbox" className="absolute z-20 mt-1 max-h-72 w-64 overflow-y-auto rounded-[12px] border bg-white p-1 shadow-lg" style={{ borderColor: "var(--admin-border)" }}>
+              <button type="button" role="option" aria-selected={!companyId} onClick={() => { setCompanyId(""); setPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#f1f5f9]">Tüm firmalar</button>
               {companies.map((c) => (
-                <button key={c.id} type="button" onClick={() => { setCompanyId(c.id); setPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#F3F2EE]">{c.name}</button>
+                <button key={c.id} type="button" role="option" aria-selected={companyId === c.id} onClick={() => { setCompanyId(c.id); setPickerOpen(false); }} className="block w-full rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[#f1f5f9]">{c.name}</button>
               ))}
             </div>
           )}
         </div>
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--admin-text-muted)" }} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rapor başlığında ara…" className="w-full rounded-full border py-2 pl-8 pr-3 text-sm font-bold" style={{ borderColor: "var(--admin-border)" }} />
+        <div className="relative min-w-[220px] flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748b]" aria-hidden />
+          <label className="sr-only" htmlFor="pre-audit-search">Firma veya rapor ara</label>
+          <input id="pre-audit-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Firma veya rapor ara…" className="min-h-11 w-full rounded-[10px] border bg-white pl-10 pr-3.5 text-sm font-semibold text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }} />
         </div>
-        <select aria-label="Sıralama" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="rounded-full border px-3 py-2 text-xs font-black" style={{ borderColor: "var(--admin-border)" }}>
+        <label className="sr-only" htmlFor="pre-audit-sort">Sıralama</label>
+        <select id="pre-audit-sort" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="min-h-11 rounded-[10px] border bg-white px-3 text-sm font-bold text-[#334155] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}>
           <option value="new">En yeni</option>
           <option value="old">En eski</option>
           <option value="az">Firma A-Z</option>
           <option value="za">Firma Z-A</option>
         </select>
-        <AdminButton variant="secondary" compact icon={<RefreshCw size={14} />} onClick={load}>Yenile</AdminButton>
+        {filtersActive && <ActionButton tone="neutral" label="Filtreleri temizle" onClick={() => { setSearch(""); setCompanyId(""); setSortKey("new"); }} />}
+      </section>
+
+      <div role="tablist" aria-label="Ön inceleme durumları" className="premium-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {stages.map((stage) => {
+          const active = tab === stage.key;
+          return (
+            <button key={stage.key} id={`tab-${stage.key}`} role="tab" type="button" aria-selected={active} aria-controls="pre-audit-panel" tabIndex={active ? 0 : -1} onClick={() => setTab(stage.key)} onKeyDown={(e) => {
+              if (!["ArrowRight", "ArrowLeft"].includes(e.key)) return;
+              const next = tabOrder[(tabOrder.indexOf(tab) + (e.key === "ArrowRight" ? 1 : -1) + tabOrder.length) % tabOrder.length];
+              setTab(next);
+              document.getElementById(`tab-${next}`)?.focus();
+            }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={active ? { background: "#0f172a", color: "#ffffff" } : { background: "#f1f5f9", color: "#334155" }}>
+              {stage.label}
+              <span className="rounded-full px-2 py-0.5 text-xs font-black tabular-nums" style={active ? { background: "#ffffff1f", color: "#ffffff" } : { background: "#ffffff", color: "#334155" }}>{stage.count}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {([
-          ["bekleyen", `Bekleyen (${queue.pending.length})`],
-          ["inceleniyor", `İnceleniyor (${queue.inReview.length})`],
-          ["tamamlanan", `Tamamlanan (${liveGroups.length})`],
-          ["iptal", `İptal Edilenler (${queue.rejected.length})`],
-          ["arsiv", `Arşiv (${archivedGroups.length})`]
-        ] as Array<[Tab, string]>).map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setTab(key)} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={tab === key ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft, #F3F2EE)", color: "var(--admin-text-secondary)" }}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <section id="pre-audit-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-3">
+        {reports === null && !loadError && tab !== "bekleyen" && tab !== "inceleniyor" && tab !== "iptal" && <SkeletonRows />}
 
-      {actionMessage && <p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{actionMessage}</p>}
-      {loadError && <p className="text-sm font-bold text-[#dc2626]">{loadError}</p>}
-      {reports === null && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
+        {tab === "bekleyen" && (
+          queue.pending.length
+            ? <div className="grid gap-3">{queue.pending.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+            : <EmptyState icon={<Inbox size={22} />} title={emptyForTab.bekleyen.title} text={emptyForTab.bekleyen.text} ctaLabel="Müşteri Keşfi'ne Git" ctaHref="/hk-admin/musteri-kesfi" />
+        )}
+        {tab === "inceleniyor" && (
+          queue.inReview.length
+            ? <div className="grid gap-3">{queue.inReview.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+            : <EmptyState icon={<Activity size={22} />} title={emptyForTab.inceleniyor.title} text={emptyForTab.inceleniyor.text} />
+        )}
+        {tab === "iptal" && (
+          queue.rejected.length
+            ? <div className="grid gap-3">{queue.rejected.map((lead) => <QueueLeadRow key={lead.id} lead={lead} isRejected />)}</div>
+            : <EmptyState icon={<XCircle size={22} />} title={emptyForTab.iptal.title} text={emptyForTab.iptal.text} />
+        )}
 
-      {tab === "bekleyen" && (
-        queue.pending.length
-          ? <div className="grid gap-2">{queue.pending.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
-          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Bekleyen aday yok. Müşteri Keşfi&apos;nde &quot;Ön İncele&quot; ile aday ekleyin.</p></Card>
-      )}
-
-      {tab === "inceleniyor" && (
-        queue.inReview.length
-          ? <div className="grid gap-2">{queue.inReview.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
-          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>İncelemede aday yok.</p></Card>
-      )}
-
-      {tab === "iptal" && (
-        queue.rejected.length
-          ? <div className="grid gap-2">{queue.rejected.map((lead) => <QueueLeadRow key={lead.id} lead={lead} isRejected />)}</div>
-          : <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>İptal edilen aday yok.</p></Card>
-      )}
-
-      {(tab === "tamamlanan" || tab === "arsiv") && (
-        <>
-          {reports && reports.length === 0 && tablesReady !== false && (
-            <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>{companyName ? `${companyName} için henüz Ön İnceleme bulunmuyor.` : "Henüz tamamlanmış Ön İnceleme bulunmuyor."}</p></Card>
-          )}
-
-          {tab === "arsiv" && archivedGroups.length === 0 && (
-            <Card><p className="text-sm font-bold" style={{ color: "var(--admin-text-secondary)" }}>Arşivlenmiş ön inceleme yok. Arşivlenen raporlar burada kalır ve geri alınabilir.</p></Card>
-          )}
-
-          {visibleGroups.length > 0 && (
-            <div className="grid gap-2">
-              {visibleGroups.map(([groupId, items]) => {
+        {(tab === "tamamlanan" || tab === "arsiv") && reports !== null && (
+          visibleGroups.length === 0
+            ? <EmptyState icon={<Inbox size={22} />} title={emptyForTab[tab].title} text={emptyForTab[tab].text} ctaLabel={tab === "tamamlanan" ? "Müşteri Keşfi'ne Git" : undefined} ctaHref={tab === "tamamlanan" ? "/hk-admin/musteri-kesfi" : undefined} />
+            : visibleGroups.map(([groupId, items]) => {
                 const first = items[0];
                 const company = companies.find((c) => c.id === first.company_id);
+                const displayName = company?.name || first.title || "Aday";
+                const archived = tab === "arsiv";
+                const updated = isMeaningfullyUpdated(first.created_at, first.updated_at);
                 return (
-                  <Card key={groupId}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-black">{company?.name || first.title || "Aday"} — Dijital Ön İnceleme Raporu</p>
-                        <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{first.title || "Başlıksız"}{!company && " · Lead"}</p>
-                        <p className="mt-0.5 text-xs" style={{ color: "var(--admin-text-muted)" }}>
-                          Oluşturuldu: {formatDateTime(first.created_at)}
-                          {isMeaningfullyUpdated(first.created_at, first.updated_at) && <> · Son güncelleme: {formatDateTime(first.updated_at)}</>}
+                  <article key={groupId} className="grid gap-4 rounded-[16px] border bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,.04)] motion-safe:transition-shadow motion-safe:hover:shadow-[0_6px_18px_rgba(15,23,42,.08)]" style={{ borderColor: "var(--admin-border)" }}>
+                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="min-w-0 truncate text-base font-black text-[#0f172a]" title={displayName}>{displayName}</h4>
+                          <StatusChip archived={archived} />
+                          {!company && <span className="rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#475569]">Lead</span>}
+                        </div>
+                        <p className="mt-1 truncate text-sm font-semibold text-[#475569]" title={first.title || ""}>{first.title || "Başlıksız rapor"}</p>
+                        <p className="mt-2 text-xs font-semibold text-[#64748b]">
+                          Oluşturuldu {formatDateTime(first.created_at)}
+                          {updated && <> · Güncellendi {formatDateTime(first.updated_at)}</>}
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2 md:justify-end" role="group" aria-label="Rapor erişimi">
                         {items.map((r) => (
-                          <AdminButton key={r.id} variant={selectedId === r.id ? "primary" : "secondary"} compact icon={<Eye size={13} />} onClick={() => openReport(r.id)}>
-                            {r.report_type === "INTERNAL_REPORT" ? "🔒 Dahili" : "📄 Müşteri"}
-                          </AdminButton>
+                          <button key={r.id} type="button" onClick={() => openReport(r.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border px-3 text-sm font-bold text-[#334155] motion-safe:transition-colors hover:bg-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}>
+                            <Eye size={15} aria-hidden />
+                            {r.report_type === "INTERNAL_REPORT" ? "Dahili Rapor" : "Müşteri Raporu"}
+                          </button>
                         ))}
                       </div>
                     </div>
-                    {renderGroupFooter(groupId, first, company?.name || first.title || "Aday", tab === "arsiv")}
-                  </Card>
+                    <div className="border-t pt-4" style={{ borderColor: "var(--admin-border)" }}>
+                      {renderGroupFooter(groupId, first, displayName, archived)}
+                    </div>
+                  </article>
                 );
-              })}
-            </div>
-          )}
+              })
+        )}
+      </section>
 
-          {selectedId && (
-            <div className="grid gap-3">
-              <p className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Rapor Detayı</p>
-              {detailLoading && <p className="text-sm font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>}
-              {detail && <ReportDetail report={detail} onSendOffer={setOfferTarget} onReject={(r) => setRejectTarget({ id: r.lead_id!, company: r.title, name: null, sector: null, business_type: null, city: null, district: null, website: null, phone: null, instagram: null, status: null, rejection_reason: null, rejected_at: null, notes: null, google_place_id: null, source: null, created_at: "" })} onExport={downloadReport} exportBusy={exportBusy} />}
+      {drawerGroup && drawerFirst && (
+        <div className="fixed inset-0 z-[70] flex justify-end bg-[#0f172a]/40" onMouseDown={() => setDrawerGroupId(null)}>
+          <aside role="dialog" aria-modal="true" aria-labelledby="pre-audit-drawer-title" className="flex h-full w-full max-w-[min(640px,100vw)] flex-col overflow-hidden bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="flex items-start justify-between gap-4 border-b p-6" style={{ borderColor: "var(--admin-border)" }}>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[.16em] text-[#0e7490]">Ön İnceleme</p>
+                <h2 id="pre-audit-drawer-title" className="mt-1 truncate text-xl font-black text-[#0f172a]" title={drawerName}>{drawerName}</h2>
+                <p className="mt-1 truncate text-sm font-semibold text-[#475569]">{drawerFirst.title || "Başlıksız rapor"}</p>
+                <div className="mt-3"><StatusChip archived={tab === "arsiv" || isArchivedPreAuditReport(drawerFirst)} /></div>
+              </div>
+              <button type="button" onClick={() => setDrawerGroupId(null)} aria-label="Kapat" autoFocus className="grid size-11 shrink-0 place-items-center rounded-[10px] border text-[#334155] hover:bg-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}><X size={18} aria-hidden /></button>
+            </header>
+            <div className="grid flex-1 content-start gap-6 overflow-y-auto p-6">
+              <section aria-labelledby="drawer-info" className="grid gap-3">
+                <h3 id="drawer-info" className="text-xs font-black uppercase tracking-[.08em] text-[#475569]">Bilgiler</h3>
+                <dl className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[12px] border p-3.5" style={{ borderColor: "var(--admin-border)" }}><dt className="text-xs font-bold text-[#64748b]">Oluşturulma</dt><dd className="mt-1 text-sm font-bold text-[#0f172a]">{formatDateTime(drawerFirst.created_at)}</dd></div>
+                  <div className="rounded-[12px] border p-3.5" style={{ borderColor: "var(--admin-border)" }}><dt className="text-xs font-bold text-[#64748b]">Son güncelleme</dt><dd className="mt-1 text-sm font-bold text-[#0f172a]">{isMeaningfullyUpdated(drawerFirst.created_at, drawerFirst.updated_at) ? formatDateTime(drawerFirst.updated_at) : "Güncelleme yok"}</dd></div>
+                  <div className="rounded-[12px] border p-3.5" style={{ borderColor: "var(--admin-border)" }}><dt className="text-xs font-bold text-[#64748b]">Firma</dt><dd className="mt-1 text-sm font-bold text-[#0f172a]">{drawerCompany?.name || "Lead kaydı"}</dd></div>
+                  <div className="rounded-[12px] border p-3.5" style={{ borderColor: "var(--admin-border)" }}><dt className="text-xs font-bold text-[#64748b]">Rapor sayısı</dt><dd className="mt-1 text-sm font-bold text-[#0f172a]">{drawerGroup[1].length}</dd></div>
+                </dl>
+              </section>
+              <section aria-labelledby="drawer-reports" className="grid gap-3">
+                <h3 id="drawer-reports" className="text-xs font-black uppercase tracking-[.08em] text-[#475569]">Raporlar</h3>
+                <div className="flex flex-wrap gap-2">
+                  {drawerGroup[1].map((r) => (
+                    <button key={r.id} type="button" onClick={() => openReport(r.id)} className="inline-flex min-h-11 items-center gap-2 rounded-[10px] border px-4 text-sm font-bold text-[#334155] hover:bg-[#f8fafc] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={{ borderColor: "var(--admin-border-strong, #cbd5e1)" }}>
+                      <Eye size={15} aria-hidden />{r.report_type === "INTERNAL_REPORT" ? "Dahili Raporu Aç" : "Müşteri Raporunu Aç"}
+                    </button>
+                  ))}
+                </div>
+                {detailLoading && <p className="text-sm font-semibold text-[#64748b]">Rapor yükleniyor…</p>}
+                {detail && detail.analysis_group_id === drawerGroupId && !detailLoading && (
+                  <div className="rounded-[12px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
+                    {detail && <ReportDetail report={detail} onSendOffer={setOfferTarget} onReject={(r) => setRejectTarget({ id: r.lead_id!, company: r.title, name: null, sector: null, business_type: null, city: null, district: null, website: null, phone: null, instagram: null, status: null, rejection_reason: null, rejected_at: null, notes: null, google_place_id: null, source: null, created_at: "" })} onExport={downloadReport} exportBusy={exportBusy} />}
+                  </div>
+                )}
+              </section>
+              <section aria-labelledby="drawer-actions" className="grid gap-3">
+                <h3 id="drawer-actions" className="text-xs font-black uppercase tracking-[.08em] text-[#475569]">Hızlı İşlemler</h3>
+                {renderGroupFooter(drawerGroupId!, drawerFirst, drawerName, tab === "arsiv" || isArchivedPreAuditReport(drawerFirst), { showView: false })}
+              </section>
             </div>
-          )}
-        </>
+          </aside>
+        </div>
       )}
 
       {promptLead && (
