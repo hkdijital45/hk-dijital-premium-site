@@ -176,7 +176,7 @@ export function MarketingDashboardCard({ icon, label, value }: { icon: ReactNode
 /* ------------------------------- Reusable closing CTA ------------------------------- */
 
 export function MarketingCTA({
-  eyebrow = "Sonraki Adım", title, text, primaryHref = "/teklif-al", primaryLabel = "Paketini Bul",
+  eyebrow = "Sonraki Adım", title, text, primaryHref = "/teklif-al", primaryLabel = "Ücretsiz Ön Analiz",
   secondaryHref, secondaryLabel, trackingPrefix = "CTA"
 }: {
   eyebrow?: string; title: string; text?: string; primaryHref?: string; primaryLabel?: string;

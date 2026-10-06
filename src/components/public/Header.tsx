@@ -153,7 +153,7 @@ export function Header({ content }: { content: SiteContent }) {
     })),
     { key: "cta-primary", node: (
       <Link href="/teklif-al" onClick={() => { trackMetaCtaClick("Mobil Paketini Bul", "/teklif-al"); setOpen(false); }} className="marketing-btn marketing-btn-primary mt-1 w-full">
-        <CalendarCheck size={17} /> Paketini Bul
+        <CalendarCheck size={17} /> Ücretsiz Ön Analiz
       </Link>
     ) },
     { key: "cta-whatsapp", node: (
@@ -201,7 +201,7 @@ export function Header({ content }: { content: SiteContent }) {
               <MessageCircle size={17} className="text-[#25D366]" /> WhatsApp
             </a>
             <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Header Paketini Bul", "/teklif-al")} className="marketing-btn marketing-btn-primary marketing-aurora-btn min-h-11">
-              <CalendarCheck size={17} /> Paketini Bul
+              <CalendarCheck size={17} /> Ücretsiz Ön Analiz
             </Link>
           </div>
 

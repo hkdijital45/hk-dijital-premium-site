@@ -43,8 +43,8 @@ const fallbackSeo: Record<string, { title: string; description: string }> = {
     description: "Manisa dijital pazarlama ajansı HK Dijital ile ücretsiz ön görüşme, Meta reklam ve Google Ads danışmanlığı için iletişime geçin."
   },
   quote: {
-    title: "Ücretsiz Ön Görüşme | HK Dijital",
-    description: "İşletmeniz için Meta reklam, Google Ads, sosyal medya veya dijital pazarlama danışmanlığı görüşmesi talep edin."
+    title: "Dijital Pazarlama Ön Analizi | HK Dijital",
+    description: "İşletmenizin hedeflerini, reklam kanallarını, bütçesini ve içerik ihtiyacını belirleyin. HK Dijital ile ücretsiz dijital pazarlama ön analizinizi tamamlayın."
   },
   manisa: {
     title: "Manisa Dijital Pazarlama Ajansı | HK Dijital",

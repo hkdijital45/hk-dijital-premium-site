@@ -141,7 +141,7 @@ function Hero({ whatsappUrl }: { whatsappUrl: string }) {
               HK Dijital; Google Ads, Meta reklamları ve sosyal medya yönetimini tek stratejide birleştirip yapay zekâ destekli görünürlük analiziyle destekleyen ölçülebilir bir dijital büyüme sistemi kurar.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Paketini Bul <ArrowRight size={18} /></PrimaryLink>
+              <PrimaryLink href="/teklif-al" trackingLabel="Hero Paketini Bul" aurora>Ücretsiz Ön Analiz <ArrowRight size={18} /></PrimaryLink>
               <SecondaryLink href="/hizmetler" trackingLabel="Hero Hizmetleri İncele">Hizmetleri İncele</SecondaryLink>
               <WhatsappLink href={whatsappUrl} trackingLabel="Hero WhatsApp'tan Görüş">WhatsApp&apos;tan Görüşelim <MessageCircle size={18} /></WhatsappLink>
             </div>
@@ -677,7 +677,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string }) {
             <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">Reklamınızı Büyümeye Çevirin</h2>
             <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/85">Satış garantisi vermeyiz — strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama sürecini uçtan uca yönetiriz.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Paketini Bul <ArrowRight size={18} /></Link>
+              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Ücretsiz Ön Analiz <ArrowRight size={18} /></Link>
               <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></a>
             </div>
           </div>
