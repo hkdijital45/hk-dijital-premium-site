@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Handshake } from "lucide-react";
+import { Check, Handshake } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
-import { MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
+import { MarketingPageHero, MarketingReveal } from "@/components/public/marketing/MarketingUI";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
 
@@ -12,6 +12,10 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata("brands");
 }
+
+// Premium accent for the "Verdiğimiz Hizmetler" check marks only — never the
+// whole row — scoped locally rather than a global design-token change.
+const LIME = "#9ee635";
 
 // Full portfolio of active public.brand_showcases rows (sort_order ASC) — the
 // homepage's "HK Dijital ile Çalışan Markalar" teaser links here for the
@@ -39,8 +43,8 @@ export default async function BrandsPortfolioPage() {
           text="Farklı sektörlerdeki marka ve kurumların dijital süreçlerine strateji, reklam, sosyal medya ve teknoloji çözümleriyle katkı sağlıyoruz."
         />
 
-        <MarketingSection id="marka-portfoyu">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <section id="marka-portfoyu" className="pb-20 pt-10 sm:pb-24 sm:pt-14" style={{ background: "var(--mk-bg-alt)" }}>
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             {brands.length === 0 ? (
               <MarketingReveal className="mx-auto max-w-xl">
                 <div className="rounded-[20px] border px-6 py-16 text-center" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
@@ -51,48 +55,64 @@ export default async function BrandsPortfolioPage() {
                 </div>
               </MarketingReveal>
             ) : (
-              <div className="columns-1 gap-6 sm:columns-2 lg:columns-3">
-                {brands.map((brand, index) => (
-                  <MarketingReveal key={brand.id} delay={Math.min(index, 5) * 0.05} className="mb-6 break-inside-avoid">
-                    <article className="marketing-card flex flex-col gap-4 p-6">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="grid size-16 shrink-0 place-items-center rounded-[14px] border bg-white p-2.5"
-                          style={{ borderColor: "var(--mk-border-strong)" }}
-                        >
-                          {brand.logoUrl && (
-                            <Image
-                              src={brand.logoUrl}
-                              alt={`${brand.name} logosu`}
-                              width={56}
-                              height={56}
-                              className="h-full w-full object-contain"
-                              sizes="56px"
-                              unoptimized
-                            />
+              <div className="grid grid-cols-1 gap-7 sm:grid-cols-2 sm:gap-8">
+                {brands.map((brand, index) => {
+                  const isLoneLast = brands.length % 2 === 1 && index === brands.length - 1;
+                  return (
+                    <div key={brand.id} className={isLoneLast ? "sm:col-span-2 sm:flex sm:justify-center" : ""}>
+                      <MarketingReveal delay={Math.min(index, 5) * 0.05} className={isLoneLast ? "w-full sm:max-w-[calc(50%-1rem)]" : ""}>
+                        <article className="marketing-card relative flex h-full flex-col gap-6 overflow-hidden p-7 sm:p-9">
+                          <span aria-hidden className="absolute inset-x-9 top-0 h-[3px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${LIME}, transparent)` }} />
+
+                          <div className="flex items-center gap-5">
+                            <div className="grid size-20 shrink-0 place-items-center rounded-[16px] border bg-white p-3 sm:size-24" style={{ borderColor: "var(--mk-border-strong)" }}>
+                              {brand.logoUrl && (
+                                <Image
+                                  src={brand.logoUrl}
+                                  alt={`${brand.name} logosu`}
+                                  width={88}
+                                  height={88}
+                                  className="h-full w-full object-contain"
+                                  sizes="88px"
+                                  unoptimized
+                                />
+                              )}
+                            </div>
+                            <h2 className="min-w-0 break-words text-2xl font-black leading-tight sm:text-3xl" style={{ color: "var(--mk-ink)" }}>{brand.name}</h2>
+                          </div>
+
+                          {brand.services.length > 0 && (
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-[.12em]" style={{ color: "var(--mk-ink-faint)" }}>Verdiğimiz Hizmetler</p>
+                              <ul className="mt-3 grid gap-2.5">
+                                {brand.services.map((service) => (
+                                  <li key={service} className="flex items-start gap-2.5">
+                                    <span
+                                      className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full"
+                                      style={{ background: "rgba(158,230,53,.14)", boxShadow: `0 0 7px rgba(158,230,53,.45)` }}
+                                      aria-hidden="true"
+                                    >
+                                      <Check size={12} strokeWidth={3} style={{ color: LIME }} />
+                                    </span>
+                                    <span className="text-sm leading-6 sm:text-base" style={{ color: "var(--mk-ink)" }}>{service}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
-                        </div>
-                        <h2 className="min-w-0 break-words text-lg font-black leading-tight" style={{ color: "var(--mk-ink)" }}>{brand.name}</h2>
-                      </div>
 
-                      {brand.services.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {brand.services.map((service) => (
-                            <span key={service} className="marketing-badge">{service}</span>
-                          ))}
-                        </div>
-                      )}
-
-                      {brand.description && (
-                        <p className="text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{brand.description}</p>
-                      )}
-                    </article>
-                  </MarketingReveal>
-                ))}
+                          {brand.description && (
+                            <p className="border-t pt-5 text-sm leading-7" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}>{brand.description}</p>
+                          )}
+                        </article>
+                      </MarketingReveal>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
-        </MarketingSection>
+        </section>
       </div>
     </PublicShell>
   );
