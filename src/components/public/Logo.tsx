@@ -14,7 +14,9 @@ type LogoVariant = "website" | "login" | "customer" | "footer";
 // content.brand.logoUrl): this is a fixed site-chrome asset, same way the
 // navbar itself isn't admin-editable.
 const HORIZONTAL_LOGO = "/branding/hk-dijital-logo-horizontal.png";
-const HORIZONTAL_LOGO_SIZE = { width: 384, height: 129 };
+// Intrinsic dimensions of the source PNG — keep in sync with the asset file
+// so next/image serves correctly-sized 1x/2x candidates (no upscaling blur).
+const HORIZONTAL_LOGO_SIZE = { width: 2138, height: 736 };
 
 export function Logo({
   content,
