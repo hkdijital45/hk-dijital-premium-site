@@ -1,12 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  BRAND_PRESET_SERVICES,
   BRAND_SERVICES_MAX_COUNT,
   extensionForBrandLogo,
+  matchPresetService,
   normalizeServices,
   parseBrandFields,
   servicesArray,
+  splitServices,
   swapPlan,
+  toggleService,
   validateBrandLogoMeta
 } from "../../src/lib/brand-showcase.ts";
 
@@ -53,6 +57,34 @@ test("swapPlan reorders with an adjacent row and rejects edge moves", () => {
   assert.equal(swapPlan(rows, "a", "up").ok, false);
   assert.equal(swapPlan(rows, "c", "down").ok, false);
   assert.equal(swapPlan(rows, "missing", "up").ok, false);
+});
+
+test("matchPresetService matches presets case-insensitively and trims whitespace", () => {
+  assert.equal(matchPresetService(" seo "), "SEO");
+  assert.equal(matchPresetService("meta ads yönetimi"), "Meta Ads Yönetimi");
+  assert.equal(matchPresetService("Kurumsal Danışmanlık"), null);
+});
+
+test("splitServices preserves legacy/custom values alongside checked presets", () => {
+  const { presets, custom } = splitServices(["Meta Ads Yönetimi", "Kurumsal Danışmanlık"]);
+  assert.deepEqual(presets, ["Meta Ads Yönetimi"]);
+  assert.deepEqual(custom, ["Kurumsal Danışmanlık"]);
+});
+
+test("toggleService adds a preset once and removes it on a second toggle, never duplicating", () => {
+  let services: string[] = [];
+  services = toggleService(services, "SEO");
+  assert.deepEqual(services, ["SEO"]);
+  services = toggleService(services, "seo");
+  assert.deepEqual(services, []);
+  services = toggleService(services, "Meta Ads Yönetimi");
+  services = toggleService(services, "Meta Ads Yönetimi");
+  assert.deepEqual(services, []);
+});
+
+test("preset list stays within the normal services cap and round-trips through normalizeServices", () => {
+  assert.ok(BRAND_PRESET_SERVICES.length <= BRAND_SERVICES_MAX_COUNT);
+  assert.deepEqual(normalizeServices([...BRAND_PRESET_SERVICES, "Meta Ads Yönetimi"]), [...BRAND_PRESET_SERVICES]);
 });
 
 test("servicesArray reads both a JSON array and a JSON-encoded string", () => {

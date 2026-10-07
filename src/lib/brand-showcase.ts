@@ -28,6 +28,57 @@ export const BRAND_LOGO_MIME_TYPES: Record<string, string> = {
 
 // Services are a small, order-preserving list the admin edits as chips — a
 // JSONB string array is the simplest fit, not a relational table.
+// Preset options offered as checkboxes in the admin "Verdiğimiz Hizmetler"
+// picker. Purely a UI convenience list — the stored field is still the same
+// free-form services string array, so older/custom values never need a
+// migration and a preset never needs its own column.
+export const BRAND_PRESET_SERVICES = [
+  "Meta Ads Yönetimi",
+  "Google Ads Yönetimi",
+  "Sosyal Medya Yönetimi",
+  "İçerik Üretimi",
+  "SEO",
+  "Web Tasarım",
+  "Raporlama & Analiz",
+  "Remarketing"
+] as const;
+
+const PRESET_LOOKUP = new Map(BRAND_PRESET_SERVICES.map((preset) => [preset.toLocaleLowerCase("tr"), preset]));
+
+// Case-insensitive match against the preset list, returning the preset's
+// canonical label (so a legacy value with different casing still renders
+// as the checkbox option, never as a duplicate custom chip).
+export function matchPresetService(value: string): string | null {
+  return PRESET_LOOKUP.get(String(value ?? "").trim().toLocaleLowerCase("tr")) ?? null;
+}
+
+// Splits a saved services array into "which presets are checked" and
+// "everything else" (legacy values and genuinely custom entries) — this is
+// what guarantees backward compatibility: nothing in `custom` is ever lost.
+export function splitServices(services: string[]): { presets: string[]; custom: string[] } {
+  const presets: string[] = [];
+  const custom: string[] = [];
+  for (const service of services) {
+    const preset = matchPresetService(service);
+    if (preset) {
+      if (!presets.includes(preset)) presets.push(preset);
+    } else {
+      custom.push(service);
+    }
+  }
+  return { presets, custom };
+}
+
+// One toggle for both preset checkboxes and custom-chip removal: present ->
+// remove (case-insensitive), absent -> add through the same normalization
+// used by the server, so duplicates are never possible either way.
+export function toggleService(services: string[], value: string): string[] {
+  const key = String(value ?? "").trim().toLocaleLowerCase("tr");
+  const has = services.some((service) => service.toLocaleLowerCase("tr") === key);
+  if (has) return services.filter((service) => service.toLocaleLowerCase("tr") !== key);
+  return normalizeServices([...services, value]);
+}
+
 export function normalizeServices(input: unknown): string[] {
   const list = Array.isArray(input) ? input : [];
   const seen = new Set<string>();

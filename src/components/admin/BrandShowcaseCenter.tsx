@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, CircleCheck, CircleOff, ImagePlus, Loader2, Pencil,
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminConfirmDialog } from "@/components/admin/ui/AdminConfirmDialog";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
-import { BRAND_NAME_MAX, BRAND_SERVICES_MAX_COUNT, normalizeServices, servicesArray, type BrandShowcaseRow } from "@/lib/brand-showcase";
+import { BRAND_NAME_MAX, BRAND_PRESET_SERVICES, BRAND_SERVICES_MAX_COUNT, matchPresetService, normalizeServices, servicesArray, toggleService, type BrandShowcaseRow } from "@/lib/brand-showcase";
 
 type Draft = { id: string | null; name: string; services: string[]; description: string; logoUrl: string };
 const EMPTY_DRAFT: Draft = { id: null, name: "", services: [], description: "", logoUrl: "" };
@@ -17,6 +17,7 @@ export function BrandShowcaseCenter({ notify }: { notify?: (message: string, typ
   const [busyId, setBusyId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [serviceInput, setServiceInput] = useState("");
+  const [addingCustomService, setAddingCustomService] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -43,23 +44,39 @@ export function BrandShowcaseCenter({ notify }: { notify?: (message: string, typ
 
   function openCreate() {
     setServiceInput("");
+    setAddingCustomService(false);
     setDraft({ ...EMPTY_DRAFT });
   }
 
   function openEdit(row: BrandShowcaseRow) {
     setServiceInput("");
+    setAddingCustomService(false);
     setDraft({ id: row.id, name: row.name, services: servicesArray(row.services), description: row.description || "", logoUrl: row.logo_url || "" });
   }
 
-  function addServiceFromInput() {
-    if (!draft || !serviceInput.trim()) return;
-    setDraft({ ...draft, services: normalizeServices([...draft.services, serviceInput]) });
-    setServiceInput("");
+  // Shared by preset checkboxes and custom-chip removal: present -> remove,
+  // absent -> add through the server's own normalization (trim, case-insensitive
+  // dedupe, cap) — so a legacy or custom value is never lost or duplicated.
+  function togglePresetOrCustom(value: string) {
+    if (!draft) return;
+    setDraft({ ...draft, services: toggleService(draft.services, value) });
   }
 
-  function removeService(service: string) {
+  function commitCustomService() {
     if (!draft) return;
-    setDraft({ ...draft, services: draft.services.filter((item) => item !== service) });
+    const value = serviceInput.trim();
+    if (!value) return;
+    // Add-only (never a toggle): typing an existing service and pressing
+    // Ekle must not remove it. normalizeServices silently drops the
+    // case-insensitive duplicate instead.
+    setDraft({ ...draft, services: normalizeServices([...draft.services, value]) });
+    setServiceInput("");
+    setAddingCustomService(false);
+  }
+
+  function cancelCustomService() {
+    setServiceInput("");
+    setAddingCustomService(false);
   }
 
   async function uploadLogo(file: File) {
@@ -274,25 +291,79 @@ export function BrandShowcaseCenter({ notify }: { notify?: (message: string, typ
               <input value={draft.name} maxLength={BRAND_NAME_MAX} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="min-h-11 rounded-[10px] border bg-[#ffffff] px-3 text-base font-semibold text-[#0f172a]" style={{ borderColor: "var(--admin-border)" }} />
             </label>
 
-            <div className="grid gap-1.5">
-              <p className="text-sm font-bold text-[#334155]">Hizmetlerimiz</p>
-              <div className="flex flex-wrap gap-1.5 rounded-[10px] border bg-[#ffffff] p-2" style={{ borderColor: "var(--admin-border)" }}>
-                {draft.services.map((service) => (
-                  <span key={service} className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#334155]">
-                    {service}
-                    <button type="button" onClick={() => removeService(service)} aria-label={`${service} hizmetini kaldır`} className="text-[#64748b] hover:text-[#0f172a]"><X size={12} aria-hidden /></button>
-                  </span>
-                ))}
-                <input
-                  value={serviceInput}
-                  onChange={(event) => setServiceInput(event.target.value)}
-                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addServiceFromInput(); } }}
-                  onBlur={addServiceFromInput}
-                  disabled={draft.services.length >= BRAND_SERVICES_MAX_COUNT}
-                  placeholder={draft.services.length ? "Ekle (Enter)" : "Örn. Meta Ads — Enter'a basın"}
-                  className="min-h-9 min-w-[140px] flex-1 border-none bg-transparent text-sm font-semibold text-[#0f172a] outline-none"
-                />
+            <div className="grid gap-3">
+              <p className="text-sm font-bold text-[#334155]">Verdiğimiz Hizmetler</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {BRAND_PRESET_SERVICES.map((preset) => {
+                  const checked = draft.services.some((service) => service.toLocaleLowerCase("tr") === preset.toLocaleLowerCase("tr"));
+                  const capped = !checked && draft.services.length >= BRAND_SERVICES_MAX_COUNT;
+                  return (
+                    <label
+                      key={preset}
+                      className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-[10px] border px-3 text-sm font-bold transition ${capped ? "cursor-not-allowed opacity-50" : ""}`}
+                      style={checked ? { borderColor: "#0e7490", background: "#ecfeff", color: "#0e7490" } : { borderColor: "var(--admin-border)", background: "#ffffff", color: "#334155" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={capped}
+                        onChange={() => togglePresetOrCustom(preset)}
+                        className="size-4 shrink-0 cursor-pointer accent-cyan-700"
+                      />
+                      {preset}
+                    </label>
+                  );
+                })}
               </div>
+
+              {(() => {
+                const customServices = draft.services.filter((service) => !matchPresetService(service));
+                return customServices.length > 0 ? (
+                  <div className="grid gap-1.5">
+                    <p className="text-xs font-bold text-[#64748b]">Özel Hizmetler</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {customServices.map((service) => (
+                        <span key={service} className="inline-flex items-center gap-1.5 rounded-full bg-[#f1f5f9] px-2.5 py-1 text-xs font-bold text-[#334155]">
+                          {service}
+                          <button type="button" onClick={() => togglePresetOrCustom(service)} aria-label={`${service} hizmetini kaldır`} className="text-[#64748b] hover:text-[#0f172a]"><X size={12} aria-hidden /></button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              {addingCustomService ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="sr-only" htmlFor="brand-custom-service">Özel hizmet adı</label>
+                  <input
+                    id="brand-custom-service"
+                    autoFocus
+                    value={serviceInput}
+                    onChange={(event) => setServiceInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") { event.preventDefault(); commitCustomService(); }
+                      if (event.key === "Escape") { event.preventDefault(); cancelCustomService(); }
+                    }}
+                    placeholder="Hizmet adını yaz…"
+                    className="min-h-10 min-w-[180px] flex-1 rounded-[10px] border bg-[#ffffff] px-3 text-sm font-semibold text-[#0f172a]"
+                    style={{ borderColor: "var(--admin-border)" }}
+                  />
+                  <AdminButton type="button" variant="primary" compact onClick={commitCustomService}>Ekle</AdminButton>
+                  <AdminButton type="button" variant="secondary" compact onClick={cancelCustomService}>İptal</AdminButton>
+                </div>
+              ) : (
+                <AdminButton
+                  type="button"
+                  variant="secondary"
+                  compact
+                  icon={<Plus size={14} />}
+                  disabled={draft.services.length >= BRAND_SERVICES_MAX_COUNT}
+                  onClick={() => { setServiceInput(""); setAddingCustomService(true); }}
+                >
+                  Özel Hizmet Ekle
+                </AdminButton>
+              )}
               <p className="text-xs font-semibold text-[#94a3b8]">En az bir hizmet eklemeniz önerilir.</p>
             </div>
 
