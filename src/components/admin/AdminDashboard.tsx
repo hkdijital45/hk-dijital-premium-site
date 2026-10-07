@@ -12325,6 +12325,27 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
       setLoading("");
     }
   }
+  async function recheckAdStatus(record: any, channel: "meta" | "google") {
+    const lead = existingLeadFor(record);
+    if (!lead?.id) return notify?.("Tekrar kontrol edebilmek için önce bu işletmeyi CRM'e kaydedin.", "warning");
+    setLoading(`recheck-${channel}-${lead.id}`);
+    try {
+      const response = await fetch(`/api/admin/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recheckAdvertising: { channel } })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Tekrar kontrol başarısız oldu.");
+      setContent({ ...content, leads: (content.leads || []).map((item) => item.id === lead.id ? data.lead : item) });
+      if (data.warning) notify?.(data.warning, "warning");
+      else notify?.(`${channel === "meta" ? "Meta" : "Google"} reklam durumu tekrar kontrol edildi.`, "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Tekrar kontrol başarısız oldu.", "error");
+    } finally {
+      setLoading("");
+    }
+  }
   async function runSearch() {
     if (!canDiscover) return setMessage("İşletme keşfi araması için yetkiniz bulunmuyor.");
     if (!search.city.trim()) return setMessage("İl alanı zorunludur.");
@@ -13318,7 +13339,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </AdminFilterSection>
           </AdminControlPanel>
         }
-        rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
+        rightPanel={<BusinessLeadDetailPanel record={selectedHotLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedHotLead ? leadCompetitors[leadKey(selectedHotLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedHotLead ? leadStagesById[leadKey(selectedHotLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedHotLead ? existingLeadFor(selectedHotLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} recheckAdStatus={recheckAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${hotLeads.length} sıcak lead`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
         <DiscoveryNav active={tab} onChange={setMapTab} />
@@ -13475,7 +13496,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
             </AdminFilterSection>
           </AdminControlPanel>
         }
-        rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
+        rightPanel={<BusinessLeadDetailPanel record={selectedAiLead} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedAiLead ? leadCompetitors[leadKey(selectedAiLead)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedAiLead ? leadStagesById[leadKey(selectedAiLead)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedAiLead ? existingLeadFor(selectedAiLead) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} recheckAdStatus={recheckAdStatus} />}
         bottomBar={<AdminActionBar statusText={`${aiRows.length} işletme`}><AdminButton compact variant="secondary" onClick={() => setMapTab("Google Maps Müşteri Bulma")}>Yeni İşletme Bul</AdminButton></AdminActionBar>}
       >
         <DiscoveryNav active={tab} onChange={setMapTab} />
@@ -13657,7 +13678,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
           )}
         </AdminControlPanel>
       }
-      rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} />}
+      rightPanel={<BusinessLeadDetailPanel record={selectedBusiness} mapsHref={mapsHref} metaHref={metaHref} saveBusiness={saveBusiness} proposalFor={proposalFor} setWhatsappDraft={setWhatsappDraft} outreachText={outreachText} sendToCompetitor={sendToCompetitor} markCandidate={markCandidate} setNotePlaceId={setNotePlaceId} notePlaceId={notePlaceId} findCompetitorsForLead={findCompetitorsForLead} competitors={selectedBusiness ? leadCompetitors[leadKey(selectedBusiness)] || [] : []} prepareFirstMessage={prepareFirstMessage} prepareDigitalReport={prepareDigitalReport} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} openInstagram={openInstagram} callBusiness={callBusiness} emailBusiness={emailBusiness} openWebsite={openWebsite} leadStage={selectedBusiness ? leadStagesById[leadKey(selectedBusiness)] || "Yeni bulundu" : "Yeni bulundu"} leadStageOptions={leadStageOptions} updateLeadStage={updateLeadStage} createFollowupTask={createFollowupTask} existingLead={selectedBusiness ? existingLeadFor(selectedBusiness) : null} openCrmLead={openCrmLead} verifyAdStatus={verifyAdStatus} recheckAdStatus={recheckAdStatus} />}
       bottomBar={
         <AdminActionBar statusText={`${visible.length} sonuç gösteriliyor${selectedPlaces.length ? ` · ${selectedPlaces.length} seçili` : ""}`}>
           <AdminButton compact variant="secondary" onClick={clearFilters}>Filtreleri Temizle</AdminButton>
@@ -13749,7 +13770,7 @@ function MapsIntelligence({ content, setContent, setActive, save, notify, mode =
   );
 }
 
-function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead, verifyAdStatus }: any) {
+function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, proposalFor, setWhatsappDraft, outreachText, sendToCompetitor, markCandidate, setNotePlaceId, notePlaceId, findCompetitorsForLead, competitors = [], prepareFirstMessage, prepareDigitalReport, openWhatsapp, prepareInstagramDm, openInstagram, callBusiness, emailBusiness, openWebsite, leadStage, leadStageOptions = [], updateLeadStage, createFollowupTask, existingLead, openCrmLead, verifyAdStatus, recheckAdStatus }: any) {
   const [reportPreview, setReportPreview] = useState<DiscoveryReportRecord | null>(null);
   const [reportEditSaving, setReportEditSaving] = useState(false);
   const [availableReports, setAvailableReports] = useState<Record<string, DiscoveryReportRecord>>({});
@@ -13887,7 +13908,7 @@ function BusinessLeadDetailPanel({ record, mapsHref, metaHref, saveBusiness, pro
       </div>
 
       <WhySelectThisBusinessPanel record={record} opportunityScore={opportunityScore} />
-      <AdvertisingEvidencePanel record={record} existingLead={existingLead} verifyAdStatus={verifyAdStatus} metaHref={metaHref} />
+      <AdvertisingEvidencePanel record={record} existingLead={existingLead} verifyAdStatus={verifyAdStatus} recheckAdStatus={recheckAdStatus} metaHref={metaHref} />
       <MetaSuitabilityPanel record={record} />
       <SalesRecommendationPanel record={record} />
       <OutreachAssistantPanel record={record} openWhatsapp={openWhatsapp} prepareInstagramDm={prepareInstagramDm} />
@@ -14048,9 +14069,14 @@ function WhySelectThisBusinessPanel({ record, opportunityScore }: any) {
 }
 
 /** Honest advertising-status evidence — never a bare true/false claim. */
-function AdvertisingEvidencePanel({ record, existingLead, verifyAdStatus, metaHref }: any) {
+function AdvertisingEvidencePanel({ record, existingLead, verifyAdStatus, recheckAdStatus, metaHref }: any) {
   const metaStatus: AdStatusValue | undefined = record.metaAdsStatus || record.meta_ads_status;
   const googleStatus: AdStatusValue | undefined = record.googleAdsStatus || record.google_ads_status;
+  const website = String(record.website || "");
+  const googleDomain = website.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+  const googleHref = googleDomain
+    ? `https://adstransparency.google.com/?region=TR&domain=${encodeURIComponent(googleDomain)}`
+    : "https://adstransparency.google.com/?region=TR";
   return <div className="mt-4 rounded-[12px] border border-blue-200 bg-blue-50 p-3">
     <p className="text-sm font-black text-blue-950">Reklam Durumu (Meta / Google)</p>
     <div className="mt-3 grid gap-2">
@@ -14059,6 +14085,7 @@ function AdvertisingEvidencePanel({ record, existingLead, verifyAdStatus, metaHr
         <p className="mt-1 text-[var(--admin-text-muted)]">{record.metaAdsEvidence || record.meta_ads_evidence || "Veri bulunamadı."}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <a target="_blank" rel="noreferrer" href={metaHref(record)} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Meta Reklamlarını Kontrol Et</a>
+          {metaStatus === "source_unavailable" && existingLead?.id && <button onClick={() => recheckAdStatus(record, "meta")} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black text-amber-700">Tekrar Dene</button>}
           {existingLead?.id ? <>
             <button onClick={() => verifyAdStatus(record, "meta", "active")} className="rounded-full border border-emerald-200 bg-[var(--admin-surface)] px-2.5 py-1.5 text-[10px] font-black text-emerald-700">Manuel Doğrulandı: Aktif</button>
             <button onClick={() => verifyAdStatus(record, "meta", "inactive")} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2.5 py-1.5 text-[10px] font-black text-[var(--admin-text-secondary)]">Manuel Doğrulandı: Aktif Değil</button>
@@ -14069,14 +14096,15 @@ function AdvertisingEvidencePanel({ record, existingLead, verifyAdStatus, metaHr
         <p className="font-black text-slate-800">Google: {AD_STATUS_LABELS[googleStatus as AdStatusValue] || "Kontrol edilmedi"}</p>
         <p className="mt-1 text-[var(--admin-text-muted)]">{record.googleAdsEvidence || record.google_ads_evidence || "Veri bulunamadı."}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          <a target="_blank" rel="noreferrer" href={`https://adstransparency.google.com/?region=TR&domain=${encodeURIComponent(String(record.website || "").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""))}`} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Google Reklamlarını Kontrol Et</a>
+          <a target="_blank" rel="noreferrer" href={googleHref} className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700">Google Reklamlarını Kontrol Et</a>
+          {googleStatus === "source_unavailable" && existingLead?.id && Boolean(website) && <button onClick={() => recheckAdStatus(record, "google")} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black text-amber-700">Tekrar Dene</button>}
           {existingLead?.id ? <>
             <button onClick={() => verifyAdStatus(record, "google", "active")} className="rounded-full border border-emerald-200 bg-[var(--admin-surface)] px-2.5 py-1.5 text-[10px] font-black text-emerald-700">Manuel Doğrulandı: Aktif</button>
             <button onClick={() => verifyAdStatus(record, "google", "inactive")} className="rounded-full border border-[var(--admin-border)] bg-[var(--admin-surface)] px-2.5 py-1.5 text-[10px] font-black text-[var(--admin-text-secondary)]">Manuel Doğrulandı: Aktif Değil</button>
           </> : <span className="rounded-full bg-slate-100 px-2.5 py-1.5 text-[10px] font-bold text-[var(--admin-text-muted)]">Manuel doğrulama için önce CRM'e kaydedin</span>}
         </div>
       </div>
-      <p className="text-[10px] font-bold text-blue-700">Meta Pixel tespiti ≠ aktif reklam; Pixel yokluğu ≠ reklam vermiyor. Kesin sonuç yalnızca manuel doğrulama ile işaretlenir.</p>
+      <p className="text-[10px] font-bold text-blue-700">Meta: Meta Ad Library'de işletme adıyla otomatik arama yapılır (website gerekmez). Pixel tespiti ≠ aktif reklam; Pixel yokluğu ≠ reklam vermiyor. Kesin sonuç yalnızca manuel doğrulama ile işaretlenir.</p>
     </div>
   </div>;
 }

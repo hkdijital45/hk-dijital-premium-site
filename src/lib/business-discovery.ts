@@ -29,6 +29,81 @@ import { buildInstagramVerification, computeHkDigitalNeedLevel } from "@/lib/ins
 import { DISCOVERY_WORKFLOW_STATUS } from "@/lib/discovery-workflow";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
+// ============================================================================
+// Meta Ad Library automated check — name-based, independent of website.
+// Reuses the exact real endpoint (graph.facebook.com/ads_archive) already
+// proven in src/lib/competitor-intelligence.ts's enrichMetaAdSignals(); this
+// is public Meta ad-transparency data keyed on the advertiser's Page/business
+// name, so (unlike Pixel detection) it needs no website/domain at all. A
+// concurrency gate keeps a 20+ result discovery batch from firing dozens of
+// simultaneous Graph API requests (rate-limit safety per the brief).
+// ============================================================================
+
+const META_AD_LIBRARY_CONCURRENCY = 4;
+const META_AD_LIBRARY_TIMEOUT_MS = 8000;
+let metaAdLibraryInFlight = 0;
+const metaAdLibraryQueue: Array<() => void> = [];
+
+async function withMetaAdLibrarySlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (metaAdLibraryInFlight >= META_AD_LIBRARY_CONCURRENCY) {
+    await new Promise<void>((resolve) => metaAdLibraryQueue.push(resolve));
+  }
+  metaAdLibraryInFlight += 1;
+  try {
+    return await fn();
+  } finally {
+    metaAdLibraryInFlight -= 1;
+    const next = metaAdLibraryQueue.shift();
+    if (next) next();
+  }
+}
+
+function normalizeBusinessNameForMatch(value: string) {
+  return value.trim().toLocaleLowerCase("tr").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ");
+}
+
+export async function checkMetaAdLibraryByName(businessName: string): Promise<import("@/lib/lead-scoring").MetaAdLibraryCheck> {
+  const token = process.env.META_AD_LIBRARY_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || "";
+  const checkedAt = new Date().toISOString();
+  const name = clean(businessName);
+  if (!token || !name) {
+    return { status: "not_attempted", evidence: "", checkedAt };
+  }
+  return withMetaAdLibrarySlot(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), META_AD_LIBRARY_TIMEOUT_MS);
+    try {
+      const params = new URLSearchParams({
+        access_token: token,
+        ad_type: "ALL",
+        ad_reached_countries: "TR",
+        search_terms: name,
+        fields: "id,page_name,ad_delivery_start_time",
+        limit: "15"
+      });
+      const response = await fetch(`https://graph.facebook.com/v20.0/ads_archive?${params}`, { cache: "no-store", signal: controller.signal });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.error) {
+        return { status: "source_unavailable" as const, evidence: "Meta Ad Library sorgusu başarısız oldu; işletme adıyla otomatik kontrol şu an yapılamadı. Kontrol tekrar denenebilir.", checkedAt };
+      }
+      const ads: Array<{ page_name?: string }> = Array.isArray(data.data) ? data.data : [];
+      const normalizedTarget = normalizeBusinessNameForMatch(name);
+      const matching = ads.filter((ad) => {
+        const pageName = normalizeBusinessNameForMatch(String(ad.page_name || ""));
+        return pageName.length > 0 && (pageName.includes(normalizedTarget) || normalizedTarget.includes(pageName));
+      });
+      if (matching.length > 0) {
+        return { status: "active_signal" as const, evidence: `Meta Ad Library'de işletme adıyla eşleşen reklam bulundu (${matching.length} sonuç, sayfa: "${matching[0].page_name}").`, checkedAt };
+      }
+      return { status: "no_signal_detected" as const, evidence: `Meta Ad Library'de "${name}" adıyla arama yapıldı (ülke: TR); eşleşen aktif reklam bulunamadı.`, checkedAt };
+    } catch {
+      return { status: "source_unavailable" as const, evidence: "Meta Ad Library sorgusu zaman aşımına uğradı veya ağ hatası oluştu. Kontrol tekrar denenebilir.", checkedAt };
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+}
+
 export class DiscoveryConfigError extends Error {}
 export class DiscoveryApiError extends Error {
   apiError?: string;
@@ -108,13 +183,17 @@ function numberFilter(value: unknown) {
 
 async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<string, any>> {
   const scored = scoreDiscoveredBusiness(business);
-  const scan = await scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const [scan, metaAdLibrary] = await Promise.all([
+    scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() })),
+    checkMetaAdLibraryByName(business.name).catch(() => ({ status: "not_attempted" as const, evidence: "", checkedAt: new Date().toISOString() }))
+  ]);
   const advertising: AdvertisingEvidence = evaluateAdvertisingSignals({
     website: business.website,
     metaPixelDetected: scan.metaPixelDetected,
     googleTagDetected: scan.googleTagDetected,
     scanFailed: scan.scanFailed,
-    checkedAt: scan.checkedAt
+    checkedAt: scan.checkedAt,
+    metaAdLibrary
   });
   const businessWithWhatsapp: DiscoveredBusiness = {
     ...business,

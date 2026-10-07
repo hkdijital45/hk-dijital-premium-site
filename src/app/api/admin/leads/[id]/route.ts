@@ -7,6 +7,8 @@ import { isAdminRole } from "@/lib/auth";
 import { permanentlyDeleteLead, LeadNotArchivedError } from "@/lib/server/customer-permanent-delete";
 import { evaluateAdvertisingSignals, type ManualAdVerification } from "@/lib/lead-scoring";
 import { isValidDiscoveryWorkflowTransition } from "@/lib/discovery-workflow";
+import { checkMetaAdLibraryByName } from "@/lib/business-discovery";
+import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
 
 async function requireCrmAccess() {
   return await requireModuleAccess("crm") || requireModuleAccess("leads");
@@ -127,6 +129,59 @@ function buildManualAdVerificationPatch(
     google_ads_verified_by: session.profileId || null,
     google_ads_verified_at: verification.verifiedAt,
     google_ads_verified_source: verification.source
+  };
+}
+
+/**
+ * "Tekrar Dene" — a genuine forced recheck, never a cache bypass that just
+ * re-shows stale data. Meta re-runs the real name-based Ad Library query
+ * (works with no website). Google has no equivalent automated API anywhere
+ * in this codebase (only a manual Ads Transparency Center link exists), so
+ * its only real recheck is re-scanning the website for the Google tag —
+ * skipped entirely (no-op) when there is no website, rather than fabricating
+ * a result. A channel already manually verified is left untouched: manual
+ * verification always wins and a recheck must never silently overwrite it.
+ */
+async function buildAdvertisingRecheckPatch(body: Record<string, unknown>, existing: Record<string, unknown>) {
+  const input = body.recheckAdvertising as { channel?: string } | undefined;
+  if (!input || (input.channel !== "meta" && input.channel !== "google")) return {};
+
+  if (input.channel === "meta") {
+    if (existing.meta_ads_verified_status) return {};
+    const metaAdLibrary = await checkMetaAdLibraryByName(String(existing.name || existing.company || ""));
+    const evidence = evaluateAdvertisingSignals({
+      website: existing.website as string | undefined,
+      metaPixelDetected: existing.meta_pixel_detected as boolean | null | undefined,
+      googleTagDetected: existing.google_tag_detected as boolean | null | undefined,
+      scanFailed: false,
+      checkedAt: existing.advertising_last_checked_at as string | undefined,
+      metaAdLibrary
+    });
+    return {
+      meta_ads_status: evidence.metaAdsStatus,
+      meta_ads_evidence: evidence.metaAdsEvidence,
+      advertising_confidence: evidence.advertisingConfidence,
+      advertising_source: evidence.advertisingSource,
+      advertising_last_checked_at: evidence.advertisingLastCheckedAt
+    };
+  }
+
+  if (existing.google_ads_verified_status || !existing.website) return {};
+  const scan = await scanWebsiteForAdSignals(String(existing.website)).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const evidence = evaluateAdvertisingSignals({
+    website: existing.website as string | undefined,
+    metaPixelDetected: existing.meta_pixel_detected as boolean | null | undefined,
+    googleTagDetected: scan.googleTagDetected,
+    scanFailed: scan.scanFailed,
+    checkedAt: scan.checkedAt
+  });
+  return {
+    google_ads_status: evidence.googleAdsStatus,
+    google_ads_evidence: evidence.googleAdsEvidence,
+    google_tag_detected: evidence.googleTagDetected,
+    advertising_confidence: evidence.advertisingConfidence,
+    advertising_source: evidence.advertisingSource,
+    advertising_last_checked_at: evidence.advertisingLastCheckedAt
   };
 }
 
@@ -280,6 +335,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: `Geçersiz durum geçişi: "${existingRows[0].status || "-"}" -> "${patch.status}".` }, { status: 400 });
     }
     Object.assign(patch, buildManualAdVerificationPatch(body, session, existingRows[0]));
+    Object.assign(patch, await buildAdvertisingRecheckPatch(body, existingRows[0]));
     let rows: any[];
     try {
       rows = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(id)}`, {

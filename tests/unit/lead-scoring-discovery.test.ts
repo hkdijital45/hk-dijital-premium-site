@@ -67,6 +67,58 @@ test("evaluateAdvertisingSignals: a stored manual verification is the only path 
   assert.equal(evidence.advertisingConfidence, "high");
 });
 
+test("evaluateAdvertisingSignals: no website + a real Meta Ad Library hit is ACTIVE_ADS_FOUND, not manual_check_required (root-cause fix)", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    metaPixelDetected: null,
+    googleTagDetected: null,
+    scanFailed: false,
+    metaAdLibrary: { status: "active_signal", evidence: "Meta Ad Library'de işletme adıyla eşleşen reklam bulundu.", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "active_signal");
+  // Google has no equivalent automated identity-only mechanism anywhere in
+  // this codebase, so it correctly still falls back to manual review.
+  assert.equal(evidence.googleAdsStatus, "manual_check_required");
+});
+
+test("evaluateAdvertisingSignals: no website + a real Meta Ad Library miss is NO_ACTIVE_ADS_FOUND, not manual_check_required", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    metaPixelDetected: null,
+    googleTagDetected: null,
+    scanFailed: false,
+    metaAdLibrary: { status: "no_signal_detected", evidence: "Meta Ad Library'de eşleşen aktif reklam bulunamadı.", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "no_signal_detected");
+  assert.equal(evidence.advertisingConfidence, "medium");
+});
+
+test("evaluateAdvertisingSignals: a failed Meta Ad Library query (no token / network / rate limit) surfaces source_unavailable, never a false no_signal_detected", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    metaAdLibrary: { status: "source_unavailable", evidence: "Meta Ad Library sorgusu başarısız oldu.", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "source_unavailable");
+});
+
+test("evaluateAdvertisingSignals: metaAdLibrary not_attempted (no token/no name) falls back to the old website/Pixel path unchanged", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    metaAdLibrary: { status: "not_attempted", evidence: "", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "manual_check_required");
+});
+
+test("evaluateAdvertisingSignals: a stored manual verification always wins over an automated Meta Ad Library result", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    manualMeta: { status: "inactive", verifiedBy: "qa.admin@hkdijital.com.tr", verifiedAt: "2026-10-07T00:00:00.000Z", source: "Manuel kontrol", channel: "meta" },
+    metaAdLibrary: { status: "active_signal", evidence: "Meta Ad Library'de eşleşen reklam bulundu.", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "no_signal_detected");
+  assert.match(evidence.metaAdsEvidence, /Manuel doğrulama/);
+});
+
 test("calculateHkOpportunityScore: confirmed active advertising lowers the score vs confirmed absence of advertising, all else equal", () => {
   const business: DiscoveredBusiness = { name: "Test İşletme", website: "", phone: "0555", googleRating: 4.2, reviewCount: 10 };
   const activelyAdvertising = calculateHkOpportunityScore(business, { metaAdsStatus: "active_signal", googleAdsStatus: "no_signal_detected" });

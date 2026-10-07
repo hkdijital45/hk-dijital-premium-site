@@ -390,6 +390,18 @@ export type ManualAdVerification = {
   channel: "meta" | "google";
 };
 
+// Real, name-based Meta Ad Library lookup result (see
+// checkMetaAdLibraryByName() in business-discovery.ts) — the one automated
+// signal that does NOT require a website, because the Ad Library is public
+// transparency data keyed on the advertiser's Page/business name, not its
+// domain. "not_attempted" means no token was configured or no name was
+// available; it must never be treated as a confirmed result.
+export type MetaAdLibraryCheck = {
+  status: "active_signal" | "no_signal_detected" | "source_unavailable" | "not_attempted";
+  evidence: string;
+  checkedAt: string;
+};
+
 /**
  * Determines honest advertising status from whatever evidence is actually
  * available. Never claims "active" or "inactive" without a real signal:
@@ -400,6 +412,10 @@ export type ManualAdVerification = {
  *   ads), and its absence is NOT treated as proof of no campaign (ads can run
  *   without any on-site tracking pixel at all) — both surface as "unverified"
  *   with an explanatory evidence string, never as a false "inactive".
+ * - A real Meta Ad Library name-based query (input.metaAdLibrary) is tried
+ *   BEFORE falling back to the website/Pixel heuristic, and is independent of
+ *   whether a website exists at all — a missing website must never by itself
+ *   force "manual_check_required" for Meta when this ran successfully.
  */
 export function evaluateAdvertisingSignals(input: {
   website?: string | null;
@@ -409,9 +425,11 @@ export function evaluateAdvertisingSignals(input: {
   manualMeta?: ManualAdVerification | null;
   manualGoogle?: ManualAdVerification | null;
   checkedAt?: string | null;
+  metaAdLibrary?: MetaAdLibraryCheck | null;
 }): AdvertisingEvidence {
   const hasWebsite = Boolean(input.website);
   const scanned = input.metaPixelDetected !== undefined && input.metaPixelDetected !== null;
+  const metaAdLibraryAttempted = Boolean(input.metaAdLibrary && input.metaAdLibrary.status !== "not_attempted");
 
   function resolve(manual: ManualAdVerification | null | undefined, pixelDetected: boolean | null | undefined, platformLabel: string) {
     if (manual) {
@@ -435,17 +453,30 @@ export function evaluateAdvertisingSignals(input: {
     return { status: "manual_check_required" as AdStatusValue, evidence: `${platformLabel} reklam durumu henüz kontrol edilmedi.` };
   }
 
-  const meta = resolve(input.manualMeta, input.metaPixelDetected, "Meta");
+  // Meta: the Ad Library name-based result wins over the website/Pixel
+  // fallback whenever it was actually attempted — it is strictly more
+  // reliable evidence (a real transparency-data query) than a Pixel's mere
+  // presence/absence, and unlike the website-based path it works with zero
+  // website at all. Manual verification still always wins over both.
+  const metaFallback = resolve(undefined, input.metaPixelDetected, "Meta");
+  const meta = input.manualMeta
+    ? resolve(input.manualMeta, input.metaPixelDetected, "Meta")
+    : metaAdLibraryAttempted
+      ? { status: input.metaAdLibrary!.status as AdStatusValue, evidence: input.metaAdLibrary!.evidence }
+      : metaFallback;
   const google = resolve(input.manualGoogle, input.googleTagDetected, "Google");
 
-  const confidence: "low" | "medium" | "high" = (input.manualMeta || input.manualGoogle) ? "high" : scanned ? "medium" : "low";
-  const source = input.manualMeta || input.manualGoogle
-    ? "Manuel doğrulama"
-    : scanned
-      ? "Website teknik taraması (Pixel/etiket tespiti)"
-      : hasWebsite
-        ? "Henüz taranmadı"
-        : "Website bulunamadı";
+  const confidence: "low" | "medium" | "high" = (input.manualMeta || input.manualGoogle)
+    ? "high"
+    : (metaAdLibraryAttempted || scanned)
+      ? "medium"
+      : "low";
+  const sources: string[] = [];
+  if (input.manualMeta || input.manualGoogle) sources.push("Manuel doğrulama");
+  if (metaAdLibraryAttempted) sources.push("Meta Ad Library (işletme adı araması)");
+  if (scanned) sources.push("Website teknik taraması (Pixel/etiket tespiti)");
+  if (sources.length === 0) sources.push(hasWebsite ? "Henüz taranmadı" : "Website bulunamadı");
+  const source = sources.join(" + ");
 
   return {
     metaAdsStatus: meta.status,
@@ -456,7 +487,7 @@ export function evaluateAdvertisingSignals(input: {
     googleTagDetected: input.googleTagDetected ?? null,
     advertisingConfidence: confidence,
     advertisingSource: source,
-    advertisingLastCheckedAt: input.checkedAt ?? (scanned ? new Date().toISOString() : null)
+    advertisingLastCheckedAt: input.checkedAt ?? input.metaAdLibrary?.checkedAt ?? (scanned ? new Date().toISOString() : null)
   };
 }
 
