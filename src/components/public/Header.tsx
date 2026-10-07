@@ -180,7 +180,7 @@ export function Header({ content }: { content: SiteContent }) {
         <span className="marketing-nav-aurora" aria-hidden="true" />
         <div className={`relative z-10 flex items-center justify-between gap-4 px-4 py-3 sm:px-5 ${scrolled ? "py-2.5" : ""}`}>
           <Link href="/" aria-label="HK Dijital ana sayfa" onClick={handleLogoClick} className="impact-logo rounded-[8px] transition hover:scale-[1.02]">
-            <Logo content={content} />
+            <Logo content={content} large />
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">

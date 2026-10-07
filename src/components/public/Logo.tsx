@@ -6,7 +6,7 @@ import type { SiteContent } from "@/lib/types";
 
 type LogoVariant = "website" | "login" | "customer" | "footer";
 
-export function Logo({ content, footer = false, compact = false, variant = "website" }: { content: SiteContent; footer?: boolean; compact?: boolean; variant?: LogoVariant }) {
+export function Logo({ content, footer = false, compact = false, variant = "website", large = false }: { content: SiteContent; footer?: boolean; compact?: boolean; variant?: LogoVariant; /** Public navbar only: the real hk-dijital-logo.png asset is a single square frame (emblem on top, "HK DIJITAL" wordmark + its orange underline stacked below) — at the previous 44-48px render the wordmark was illegible. Scoped to the one call site that opts in (Header.tsx); every other variant (footer/login/customer/admin) keeps its existing size exactly. */ large?: boolean }) {
   const logoByVariant: Record<LogoVariant, string | undefined> = {
     website: content.brand.logoUrl,
     login: content.brand.loginLogoUrl || content.brand.logoUrl,
@@ -25,7 +25,17 @@ export function Logo({ content, footer = false, compact = false, variant = "webs
     // next.config.ts has no remotePatterns configured, so an arbitrary
     // customer-uploaded external logo URL would otherwise fail to render.
     const isRelative = logo.startsWith("/");
-    return <Image src={logo} alt={`${content.brand.companyName} logosu`} width={64} height={64} unoptimized={!isRelative} onError={() => setFailedLogo(logo)} className="h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12" />;
+    return (
+      <Image
+        src={logo}
+        alt={`${content.brand.companyName} logosu`}
+        width={large ? 112 : 64}
+        height={large ? 112 : 64}
+        unoptimized={!isRelative}
+        onError={() => setFailedLogo(logo)}
+        className={large ? "h-14 w-14 shrink-0 rounded-[10px] object-contain object-left sm:h-16 sm:w-16" : "h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12"}
+      />
+    );
   }
 
   return (
