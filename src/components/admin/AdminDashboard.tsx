@@ -447,9 +447,19 @@ function FavoritesModal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  // Root cause of the "attached to the header" bug: `.admin-top-header`
+  // (this trigger's ancestor) sets `backdrop-filter: blur(10px)`, and
+  // backdrop-filter (like filter/transform/contain) creates a new
+  // containing block for ALL descendant `position: fixed` elements —
+  // so `fixed inset-0` here was positioning against the HEADER's box,
+  // not the viewport. Same class of bug the other 7 createPortal(...)
+  // modals in this file already exist to avoid — portal into
+  // getAdminPortalRoot() (`.hk-admin`, not document.body, to keep every
+  // var(--admin-*) token resolved) so this escapes that containing block
+  // exactly like every other admin modal already does.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -494,7 +504,8 @@ function FavoritesModal({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    getAdminPortalRoot()
   );
 }
 
