@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { BarChart3, GitBranch, Handshake, Megaphone, Search, Share2 } from "lucide-react";
+import { ArrowRight, BarChart3, GitBranch, Handshake, Megaphone, Search, Share2 } from "lucide-react";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingEyebrow, MarketingReveal } from "@/components/public/marketing/MarketingUI";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
+import { getSiteContent } from "@/lib/content";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,28 @@ const CAPABILITIES = [
   { icon: BarChart3, title: "Raporlama", text: "Veriye Dayalı Karar" }
 ];
 
+// Presentation-only metadata, not business data: brand_showcases has no
+// sector/location column and this task explicitly forbids a migration for
+// display labels. Keyed by the real, current production brand names; an
+// admin-added brand that isn't in this map simply shows no sector line
+// (never a fabricated one). Tone is a soft, brand-appropriate background
+// tint for the logo stage — the real logo file itself is never altered.
+const BRAND_PRESENTATION: Record<string, { sector: string; tone: string }> = {
+  "görke tasarım": { sector: "TASARIM & ÜRETİM • MANİSA", tone: "linear-gradient(135deg, #f7ead9, #efddbf)" },
+  "genel sağlık-iş manisa şube": { sector: "SENDİKA • KURUMSAL İLETİŞİM", tone: "linear-gradient(135deg, #fde3e3, #f9ccd0)" },
+  "saruhanlı eğitim ve kültür derneği": { sector: "STK • EĞİTİM & KÜLTÜR", tone: "linear-gradient(135deg, #fbe4e8, #f2e2e6)" },
+  "my cake 45": { sector: "BUTİK PASTA • YEREL İŞLETME • MANİSA", tone: "linear-gradient(135deg, #faf1dc, #f4e2bd)" },
+  "acn ilk yardım eğitim merkezi": { sector: "SAĞLIK • EĞİTİM • MANİSA", tone: "linear-gradient(135deg, #dcedfc, #bde1fa)" }
+};
+const DEFAULT_TONE = "linear-gradient(135deg, rgba(124,58,237,.08), rgba(158,230,53,.12))";
+
+function presentationFor(name: string) {
+  return BRAND_PRESENTATION[name.trim().toLocaleLowerCase("tr")];
+}
+
 export default async function BrandsPortfolioPage() {
-  const brands = await getActiveBrandShowcases();
+  const [brands, content] = await Promise.all([getActiveBrandShowcases(), getSiteContent()]);
+  const hkLogoUrl = content.brand.logoUrl || "/branding/hk-dijital-logo.png";
   const uniqueServiceCount = new Set(brands.flatMap((b) => b.services.map((s) => s.trim().toLocaleLowerCase("tr")))).size;
   const stats = [
     { value: `${brands.length}+`, label: "İş Birliği" },
@@ -80,10 +101,17 @@ export default async function BrandsPortfolioPage() {
               </div>
             </MarketingReveal>
 
-            {/* Decorative abstract composition — CSS only, no stock asset */}
+            {/* Decorative hero object: the real HK Dijital logo (never
+                recreated) on a dark premium tile, with soft brand-color
+                shapes behind it — CSS only, no stock asset. */}
             <MarketingReveal delay={.1} className="relative hidden h-64 lg:block">
-              <span aria-hidden className="absolute right-10 top-4 size-40 rotate-[14deg] rounded-[32px]" style={{ background: "linear-gradient(135deg, var(--mk-violet), var(--mk-indigo))", boxShadow: "0 30px 60px rgba(79,70,229,.3)" }} />
-              <span aria-hidden className="absolute right-28 top-28 size-28 -rotate-[10deg] rounded-[26px]" style={{ background: `linear-gradient(135deg, ${LIME}, #65a30d)`, boxShadow: "0 20px 44px rgba(101,163,13,.28)" }} />
+              <span aria-hidden className="absolute right-6 top-2 size-40 rotate-[10deg] rounded-[32px]" style={{ background: "linear-gradient(135deg, var(--mk-violet), var(--mk-indigo))", opacity: .9, boxShadow: "0 30px 60px rgba(79,70,229,.28)" }} />
+              <span aria-hidden className="absolute right-24 top-32 size-28 -rotate-[8deg] rounded-[24px]" style={{ background: `linear-gradient(135deg, ${LIME}, #65a30d)`, opacity: .85, boxShadow: "0 20px 44px rgba(101,163,13,.22)" }} />
+              <div className="absolute right-10 top-10 w-40 -rotate-3 rounded-[26px] p-5" style={{ background: "linear-gradient(160deg, #13141f, #1d2032)", boxShadow: "0 24px 48px rgba(15,16,36,.35)" }}>
+                <div className="relative mx-auto aspect-square w-full">
+                  <Image src={hkLogoUrl} alt="HK Dijital" fill sizes="160px" className="object-contain" unoptimized={!hkLogoUrl.startsWith("/")} />
+                </div>
+              </div>
             </MarketingReveal>
           </div>
         </section>
@@ -104,17 +132,16 @@ export default async function BrandsPortfolioPage() {
               <div className="grid grid-cols-1 gap-7 md:grid-cols-2 lg:gap-8">
                 {brands.map((brand, index) => {
                   const isLoneLast = brands.length % 2 === 1 && index === brands.length - 1;
+                  const presentation = presentationFor(brand.name);
                   return (
                     <MarketingReveal key={brand.id} delay={Math.min(index, 5) * 0.05} className={isLoneLast ? "md:col-span-2" : ""}>
                       <article className="marketing-card group grid h-full overflow-hidden lg:grid-cols-[1.25fr_1fr]">
                         <div className="flex flex-col gap-5 p-7 sm:p-9">
-                          <div className="flex items-center gap-4">
-                            <div className="grid size-16 shrink-0 place-items-center rounded-[14px] border bg-white p-2.5" style={{ borderColor: "var(--mk-border-strong)" }}>
-                              {brand.logoUrl && (
-                                <Image src={brand.logoUrl} alt={`${brand.name} logosu`} width={56} height={56} className="h-full w-full object-contain" sizes="56px" unoptimized />
-                              )}
-                            </div>
+                          <div>
                             <h2 className="min-w-0 break-words text-[clamp(1.25rem,1.6vw+1rem,1.75rem)] font-black leading-tight" style={{ color: "var(--mk-ink)" }}>{brand.name}</h2>
+                            {presentation?.sector && (
+                              <p className="mt-1.5 text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--mk-ink-faint)" }}>{presentation.sector}</p>
+                            )}
                           </div>
 
                           {brand.services.length > 0 && (
@@ -137,17 +164,19 @@ export default async function BrandsPortfolioPage() {
                         </div>
 
                         {/* Real showcase media isn't part of the data model yet — a
-                            branded abstract surface built from the brand's OWN real
-                            logo, never a stock photo. Hidden on small screens. */}
-                        <div className="relative hidden overflow-hidden lg:block" style={{ background: "linear-gradient(135deg, rgba(124,58,237,.08), rgba(158,230,53,.12))" }}>
+                            branded abstract stage built from the brand's OWN real
+                            logo (shown large, never cropped/stretched), never a
+                            stock photo. Hidden on small screens. */}
+                        <div className="relative hidden overflow-hidden lg:block" style={{ background: presentation?.tone || DEFAULT_TONE }}>
+                          <span aria-hidden className="absolute -right-10 -top-16 size-72 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,.55), transparent 70%)" }} />
+                          <span aria-hidden className="absolute -bottom-20 -left-10 size-64 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,.35), transparent 70%)" }} />
                           {brand.logoUrl && (
                             <Image
                               src={brand.logoUrl}
-                              alt=""
-                              aria-hidden="true"
+                              alt={`${brand.name} logosu`}
                               fill
                               sizes="(min-width: 1024px) 40vw, 0px"
-                              className="object-contain p-12 opacity-80 transition duration-300 group-hover:scale-[1.03]"
+                              className="relative object-contain p-10 transition duration-300 group-hover:scale-[1.03]"
                               unoptimized
                             />
                           )}
@@ -179,10 +208,10 @@ export default async function BrandsPortfolioPage() {
                 <p className="mt-2 text-sm leading-6" style={{ color: "var(--mk-dark-ink-soft)" }}>İşletmenizin dijital görünürlüğünü, reklam altyapısını ve büyüme fırsatlarını birlikte değerlendirelim.</p>
                 <Link
                   href="/teklif-al"
-                  className="marketing-btn mt-5 inline-flex"
+                  className="marketing-btn mt-5 inline-flex items-center gap-2"
                   style={{ background: LIME, color: "#11210a", boxShadow: "0 14px 32px rgba(158,230,53,.25)" }}
                 >
-                  Ücretsiz Ön Analiz Al
+                  Ücretsiz Ön Analiz Al <ArrowRight size={16} aria-hidden="true" />
                 </Link>
               </MarketingReveal>
             </div>
