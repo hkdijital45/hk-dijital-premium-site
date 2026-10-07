@@ -7,6 +7,7 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
 import { isArchivedPreAuditReport } from "@/lib/pre-audit/report-actions";
+import { leadDisplayName, buildClaudePrompt, buildCandidateEvaluationPrompt } from "@/lib/pre-audit/lead-prompts";
 
 const REJECTION_REASONS = [
   "Uygun müşteri değil", "Dijital ihtiyacı düşük", "Bütçe potansiyeli düşük",
@@ -27,7 +28,7 @@ type ReportType = "INTERNAL_REPORT" | "CLIENT_REPORT";
 type ListItem = { id: string; company_id: string | null; lead_id: string | null; analysis_group_id: string; report_type: ReportType; title: string; status: string; report_date: string; recommended_package: unknown; created_at: string; updated_at: string };
 type Summary = { totalPreAudits: number; thisMonth: number; potentialCompanies: number; convertedCompanies: number };
 type FullReport = Record<string, unknown> & { id: string; report_type: ReportType; title: string; status: string; report_date: string; analysis_group_id: string; company_id: string | null; lead_id: string | null };
-type QueueLead = {
+export type QueueLead = {
   id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null;
   city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null;
   status: string | null; rejection_reason: string | null; rejected_at: string | null; notes: string | null;
@@ -35,6 +36,14 @@ type QueueLead = {
 };
 type Queue = { pending: QueueLead[]; inReview: QueueLead[]; rejected: QueueLead[] };
 type Tab = "tamamlanan" | "bekleyen" | "inceleniyor" | "iptal" | "arsiv";
+// Candidate Evaluation ("Aday Değerlendirme") is a separate report family
+// from Ön İnceleme (deliberately not merged into the Tab union/stages/
+// emptyForTab machinery above, which is built entirely around the lead
+// pre-review queue + pre_audit_reports groups) — modeled as an additional
+// view the same `tab` state can hold, rendered as its own self-contained
+// section below.
+type ExtendedTab = Tab | "aday-degerlendirme";
+type CandidateEvalListItem = { id: string; company_id: string | null; lead_id: string | null; title: string; report_date: string; recommendation: string; priority: string; score: number | null; created_at: string; updated_at: string };
 type SortKey = "new" | "old" | "az" | "za";
 
 const SECTION_LABELS = PRE_AUDIT_SECTION_LABELS;
@@ -88,32 +97,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
       </div>
     </div>
   );
-}
-
-function leadDisplayName(lead: QueueLead) {
-  return lead.company || lead.name || "İsimsiz aday";
-}
-
-function buildClaudePrompt(lead: QueueLead) {
-  const location = [lead.district, lead.city].filter(Boolean).join(", ") || "-";
-  return `HK Dijital Ön İnceleme görevi.
-
-Aşağıdaki işletmeyi HK Dijital MCP bağlantısı üzerinden (get_pre_audit_context, leadId="${lead.id}") kesin olarak doğrula — aynı isimli başka bir işletmeyle karıştırma.
-
-Firma: ${leadDisplayName(lead)}
-Sektör: ${lead.sector || lead.business_type || "-"}
-Konum: ${location}
-Website: ${lead.website || "-"}
-Telefon: ${lead.phone || "-"}
-Instagram: ${lead.instagram || "-"}
-
-Doğruladıktan sonra: Google, Google Maps/Local SEO, web sitesi, SEO, sosyal medya (Instagram/Facebook) ve halka açık reklam sinyallerini (Meta/Google Ads) araştır. Yalnızca gerçekten bulduğun/doğrulayabildiğin bilgileri kullan; olmayan metrik uydurma.
-
-Kısa ve profesyonel bir ön inceleme hazırla: yönetici özeti, dijital varlıklar, SWOT (güçlü/zayıf yönler, fırsatlar, tehditler), dijital boşluklar, fırsatlar, önerilen HK Dijital hizmetleri ve paket, başlangıç reklam stratejisi ve bütçe planı.
-
-Raporu teslim etmeden önce Türkçe yazım, imla, noktalama, anlatım bozukluğu, tekrar, başlık tutarlılığı ve profesyonel terminoloji açısından sessiz bir son kontrol yap; hataları düzelterek yalnızca düzeltilmiş nihai raporu üret. Bu kontrol firma adı, fiyat, tarih, telefon, URL, kullanıcı adı, rakip adı, puan, yorum sayısı gibi somut verileri değiştirmez — yalnızca dili düzeltir.
-
-Kullanıcı açıkça "HK Dijital'e kaydet" derse, save_pre_audit_report aracını leadId="${lead.id}" ve report_type="INTERNAL_REPORT" ile çağırarak sonucu kaydet. Kullanıcı açıkça istemeden asla kaydetme.`;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -251,7 +234,7 @@ function ReportDetail({ report, onSendOffer, onReject, onExport, exportBusy }: {
   );
 }
 
-function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: QueueLead; isRejected?: boolean; onCopyPrompt?: (lead: QueueLead) => void; onReject?: (lead: QueueLead) => void }) {
+function QueueLeadRow({ lead, isRejected, onCopyPrompt, onCopyCandidatePrompt, onReject }: { lead: QueueLead; isRejected?: boolean; onCopyPrompt?: (lead: QueueLead) => void; onCopyCandidatePrompt?: (lead: QueueLead) => void; onReject?: (lead: QueueLead) => void }) {
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -270,8 +253,11 @@ function QueueLeadRow({ lead, isRejected, onCopyPrompt, onReject }: { lead: Queu
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {!isRejected && onCopyCandidatePrompt && (
+            <AdminButton variant="secondary" compact icon={<Sparkles size={13} />} onClick={() => onCopyCandidatePrompt(lead)}>Adayı Değerlendir Promptunu Kopyala</AdminButton>
+          )}
           {!isRejected && onCopyPrompt && (
-            <AdminButton variant="ai" compact icon={<Copy size={13} />} onClick={() => onCopyPrompt(lead)}>Claude Promptunu Kopyala</AdminButton>
+            <AdminButton variant="ai" compact icon={<Copy size={13} />} onClick={() => onCopyPrompt(lead)}>Ön İnceleme Promptunu Kopyala</AdminButton>
           )}
           {!isRejected && onReject && (
             <AdminButton variant="danger" compact onClick={() => onReject(lead)}>İptal</AdminButton>
@@ -374,7 +360,32 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   const [detailLoading, setDetailLoading] = useState(false);
   const [verifyCompanyName, setVerifyCompanyName] = useState("");
   const [verifyCopied, setVerifyCopied] = useState(false);
-  const [tab, setTab] = useState<Tab>(initialTab || "tamamlanan");
+  const [tab, setTab] = useState<ExtendedTab>(initialTab || "tamamlanan");
+  const [candidateEvals, setCandidateEvals] = useState<CandidateEvalListItem[] | null>(null);
+  const [candidateEvalDetail, setCandidateEvalDetail] = useState<Record<string, unknown> | null>(null);
+  const [candidateEvalDetailLoading, setCandidateEvalDetailLoading] = useState(false);
+  const [expandedCandidateEvalId, setExpandedCandidateEvalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab !== "aday-degerlendirme" || candidateEvals !== null) return;
+    fetch("/api/admin/candidate-evaluation").then((r) => r.json()).then((body) => setCandidateEvals(body.reports || [])).catch(() => setCandidateEvals([]));
+  }, [tab, candidateEvals]);
+
+  async function openCandidateEval(id: string) {
+    if (expandedCandidateEvalId === id) { setExpandedCandidateEvalId(null); setCandidateEvalDetail(null); return; }
+    setExpandedCandidateEvalId(id);
+    setCandidateEvalDetail(null);
+    setCandidateEvalDetailLoading(true);
+    try {
+      const res = await fetch(`/api/admin/candidate-evaluation/${id}`);
+      const body = await res.json();
+      setCandidateEvalDetail(res.ok ? body.report : null);
+    } catch {
+      setCandidateEvalDetail(null);
+    } finally {
+      setCandidateEvalDetailLoading(false);
+    }
+  }
   const [queue, setQueue] = useState<Queue>({ pending: [], inReview: [], rejected: [] });
   const [promptLead, setPromptLead] = useState<QueueLead | null>(null);
   const [rejectTarget, setRejectTarget] = useState<QueueLead | null>(null);
@@ -502,6 +513,19 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
       await navigator.clipboard.writeText(buildClaudePrompt(lead));
       setPromptLead(lead);
       fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_in_progress" }) }).then(load).catch(() => {});
+    } catch {
+      setActionMessage("Panoya kopyalanamadı.");
+    }
+  }
+
+  // Deliberately independent of copyClaudePromptForLead: never marks the
+  // Ön İnceleme pre-review queue status, since Adayı Değerlendir is not
+  // part of that pipeline — a candidate evaluation can happen before,
+  // instead of, or without ever triggering an Ön İnceleme.
+  async function copyCandidateEvaluationPromptForLead(lead: QueueLead) {
+    try {
+      await navigator.clipboard.writeText(buildCandidateEvaluationPrompt(lead));
+      setPromptLead(lead);
     } catch {
       setActionMessage("Panoya kopyalanamadı.");
     }
@@ -789,7 +813,7 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
           return (
             <button key={stage.key} id={`tab-${stage.key}`} role="tab" type="button" aria-selected={active} aria-controls="pre-audit-panel" tabIndex={active ? 0 : -1} onClick={() => setTab(stage.key)} onKeyDown={(e) => {
               if (!["ArrowRight", "ArrowLeft"].includes(e.key)) return;
-              const next = tabOrder[(tabOrder.indexOf(tab) + (e.key === "ArrowRight" ? 1 : -1) + tabOrder.length) % tabOrder.length];
+              const next = tabOrder[(tabOrder.indexOf(tab as Tab) + (e.key === "ArrowRight" ? 1 : -1) + tabOrder.length) % tabOrder.length];
               setTab(next);
               document.getElementById(`tab-${next}`)?.focus();
             }} className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600" style={active ? { background: "#0f172a", color: "#ffffff" } : { background: "#f1f5f9", color: "#334155" }}>
@@ -798,6 +822,15 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
             </button>
           );
         })}
+        <button
+          id="tab-aday-degerlendirme" role="tab" type="button" aria-selected={tab === "aday-degerlendirme"} aria-controls="pre-audit-panel"
+          onClick={() => setTab("aday-degerlendirme")}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-black motion-safe:transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
+          style={tab === "aday-degerlendirme" ? { background: "#0f172a", color: "#ffffff" } : { background: "#f1f5f9", color: "#334155" }}
+        >
+          <Sparkles size={15} aria-hidden /> Aday Değerlendirme
+          <span className="rounded-full px-2 py-0.5 text-xs font-black tabular-nums" style={tab === "aday-degerlendirme" ? { background: "#ffffff1f", color: "#ffffff" } : { background: "#ffffff", color: "#334155" }}>{candidateEvals?.length ?? 0}</span>
+        </button>
       </div>
 
       <section id="pre-audit-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="grid gap-3">
@@ -805,18 +838,58 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
 
         {tab === "bekleyen" && (
           queue.pending.length
-            ? <div className="grid gap-3">{queue.pending.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+            ? <div className="grid gap-3">{queue.pending.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onCopyCandidatePrompt={copyCandidateEvaluationPromptForLead} onReject={setRejectTarget} />)}</div>
             : <EmptyState icon={<Inbox size={22} />} title={emptyForTab.bekleyen.title} text={emptyForTab.bekleyen.text} ctaLabel="Müşteri Keşfi'ne Git" ctaHref="/hk-admin/musteri-kesfi" />
         )}
         {tab === "inceleniyor" && (
           queue.inReview.length
-            ? <div className="grid gap-3">{queue.inReview.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onReject={setRejectTarget} />)}</div>
+            ? <div className="grid gap-3">{queue.inReview.map((lead) => <QueueLeadRow key={lead.id} lead={lead} onCopyPrompt={copyClaudePromptForLead} onCopyCandidatePrompt={copyCandidateEvaluationPromptForLead} onReject={setRejectTarget} />)}</div>
             : <EmptyState icon={<Activity size={22} />} title={emptyForTab.inceleniyor.title} text={emptyForTab.inceleniyor.text} />
         )}
         {tab === "iptal" && (
           queue.rejected.length
             ? <div className="grid gap-3">{queue.rejected.map((lead) => <QueueLeadRow key={lead.id} lead={lead} isRejected />)}</div>
             : <EmptyState icon={<XCircle size={22} />} title={emptyForTab.iptal.title} text={emptyForTab.iptal.text} />
+        )}
+
+        {tab === "aday-degerlendirme" && (
+          candidateEvals === null
+            ? <SkeletonRows />
+            : candidateEvals.length === 0
+              ? <EmptyState icon={<Sparkles size={22} />} title="Henüz görüntülenecek rapor bulunmuyor." text="Bekleyen/İnceleniyor adaylarda “Adayı Değerlendir Promptunu Kopyala” ile yeni bir değerlendirme başlatabilirsiniz." />
+              : <div className="grid gap-3">
+                  {candidateEvals.map((item) => (
+                    <Card key={item.id}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black">{item.title || "İsimsiz aday"}</p>
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted, #64748b)" }}>
+                            {item.recommendation && <AdminStatusBadge tone={item.recommendation.toLocaleLowerCase("tr").includes("değil") ? "danger" : "success"}>{item.recommendation}</AdminStatusBadge>}
+                            {item.priority && <AdminStatusBadge tone="info">{item.priority}</AdminStatusBadge>}
+                            {typeof item.score === "number" && <span>Puan: {item.score}/100</span>}
+                            <span>{formatDate(item.report_date)}</span>
+                          </p>
+                        </div>
+                        <AdminButton variant="secondary" compact icon={<Eye size={13} />} onClick={() => openCandidateEval(item.id)}>{expandedCandidateEvalId === item.id ? "Gizle" : "Detay"}</AdminButton>
+                      </div>
+                      {expandedCandidateEvalId === item.id && (
+                        <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+                          {candidateEvalDetailLoading
+                            ? <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Yükleniyor…</p>
+                            : candidateEvalDetail
+                              ? <div className="grid gap-3">
+                                  {(candidateEvalDetail.report_content as string) && <GenericValue value={candidateEvalDetail.report_content} />}
+                                  {Array.isArray(candidateEvalDetail.strengths) && (candidateEvalDetail.strengths as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Güçlü yönler</p><GenericValue value={candidateEvalDetail.strengths} /></div>}
+                                  {Array.isArray(candidateEvalDetail.weaknesses) && (candidateEvalDetail.weaknesses as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Zayıf yönler</p><GenericValue value={candidateEvalDetail.weaknesses} /></div>}
+                                  {Array.isArray(candidateEvalDetail.digital_opportunities) && (candidateEvalDetail.digital_opportunities as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Dijital fırsatlar</p><GenericValue value={candidateEvalDetail.digital_opportunities} /></div>}
+                                  {(candidateEvalDetail.suggested_next_action as string) && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Önerilen sonraki adım</p><GenericValue value={candidateEvalDetail.suggested_next_action} /></div>}
+                                </div>
+                              : <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Rapor yüklenemedi.</p>}
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
         )}
 
         {(tab === "tamamlanan" || tab === "arsiv") && reports !== null && (

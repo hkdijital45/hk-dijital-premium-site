@@ -39,6 +39,10 @@ const SERVER_INSTRUCTIONS =
   "CLIENT_REPORT (internal sales fields are always stripped from CLIENT_REPORT server-side) — call it " +
   "only after the user explicitly asks to save/transfer to HK Dijital, never after analysis alone — and " +
   "get_latest_pre_audit_report reads back the latest saved report for a company. " +
+  "get_candidate_evaluation_context/save_candidate_evaluation/get_latest_candidate_evaluation support " +
+  "Aday Değerlendirme — a separate, lighter MÜŞTERİ ADAYI DEĞERLENDİRME ('is this prospect worth " +
+  "pursuing?') qualification report, never to be confused with or merged into the deeper Ön İnceleme " +
+  "audit above; same company/lead resolution rules and explicit-save-only rule apply. " +
   "get_instagram_profile_audit_context/save_instagram_profile_audit/get_instagram_profile_audits support " +
   "Instagram Profil Optimizasyonu (post-sale profile-quality consulting for an existing customer's own " +
   "connected Instagram): get_instagram_profile_audit_context returns the real company + connected Instagram " +
