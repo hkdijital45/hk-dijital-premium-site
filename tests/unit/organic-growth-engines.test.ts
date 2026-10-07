@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import { analyzeSeo, analyzeGeo, countWords, extractHeadings, hasInternalLink } from "../../src/lib/organic-growth/seo-geo-engine.ts";
 import { detectCannibalization } from "../../src/lib/organic-growth/cannibalization.ts";
 import { suggestInternalLinks, findOrphanArticles } from "../../src/lib/organic-growth/internal-links.ts";
-import { buildMonthlyStrategyPrompt, buildArticlePrompt, parseMonthlyPlanImport, parseArticleImport, CLAUDE_PROJECT_NAME } from "../../src/lib/organic-growth/claude-prompts.ts";
+import {
+  buildMonthlyStrategyPrompt, buildArticlePrompt, parseMonthlyPlanImport, parseArticleImport, CLAUDE_PROJECT_NAME,
+  buildBriefPrompt, parseBriefImport, AUTOPILOT_SYSTEM_PROMPT
+} from "../../src/lib/organic-growth/claude-prompts.ts";
 import { CONTENT_PLAN_STATUSES, isOrganicRecommendationType } from "../../src/lib/organic-growth/types.ts";
+import { runQualityGate } from "../../src/lib/organic-growth/quality-gate.ts";
 
 const GOOD_ARTICLE = {
   title: "Instagram Reklamı Nasıl Verilir? İşletmeler İçin Rehber",
@@ -156,4 +160,51 @@ test("isOrganicRecommendationType: matches SEO/content/GEO recommendation types 
 test("CONTENT_PLAN_STATUSES matches the spec's exact status set and order-independent membership", () => {
   const expected = ["PLANNED", "BRIEF_READY", "WAITING_FOR_CLAUDE", "DRAFT", "REVIEW", "APPROVED", "SCHEDULED", "PUBLISHED", "UPDATE_REQUIRED"];
   assert.deepEqual([...CONTENT_PLAN_STATUSES].sort(), [...expected].sort());
+});
+
+// --- Autopilot: brief generation + quality gate --------------------------
+
+test("buildBriefPrompt: includes the working title and existing related content to avoid duplication", () => {
+  const prompt = buildBriefPrompt({ workingTitle: "Meta Reklamında Bütçe Planlaması", primaryTopic: "Meta reklam bütçesi", existingRelatedContent: ["Google Ads Bütçe Rehberi"] });
+  assert.match(prompt, /Meta Reklamında Bütçe Planlaması/);
+  assert.match(prompt, /Google Ads Bütçe Rehberi/);
+  assert.match(prompt, /must_cover_points/);
+});
+
+test("parseBriefImport: requires at least primary_question or must_cover_points", () => {
+  assert.equal(parseBriefImport("{}").valid, false);
+  assert.equal(parseBriefImport('{"primary_question":""}').valid, false);
+  const good = parseBriefImport(JSON.stringify({ primary_question: "Meta reklamına ne kadar bütçe ayrılmalı?", must_cover_points: ["Bütçe aralıkları"] }));
+  assert.equal(good.valid, true);
+  assert.equal(good.brief?.primary_question, "Meta reklamına ne kadar bütçe ayrılmalı?");
+});
+
+test("parseBriefImport: rejects invalid JSON instead of throwing", () => {
+  const result = parseBriefImport("not json");
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.length);
+});
+
+test("AUTOPILOT_SYSTEM_PROMPT: explicitly bans the same clichés as the quality gate (no drift between the instruction and the check)", () => {
+  assert.match(AUTOPILOT_SYSTEM_PROMPT, /Günümüzün dijital dünyasında/);
+  assert.match(AUTOPILOT_SYSTEM_PROMPT, /UYDURMA/);
+});
+
+test("runQualityGate: flags a short body, a banned cliché, and missing headings — all independently", () => {
+  const warnings = runQualityGate({ title: "Test Başlık", content: "Günümüzün dijital dünyasında reklam vermek önemlidir.", wordCount: 10, minWordCount: 500 });
+  const codes = warnings.map((w) => w.code);
+  assert.ok(codes.includes("SHORT_BODY"));
+  assert.ok(codes.includes("GENERIC_AI_PHRASE"));
+  assert.ok(codes.includes("NO_HEADINGS"));
+});
+
+test("runQualityGate: a clean, sufficiently long article with headings and no clichés produces zero warnings", () => {
+  const content = `Meta reklamı kurarken bütçe planlaması ilk adımdır. ${"Doğru hedef kitle seçimi dönüşüm maliyetini düşürür. ".repeat(60)}\n\n## Bütçe nasıl belirlenir?\n\nSektör ve hedefe göre değişir.`;
+  const warnings = runQualityGate({ title: "Meta Reklamında Bütçe Planlaması", content, wordCount: 520, minWordCount: 500 });
+  assert.deepEqual(warnings, []);
+});
+
+test("runQualityGate: detects placeholder/yer tutucu text the model might leave behind", () => {
+  const warnings = runQualityGate({ title: "Başlık", content: "## Giriş\n\n[Buraya örnek gelecek] " + "a ".repeat(400), wordCount: 500, minWordCount: 500 });
+  assert.ok(warnings.some((w) => w.code === "PLACEHOLDER_TEXT"));
 });

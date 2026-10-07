@@ -84,3 +84,65 @@ export async function updateTopicCluster(id: string, payload: Partial<TopicClust
 export async function deleteTopicCluster(id: string) {
   await supabaseRest(`topic_clusters?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" });
 }
+
+// --- Autopilot: settings + generation run log ---------------------------
+
+export type OrganicGrowthSettings = {
+  id: string;
+  automation_enabled: boolean;
+  generation_days: string[];
+  default_language: string;
+  min_word_count: number;
+  updated_at: string;
+  updated_by: string | null;
+};
+
+export async function getOrganicGrowthSettings(): Promise<OrganicGrowthSettings> {
+  const rows = await supabaseRest<OrganicGrowthSettings[]>("organic_growth_settings?id=eq.default&limit=1");
+  return rows[0] || { id: "default", automation_enabled: true, generation_days: ["mon", "thu"], default_language: "tr", min_word_count: 500, updated_at: new Date().toISOString(), updated_by: null };
+}
+
+export async function updateOrganicGrowthSettings(payload: Partial<OrganicGrowthSettings>) {
+  const rows = await supabaseRest<OrganicGrowthSettings[]>("organic_growth_settings?id=eq.default", {
+    method: "PATCH",
+    body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
+  });
+  return rows[0] || null;
+}
+
+export type GenerationRun = {
+  id: string;
+  trigger: "cron" | "manual";
+  run_date: string;
+  status: "running" | "success" | "failed" | "skipped";
+  step: string;
+  content_plan_item_id: string | null;
+  blog_post_id: string | null;
+  provider: string | null;
+  model: string | null;
+  reasoning: string;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+  created_by: string | null;
+};
+
+export async function listGenerationRuns(limit = 20) {
+  return supabaseRest<GenerationRun[]>(`organic_generation_runs?select=*&order=started_at.desc&limit=${limit}`);
+}
+
+export async function startGenerationRun(payload: { trigger: "cron" | "manual"; created_by?: string | null }) {
+  const rows = await supabaseRest<GenerationRun[]>("organic_generation_runs", {
+    method: "POST",
+    body: JSON.stringify({ trigger: payload.trigger, status: "running", created_by: payload.created_by || null })
+  });
+  return rows[0];
+}
+
+export async function finishGenerationRun(id: string, payload: Partial<GenerationRun>) {
+  const rows = await supabaseRest<GenerationRun[]>(`organic_generation_runs?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ ...payload, finished_at: new Date().toISOString() })
+  });
+  return rows[0] || null;
+}

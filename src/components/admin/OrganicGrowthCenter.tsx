@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   BarChart3, Calendar, CheckCircle2, ChevronDown, ClipboardCopy, FileText, Layers, Link2, RefreshCw,
-  Search, Sparkles, ThumbsUp, TrendingUp
+  Search, Sparkles, ThumbsUp, TrendingUp, Zap
 } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -166,7 +166,7 @@ export function OrganicGrowthCenter() {
 
       {loading ? <AdminLoadingState label="Organik Büyüme Merkezi yükleniyor..." /> : (
         <>
-          {tab === "genel-bakis" && <OverviewTab overview={overview} onNavigate={setTab} />}
+          {tab === "genel-bakis" && <OverviewTab overview={overview} onNavigate={setTab} notify={notify} />}
           {tab === "aylik-strateji" && (
             <StrategyTab
               strategies={strategies}
@@ -202,13 +202,116 @@ export function OrganicGrowthCenter() {
   );
 }
 
+// --- Otonom Üretim --------------------------------------------------------
+
+const DAY_LABELS: Record<string, string> = { mon: "Pzt", tue: "Sal", wed: "Çar", thu: "Per", fri: "Cum", sat: "Cmt", sun: "Paz" };
+
+function runOutcomeLabel(run: any) {
+  if (run.status === "success") return `Taslak oluşturuldu (${run.provider || "-"})`;
+  if (run.status === "failed") return `Başarısız — ${run.step || "-"}`;
+  if (run.status === "skipped") return `Atlandı — ${run.reasoning || "fırsat yok"}`;
+  return "Çalışıyor...";
+}
+
+function AutopilotPanel({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
+  const [data, setData] = useState<{ settings: any; runs: any[]; providerConfigured: boolean } | null>(null);
+  const [running, setRunning] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const load = useCallback(() => {
+    fetch("/api/admin/organic-growth/autopilot/status").then((r) => r.json()).then(setData).catch(() => {});
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function runNow() {
+    setRunning(true);
+    try {
+      const response = await fetch("/api/admin/organic-growth/autopilot/run", { method: "POST" });
+      const outcome = await response.json().catch(() => ({}));
+      if (outcome.status === "success") notify(`Yeni taslak oluşturuldu${outcome.warnings?.length ? ` (${outcome.warnings.length} kalite uyarısı)` : ""}.`, "success");
+      else if (outcome.status === "skipped") notify(outcome.reason || "Üretilecek uygun bir fırsat bulunamadı.", "success");
+      else notify(outcome.error || "Otonom üretim başarısız oldu.", "error");
+    } catch {
+      notify("Otonom üretim tetiklenemedi.", "error");
+    } finally {
+      setRunning(false);
+      load();
+    }
+  }
+
+  async function toggleAutomation() {
+    if (!data?.settings) return;
+    setSavingSettings(true);
+    try {
+      const response = await fetch("/api/admin/organic-growth/autopilot/status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ automation_enabled: !data.settings.automation_enabled })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Ayar kaydedilemedi.");
+      setData((current) => current ? { ...current, settings: body.settings } : current);
+      notify(body.settings.automation_enabled ? "Otomatik üretim açıldı." : "Otomatik üretim kapatıldı.", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Ayar kaydedilemedi.", "error");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  if (!data) return null;
+  const lastRun = data.runs?.[0];
+  const days = (data.settings?.generation_days || []).map((d: string) => DAY_LABELS[d] || d).join(" + ") || "Pzt + Per";
+
+  return (
+    <div className="rounded-[16px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Zap size={18} className="text-amber-500" />
+          <div>
+            <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Otonom İçerik Üretimi</p>
+            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
+              Program: {days} · {data.providerConfigured ? "AI sağlayıcı yapılandırılmış" : "AI sağlayıcı yapılandırılmamış"}
+              {lastRun && ` · Son çalışma: ${runOutcomeLabel(lastRun)}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <AdminButton variant="secondary" onClick={toggleAutomation} disabled={savingSettings}>
+            {data.settings?.automation_enabled ? "Otomasyonu Kapat" : "Otomasyonu Aç"}
+          </AdminButton>
+          <AdminButton variant="primary" onClick={runNow} disabled={running || !data.providerConfigured}>
+            {running ? "Üretiliyor..." : "Şimdi Üret"}
+          </AdminButton>
+        </div>
+      </div>
+      {!data.providerConfigured && (
+        <p className="mt-3 text-xs font-bold" style={{ color: "var(--admin-danger, #dc2626)" }}>
+          Otomatik üretim için ANTHROPIC_API_KEY, GEMINI_API_KEY veya OPENAI_API_KEY ortam değişkenlerinden biri gerekli.
+        </p>
+      )}
+      {data.runs?.length > 0 && (
+        <div className="mt-3 grid gap-1.5">
+          {data.runs.slice(0, 5).map((run: any) => (
+            <div key={run.id} className="flex items-center justify-between gap-2 rounded-[8px] px-2.5 py-1.5 text-xs" style={{ background: "var(--admin-surface-soft)" }}>
+              <span className="font-bold" style={{ color: "var(--admin-text-secondary)" }}>{new Date(run.started_at).toLocaleString("tr-TR")} · {run.trigger === "cron" ? "Zamanlı" : "Manuel"}</span>
+              <span style={{ color: run.status === "failed" ? "var(--admin-danger, #dc2626)" : run.status === "success" ? "var(--admin-success, #16a34a)" : "var(--admin-text-muted)" }}>{runOutcomeLabel(run)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Genel Bakış ---------------------------------------------------------
 
-function OverviewTab({ overview, onNavigate }: { overview: any; onNavigate: (tab: Tab) => void }) {
+function OverviewTab({ overview, onNavigate, notify }: { overview: any; onNavigate: (tab: Tab) => void; notify: (text: string, tone?: "success" | "error") => void }) {
   if (!overview) return <AdminEmptyState title="Veriler yüklenemedi" description="Sayfayı yenileyin." />;
   const s = overview.statusCounts || {};
   return (
     <div className="flex flex-col gap-4">
+      <AutopilotPanel notify={notify} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <AdminKpiCard label="Bu Ay Planlanan" value={overview.thisMonthPlanned} icon={<Calendar size={18} />} tone="primary" onClick={() => onNavigate("icerik-plani")} />
         <AdminKpiCard label="Brief Hazır" value={s.BRIEF_READY || 0} icon={<FileText size={18} />} tone="info" onClick={() => onNavigate("icerik-plani")} />

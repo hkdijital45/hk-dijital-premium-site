@@ -9,6 +9,21 @@
 
 export const CLAUDE_PROJECT_NAME = "HK Dijital — SEO & GEO İçerik Stratejisti";
 
+// Every prompt below targets the Claude Project named above when a human
+// copy-pastes it into claude.ai — that Project's permanent instructions
+// (brand context, SEO/GEO rules, editorial standards) are configured there,
+// not repeated in each prompt (see the module comment). An AUTOMATED call
+// (no Project context available via the plain Messages/Responses API) must
+// supply an equivalent system prompt itself — this is that equivalent,
+// condensed from the same standards, used only by autopilot.ts.
+export const AUTOPILOT_SYSTEM_PROMPT =
+  "Sen HK Dijital için çalışan kıdemli bir Türk dijital pazarlama içerik stratejistisin. " +
+  "HK Dijital; Meta Reklam Yönetimi, Google Ads Yönetimi, Sosyal Medya Yönetimi ve Dijital Pazarlama Danışmanlığı sunan bir ajans. " +
+  "Türkçe, doğal, akıcı ve konuya hakim biçimde yaz; klişe AI açılış cümlelerinden (\"Günümüzün dijital dünyasında\", \"Dijitalleşen dünyada\", \"Her geçen gün\", \"Artık her zamankinden daha önemli\", \"Sonuç olarak\") kesinlikle kaçın. " +
+  "Her paragrafı madde listesine çevirme, cümle/paragraf uzunluğunu doğal biçimde çeşitlendir, arama niyetine erkenden doğrudan cevap ver. " +
+  "İstatistik, araştırma, rapor, müşteri, vaka çalışması, performans sonucu, fiyat, trafik, ROAS, dönüşüm oranı veya referans UYDURMA; sıralama garantisi verme. " +
+  "Yalnızca istenen JSON formatında, açıklama eklemeden yanıt ver.";
+
 function line(label: string, value: string | number | null | undefined) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();
@@ -269,6 +284,107 @@ export function parseArticleImport(raw: string): ParsedArticleImport {
       search_intent: typeof item.search_intent === "string" ? item.search_intent : "",
       target_location: typeof item.target_location === "string" ? item.target_location : "",
       flagged_claims: Array.isArray(item.flagged_claims) ? item.flagged_claims.map(String) : []
+    }
+  };
+}
+
+// --- Brief generation (PLANNED -> BRIEF_READY) --------------------------
+// No equivalent existed before: the monthly-strategy import only creates
+// the shallow opportunity fields (working_title/primary_topic/...), never
+// the full editorial brief (why_this_article/primary_question/
+// must_cover_points/...) buildArticlePrompt() actually needs. Previously
+// an admin filled those fields by hand. This lets the autopilot fill them
+// automatically for a PLANNED item instead, using the exact same
+// structured-JSON-import convention as the other two prompt/parse pairs.
+
+export type BriefPromptInput = {
+  workingTitle: string;
+  primaryTopic?: string;
+  searchIntent?: string;
+  targetService?: string;
+  targetGeography?: string;
+  targetAudience?: string;
+  topicCluster?: string;
+  articleType?: string;
+  rationale?: string;
+  ctaObjective?: string;
+  existingRelatedContent?: string[];
+};
+
+export function buildBriefPrompt(input: BriefPromptInput) {
+  const header = joinNonEmpty([
+    "MODE: EDITOR (BRIEF)",
+    [
+      line("WORKING TITLE", input.workingTitle),
+      line("PRIMARY TOPIC / KEYWORD", input.primaryTopic),
+      line("SEARCH INTENT", input.searchIntent),
+      line("TARGET SERVICE", input.targetService),
+      line("TARGET GEOGRAPHY", input.targetGeography),
+      line("TARGET AUDIENCE", input.targetAudience),
+      line("TOPIC CLUSTER", input.topicCluster),
+      line("ARTICLE TYPE", input.articleType),
+      line("RATIONALE", input.rationale),
+      line("CTA OBJECTIVE", input.ctaObjective)
+    ].filter(Boolean).join("\n"),
+    listBlock("EXISTING RELATED HK CONTENT (avoid duplicating)", input.existingRelatedContent)
+  ]);
+
+  const task =
+    "TASK:\nUsing the permanent rules of the \"HK Dijital — SEO & GEO İçerik Stratejisti\" Claude Project, turn this content opportunity into a full editorial brief.\n" +
+    "Do not invent statistics, research, prices, or customer results.\n" +
+    "Return the result in the exact structured import JSON format expected by HK Organic Growth Center:\n" +
+    '{"why_this_article":"","primary_question":"","secondary_questions":[],"related_concepts":[],"must_cover_points":[],"content_angle":"","seo_requirements":"","geo_requirements":"","facts_sources":"","editorial_notes":"","internal_link_targets":[]}\n' +
+    "Omit empty/non-applicable sections above.";
+
+  return joinNonEmpty([header, task]);
+}
+
+export type ImportedBrief = {
+  why_this_article?: string;
+  primary_question?: string;
+  secondary_questions?: string[];
+  related_concepts?: string[];
+  must_cover_points?: string[];
+  content_angle?: string;
+  seo_requirements?: string;
+  geo_requirements?: string;
+  facts_sources?: string;
+  editorial_notes?: string;
+  internal_link_targets?: string[];
+};
+
+export type ParsedBriefImport =
+  | { valid: true; brief: ImportedBrief; errors: [] }
+  | { valid: false; brief: null; errors: string[] };
+
+export function parseBriefImport(raw: string): ParsedBriefImport {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { valid: false, brief: null, errors: ["Geçerli bir JSON değil."] };
+  }
+  const item = data as Record<string, unknown>;
+  const primaryQuestion = typeof item.primary_question === "string" ? item.primary_question.trim() : "";
+  const mustCover = Array.isArray(item.must_cover_points) ? item.must_cover_points.map(String).filter(Boolean) : [];
+  if (!primaryQuestion && !mustCover.length) {
+    return { valid: false, brief: null, errors: ["primary_question veya must_cover_points alanlarından en az biri dolu olmalı."] };
+  }
+  return {
+    valid: true,
+    errors: [],
+    brief: {
+      why_this_article: typeof item.why_this_article === "string" ? item.why_this_article : "",
+      primary_question: primaryQuestion,
+      secondary_questions: Array.isArray(item.secondary_questions) ? item.secondary_questions.map(String) : [],
+      related_concepts: Array.isArray(item.related_concepts) ? item.related_concepts.map(String) : [],
+      must_cover_points: mustCover,
+      content_angle: typeof item.content_angle === "string" ? item.content_angle : "",
+      seo_requirements: typeof item.seo_requirements === "string" ? item.seo_requirements : "",
+      geo_requirements: typeof item.geo_requirements === "string" ? item.geo_requirements : "",
+      facts_sources: typeof item.facts_sources === "string" ? item.facts_sources : "",
+      editorial_notes: typeof item.editorial_notes === "string" ? item.editorial_notes : "",
+      internal_link_targets: Array.isArray(item.internal_link_targets) ? item.internal_link_targets.map(String) : []
     }
   };
 }
