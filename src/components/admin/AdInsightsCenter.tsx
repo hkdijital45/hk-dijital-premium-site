@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { AlertTriangle, BarChart3, Brain, CheckCircle, Copy, FileText, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Trophy } from "lucide-react";
+import { AlertTriangle, BarChart3, Brain, CheckCircle, ClipboardCheck, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -287,38 +287,51 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
 
   return (
     <AdminWorkspace
+      className="ad-doctor-workspace"
       eyebrow="Reklam ve Performans"
       title="Reklam Doktoru Pro"
       description="Meta ve Google reklam verilerini doktor mantığıyla analiz eder; performans sorunlarını, bütçe kaçaklarını, kreatif yorgunluğunu ve aksiyon reçetesini tek ekranda gösterir. Teşhisler sağlanan veriden kural motoruyla türetilir; AI yorumu yalnız 'Performansı Yorumla' çalıştırıldığında eklenir."
-      headerActions={<div className={`rounded-[10px] border px-3 py-1.5 text-xs font-black ${scoreTone(Number(data?.healthScore || 0))}`}>Skor: {data?.healthScore ?? "-"}/100 · {data?.doctorStatus || data?.healthLabel || "Veri bekleniyor"}</div>}
+      headerActions={
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>
+            <span className="size-2 rounded-full" style={{ background: data ? "#059669" : "#d97706" }} aria-hidden />
+            {data ? "Veri Güncel" : "Analiz Bekliyor"}
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>
+            <span className="size-2 rounded-full" style={{ background: data?.analysis?.admin ? "#7c3aed" : "#94a3b8" }} aria-hidden />
+            {data?.analysis?.admin ? "AI Yorumu Hazır" : "AI Yorumu Bekliyor"}
+          </span>
+          <div className={`rounded-[10px] border px-3 py-1.5 text-xs font-black ${scoreTone(Number(data?.healthScore || 0))}`}>Skor: {data?.healthScore ?? "-"}/100 · {data?.doctorStatus || data?.healthLabel || "Veri bekleniyor"}</div>
+        </div>
+      }
       leftPanel={
         <AdminControlPanel>
           <AdminFilterSection title="Analiz Filtreleri">
             <div className="grid gap-2">
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Müşteri
-                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">
+                <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">
                   <option value="">Müşteri seç</option>
                   {companies.map((company: any) => <option key={company.id} value={company.id}>{company.name || company.company_name}</option>)}
                 </select>
               </label>
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Tarih aralığı
-                <select value={range} onChange={(event) => setRange(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{ranges.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                <select value={range} onChange={(event) => setRange(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">{ranges.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               </label>
               {range === "custom" && <div className="grid grid-cols-2 gap-2">
                 <label className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">Başlangıç<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] px-2 text-sm" /></label>
                 <label className="grid gap-1 text-xs font-bold text-[var(--admin-text-secondary)]">Bitiş<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] px-2 text-sm" /></label>
               </div>}
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Platform
-                <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{platforms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+                <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">{platforms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
               </label>
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Kampanya türü
-                <select value={campaignType} onChange={(event) => setCampaignType(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{campaignTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                <select value={campaignType} onChange={(event) => setCampaignType(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">{campaignTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Durum
-                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{statusFilters.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">{statusFilters.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
               <label className="grid gap-1.5 text-xs font-bold text-[var(--admin-text-secondary)]">Analiz seviyesi
-                <select value={analysisLevel} onChange={(event) => setAnalysisLevel(event.target.value)} className="min-h-9 rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)]">{analysisLevels.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+                <select value={analysisLevel} onChange={(event) => setAnalysisLevel(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">{analysisLevels.map((item) => <option key={item} value={item}>{item}</option>)}</select>
               </label>
               <AdminButton compact variant="ai" disabled={Boolean(loading)} onClick={() => request("/api/admin/ad-insights")}><Search size={14} className="mr-1 inline" />{loading === "/api/admin/ad-insights" ? "Analiz ediliyor..." : "Analiz Et"}</AdminButton>
               <AdminButton compact variant="secondary" onClick={clearFilters}>Temizle</AdminButton>
@@ -337,7 +350,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
                   </div>
                 </div>
               ))}
-              {!data?.snapshots?.length && <p className="text-[11px] text-[var(--admin-text-muted)]">Henüz snapshot kaydı yok.</p>}
+              {!data?.snapshots?.length && <p className="rounded-[10px] border border-dashed p-3 text-xs leading-5" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>Henüz snapshot kaydı yok. &quot;Snapshot Kaydet&quot; ile o anki analiz sonucunu geçmişe ekleyin.</p>}
             </div>
           </AdminFilterSection>
         </AdminControlPanel>
@@ -370,19 +383,26 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         </AdminActionBar>
       }
     >
-    <div className="mb-4 flex gap-2">
-      <button type="button" onClick={() => setActiveTab("doctor")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "doctor" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-        Reklam Doktoru
-      </button>
-      <button type="button" onClick={() => setActiveTab("ai-strategy")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "ai-strategy" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-        Claude Reklam Stratejisi
-      </button>
-      <button type="button" onClick={() => setActiveTab("creative")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "creative" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-        Reklam Kreatif Raporu
-      </button>
-      <button type="button" onClick={() => setActiveTab("evaluation")} className="rounded-full px-3.5 py-2 text-xs font-black transition" style={activeTab === "evaluation" ? { background: "#0891b2", color: "white" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-        Reklam Değerlendirme
-      </button>
+    <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+      {([
+        ["doctor", "Reklam Doktoru", Stethoscope],
+        ["ai-strategy", "Claude Reklam Stratejisi", Sparkles],
+        ["creative", "Reklam Kreatif Raporu", ImageIcon],
+        ["evaluation", "Reklam Değerlendirme", ClipboardCheck]
+      ] as const).map(([key, label, TabIcon]) => {
+        const active = activeTab === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600"
+            style={active ? { background: "#0891b2", color: "#fff", boxShadow: "0 4px 14px rgba(8,145,178,.3)" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}
+          >
+            <TabIcon size={14} />{label}
+          </button>
+        );
+      })}
     </div>
 
     {activeTab === "ai-strategy" && <AdsStrategyPanel companyId={companyId} companies={companies} />}
@@ -393,7 +413,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için aktif bir müşteri seçin." />}
 
     {selectedCompany && <section className="mb-4 grid gap-3 lg:grid-cols-3">
-      <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3 lg:col-span-2">
+      <div className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 lg:col-span-2">
         <h3 className="text-sm font-black text-[var(--admin-text-primary)]">Müşteri Reklam Bağlantı Durumu</h3>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Meta Business ID<br />{connectionLabel(data?.connection?.metaBusinessId, "Meta reklam hesabı/veri bağlantısı eksik.")}</p>
@@ -402,7 +422,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
           <p className="rounded-[8px] bg-[var(--admin-surface-soft)] p-2 text-xs text-[var(--admin-text-secondary)]">Website / Pixel<br />{connectionLabel(data?.connection?.websiteUrl || data?.connection?.metaPixelId, "Website veya Pixel bilgisi eksik.")}</p>
         </div>
       </div>
-      <div className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+      <div className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
         <h3 className="text-sm font-black text-[var(--admin-text-primary)]">Veri Kaynağı</h3>
         <p className="mt-2 rounded-[8px] border border-cyan-200 bg-cyan-50 p-2 text-xs font-bold text-cyan-800">{data?.sourceType || "Analiz bekleniyor"}</p>
       </div>
@@ -418,21 +438,35 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     )}
 
     {data && <section className="my-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {Object.keys(metricExplanations).map((key) => <div key={key} title={descriptions[key]} className="rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+      {Object.keys(metricExplanations).map((key) => <div key={key} title={descriptions[key]} className="rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
         <p className="text-[10px] font-black uppercase tracking-[.1em] text-[var(--admin-text-muted)]">{metricExplanations[key]}</p>
         <strong className="mt-1 block text-lg font-black text-[var(--admin-text-primary)]">{formatMetric(key, metrics[key])}</strong>
       </div>)}
     </section>}
 
     {data && <section className="mb-4 grid gap-3 md:grid-cols-3">
-      {doctorCards.slice(3, 6).map(([title, value, description, tone]) => <article key={title} className={`rounded-[10px] border p-3 ${tone}`}>
-        <p className="text-[10px] font-black uppercase tracking-[.1em] opacity-80">{title}</p>
-        <strong className="mt-1 block text-sm font-black">{value}</strong>
-        <p className="mt-1 text-[11px] leading-4">{description}</p>
-      </article>)}
+      {doctorCards.slice(3, 6).map(([title, value, description, tone], index) => {
+        const DiagnosticIcon = [AlertTriangle, Trophy, Sparkles][index];
+        const accent = String(tone).includes("red") ? "#dc2626" : String(tone).includes("emerald") ? "#059669" : "#7c3aed";
+        return (
+          <article key={title} className="relative overflow-hidden rounded-[16px] border bg-[var(--admin-surface)] p-5" style={{ borderColor: "var(--admin-border)" }}>
+            <span aria-hidden className="absolute inset-x-0 top-0 h-[3px]" style={{ background: accent }} />
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-[12px]" style={{ background: `${accent}1A`, color: accent }}>
+                <DiagnosticIcon size={18} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[.08em]" style={{ color: "var(--admin-text-muted)" }}>{title}</p>
+                <strong className="mt-1 block text-base font-black" style={{ color: "var(--admin-text-primary)" }}>{value}</strong>
+                <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{description}</p>
+              </div>
+            </div>
+          </article>
+        );
+      })}
     </section>}
 
-    {data && <section className="mb-4 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+    {data && <section className="mb-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
       {sectionTitle("Doktor Teşhisleri", "Her teşhis metriklerden hesaplanır; sağlanan veriden kural motoruyla türetilir. Seçmek için bir satıra tıklayın.", <ShieldAlert className="text-red-600" size={18} />)}
       <div className="mt-3">
         <AdminDataGrid columns={diagnosisColumns} rows={diagnoses} rowKey={(item: any, index: number) => `${item.name}-${index}`} activeId={selectedDiagnosisIndex !== null ? `${diagnoses[selectedDiagnosisIndex]?.name}-${selectedDiagnosisIndex}` : undefined} onRowClick={(row: any) => setSelectedDiagnosisIndex(diagnoses.indexOf(row))} emptyTitle="Teşhis bulunamadı." emptyDescription="Analiz Et düğmesiyle bir doktor analizi çalıştırın." />
@@ -444,7 +478,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
       </div>
     </section>}
 
-    {data && <section className="mb-4 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-3">
+    {data && <section className="mb-4 rounded-[16px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5">
       {sectionTitle("Reklam Doktoru Reçetesi", "Bugün, 3 gün ve 7 gün içinde yapılacak aksiyonlar göreve çevrilebilir.", <CheckCircle className="text-emerald-600" />)}
       <div className="mt-5 grid gap-4 xl:grid-cols-3">
         {[
