@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Activity, AlertTriangle, BarChart3, Brain, CheckCircle, ClipboardCheck, Clock, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy, Wallet } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Brain, CheckCircle, ClipboardCheck, Clock, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy, UserSearch, Wallet } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -14,6 +14,7 @@ import { AdsStrategyPanel } from "@/components/admin/AdsStrategyPanel";
 import { AdCreativeReportPanel } from "@/components/admin/AdCreativeReportPanel";
 import { AdEvaluationPanel } from "@/components/admin/AdEvaluationPanel";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
+import { CandidateEvaluationBrowser } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
 
 const ranges = [
   ["today", "Bugün"],
@@ -128,7 +129,7 @@ function sectionTitle(title: string, description: string, icon?: ReactNode) {
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
   const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
-  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation">("doctor");
+  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation" | "candidate-evaluation">("doctor");
   const [range, setRange] = useState("last_30d");
   const [platform, setPlatform] = useState("all");
   const [campaignType, setCampaignType] = useState("Tümü");
@@ -328,7 +329,8 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         ["doctor", "Reklam Doktoru", Stethoscope],
         ["ai-strategy", "Claude Reklam Stratejisi", Sparkles],
         ["creative", "Reklam Kreatif Raporu", ImageIcon],
-        ["evaluation", "Reklam Değerlendirme", ClipboardCheck]
+        ["evaluation", "Reklam Değerlendirme", ClipboardCheck],
+        ["candidate-evaluation", "Aday Değerlendirmeleri", UserSearch]
       ] as const).map(([key, label, TabIcon]) => {
         const active = activeTab === key;
         return (
@@ -348,6 +350,14 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     {activeTab === "ai-strategy" && <AdsStrategyPanel companyId={companyId} companies={companies} />}
     {activeTab === "creative" && <AdCreativeReportPanel companyId={companyId} companies={companies} />}
     {activeTab === "evaluation" && <AdEvaluationPanel companyId={companyId} />}
+    {activeTab === "candidate-evaluation" && (
+      <div className="grid gap-4">
+        <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
+          Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir; yukarıdaki müşteri seçiminden bağımsız çalışır.
+        </div>
+        <CandidateEvaluationBrowser allCompanies={content.companies || []} />
+      </div>
+    )}
 
     <div hidden={activeTab !== "doctor"}>
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için yukarıdan aktif bir müşteri seçin." />}

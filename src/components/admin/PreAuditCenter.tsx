@@ -8,6 +8,7 @@ import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
 import { isArchivedPreAuditReport } from "@/lib/pre-audit/report-actions";
 import { leadDisplayName, buildClaudePrompt, buildCandidateEvaluationPrompt } from "@/lib/pre-audit/lead-prompts";
+import { CandidateEvaluationDetail } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
 
 const REJECTION_REASONS = [
   "Uygun müşteri değil", "Dijital ihtiyacı düşük", "Bütçe potansiyeli düşük",
@@ -876,15 +877,7 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
                         <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
                           {candidateEvalDetailLoading
                             ? <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Yükleniyor…</p>
-                            : candidateEvalDetail
-                              ? <div className="grid gap-3">
-                                  {(candidateEvalDetail.report_content as string) && <GenericValue value={candidateEvalDetail.report_content} />}
-                                  {Array.isArray(candidateEvalDetail.strengths) && (candidateEvalDetail.strengths as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Güçlü yönler</p><GenericValue value={candidateEvalDetail.strengths} /></div>}
-                                  {Array.isArray(candidateEvalDetail.weaknesses) && (candidateEvalDetail.weaknesses as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Zayıf yönler</p><GenericValue value={candidateEvalDetail.weaknesses} /></div>}
-                                  {Array.isArray(candidateEvalDetail.digital_opportunities) && (candidateEvalDetail.digital_opportunities as string[]).length > 0 && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Dijital fırsatlar</p><GenericValue value={candidateEvalDetail.digital_opportunities} /></div>}
-                                  {(candidateEvalDetail.suggested_next_action as string) && <div><p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted, #64748b)" }}>Önerilen sonraki adım</p><GenericValue value={candidateEvalDetail.suggested_next_action} /></div>}
-                                </div>
-                              : <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Rapor yüklenemedi.</p>}
+                            : <CandidateEvaluationDetail report={candidateEvalDetail} />}
                         </div>
                       )}
                     </Card>

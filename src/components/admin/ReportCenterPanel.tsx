@@ -5,8 +5,155 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, FileText, Archive, ArchiveRestore, Trash2, Pencil, Eye, ExternalLink, RefreshCw } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
+import { AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminEmptyState";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { formatReportTimestamp } from "@/lib/report-timestamp";
+import { PRE_AUDIT_SECTION_LABELS } from "@/lib/pre-audit/types";
+import { GenericValue, CandidateEvaluationBrowser } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
+
+type ReportContext = "customer" | "pre_audit" | "candidate_evaluation";
+const REPORT_CONTEXTS: Array<{ key: ReportContext; label: string }> = [
+  { key: "customer", label: "Müşteri Raporları" },
+  { key: "pre_audit", label: "Ön İnceleme Raporları" },
+  { key: "candidate_evaluation", label: "Aday Değerlendirme Raporları" }
+];
+
+function ReportContextSwitcher({ value, onChange }: { value: ReportContext; onChange: (v: ReportContext) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Rapor Merkezi bağlamı">
+      {REPORT_CONTEXTS.map((c) => (
+        <button
+          key={c.key} type="button" role="tab" aria-selected={value === c.key}
+          onClick={() => onChange(c.key)}
+          className="rounded-full px-3.5 py-2 text-xs font-black"
+          style={value === c.key ? { background: "#0f172a", color: "#ffffff" } : { background: "var(--admin-surface-soft, #f1f5f9)", color: "var(--admin-text-secondary)" }}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type PreAuditListItem = { id: string; company_id: string | null; lead_id: string | null; title: string; status: string; report_date: string; created_at: string; updated_at: string };
+
+/** "İşletme / Aday Seç" (never a customer selector) populated only from
+ * businesses/leads that actually have at least one pre_audit_reports row —
+ * reuses the same list/detail API routes Ön İnceleme Merkezi already uses. */
+function PreAuditEntityBrowser({ allCompanies = [] }: { allCompanies?: Array<{ id: string; name?: string; company_name?: string }> }) {
+  const [reports, setReports] = useState<PreAuditListItem[] | null>(null);
+  const [selectedKey, setSelectedKey] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/pre-audit").then((r) => r.json()).then((body) => setReports(body.reports || [])).catch(() => setReports([]));
+  }, []);
+
+  const entities = useMemo(() => {
+    if (!reports) return [];
+    const map = new Map<string, { key: string; name: string; count: number; latestDate: string }>();
+    for (const r of reports) {
+      const key = r.company_id ? `company:${r.company_id}` : r.lead_id ? `lead:${r.lead_id}` : null;
+      if (!key) continue;
+      const company = r.company_id ? allCompanies.find((c) => c.id === r.company_id) : null;
+      const name = company?.name || company?.company_name || r.title || "İsimsiz aday";
+      const reportDate = r.report_date || r.created_at;
+      const existing = map.get(key);
+      if (existing) {
+        existing.count += 1;
+        if (reportDate > existing.latestDate) existing.latestDate = reportDate;
+      } else {
+        map.set(key, { key, name, count: 1, latestDate: reportDate });
+      }
+    }
+    return [...map.values()].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
+  }, [reports, allCompanies]);
+
+  const selectedReports = useMemo(() => {
+    if (!reports || !selectedKey) return [];
+    const [kind, id] = selectedKey.split(":");
+    return reports
+      .filter((r) => (kind === "company" ? r.company_id === id : r.lead_id === id))
+      .sort((a, b) => (b.report_date || b.created_at).localeCompare(a.report_date || a.created_at));
+  }, [reports, selectedKey]);
+
+  async function openDetail(id: string) {
+    if (expandedId === id) { setExpandedId(null); setDetail(null); return; }
+    setExpandedId(id);
+    setDetail(null);
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/admin/pre-audit/${id}`);
+      const body = await res.json();
+      setDetail(res.ok ? body : null);
+    } catch {
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  if (reports === null) return <AdminLoadingState label="Ön inceleme raporları yükleniyor..." />;
+
+  return (
+    <div className="grid gap-3">
+      <div className="hk-card p-4">
+        <label className="text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>İşletme / Aday Seç</label>
+        <select
+          value={selectedKey}
+          onChange={(e) => { setSelectedKey(e.target.value); setExpandedId(null); }}
+          className="mt-1 min-h-9 w-full max-w-md rounded-[8px] border px-3 text-sm"
+          style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text-primary)" }}
+        >
+          <option value="">İşletme/aday seçin ({entities.length})</option>
+          {entities.map((e) => <option key={e.key} value={e.key}>{e.name} ({e.count})</option>)}
+        </select>
+      </div>
+
+      {!entities.length && <AdminEmptyState title="Henüz görüntülenecek rapor bulunmuyor." />}
+      {selectedKey && !selectedReports.length && <AdminEmptyState title="Bu işletme için henüz ön inceleme raporu bulunmuyor." />}
+
+      {selectedReports.map((r) => (
+        <div key={r.id} className="hk-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black">{r.title || "İsimsiz rapor"}</p>
+              <p className="mt-1 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+                {new Date(r.report_date || r.created_at).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })}
+                {r.status ? ` · ${r.status}` : ""}
+              </p>
+            </div>
+            <AdminButton variant="secondary" compact icon={<Eye size={13} />} onClick={() => openDetail(r.id)}>{expandedId === r.id ? "Gizle" : "Detay"}</AdminButton>
+          </div>
+          {expandedId === r.id && (
+            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+              {detailLoading ? (
+                <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor…</p>
+              ) : detail ? (
+                <div className="grid gap-3">
+                  {PRE_AUDIT_SECTION_LABELS.map(([field, label]) => {
+                    const value = (detail as Record<string, unknown>)[field];
+                    if (value === null || value === undefined || value === "" || (Array.isArray(value) && !value.length) || (typeof value === "object" && !Array.isArray(value) && !Object.keys(value as object).length)) return null;
+                    return (
+                      <div key={field}>
+                        <p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>{label}</p>
+                        <GenericValue value={value} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>Rapor yüklenemedi.</p>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type ReportSection = { title: string; content: string };
 type ReportText = { executiveSummary?: string; sections?: ReportSection[] };
@@ -69,6 +216,12 @@ async function fetchStrategyOrCreativeBlob(sourceType: "ad_strategy" | "ad_creat
 
 export function ReportCenterPanel({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
   const companies = useMemo(() => filterSelectableCustomers(content?.companies || []), [content?.companies]);
+  // Unfiltered — only used to resolve a display NAME for an entity in the
+  // Ön İnceleme/Aday Değerlendirme contexts (which may include a company
+  // that isn't yet "selectable" as a customer). Never used to populate the
+  // customer-only selector above, which stays exactly as it was.
+  const allCompanies = content?.companies || [];
+  const [reportContext, setReportContext] = useState<ReportContext>("customer");
   const [companyId, setCompanyId] = useState("");
   const [items, setItems] = useState<ReportCenterItem[]>([]);
   const [summary, setSummary] = useState<{ total: number; completed: number; draft: number; clientVisible: number; archived: number } | null>(null);
@@ -203,9 +356,27 @@ export function ReportCenterPanel({ content, notify }: { content: any; notify?: 
     }
   }
 
+  if (reportContext === "pre_audit") {
+    return (
+      <div className="space-y-4">
+        <ReportContextSwitcher value={reportContext} onChange={setReportContext} />
+        <PreAuditEntityBrowser allCompanies={allCompanies} />
+      </div>
+    );
+  }
+  if (reportContext === "candidate_evaluation") {
+    return (
+      <div className="space-y-4">
+        <ReportContextSwitcher value={reportContext} onChange={setReportContext} />
+        <CandidateEvaluationBrowser allCompanies={allCompanies} />
+      </div>
+    );
+  }
+
   if (!companyId) {
     return (
       <div className="space-y-4">
+        <ReportContextSwitcher value={reportContext} onChange={setReportContext} />
         <div className="hk-card p-6 text-center">
           <h2 className="text-lg font-semibold text-[var(--admin-text-primary)]">Rapor Merkezi</h2>
           <p className="mt-2 text-sm text-[var(--admin-text-secondary)]">Raporları görüntülemek için önce bir müşteri seçin.</p>
@@ -226,6 +397,7 @@ export function ReportCenterPanel({ content, notify }: { content: any; notify?: 
 
   return (
     <div className="space-y-4">
+      <ReportContextSwitcher value={reportContext} onChange={setReportContext} />
       <div className="hk-card flex flex-wrap items-center gap-3 p-4">
         <div className="flex-1 min-w-[200px]">
           <div className="text-xs text-[var(--admin-text-secondary)]">Müşteri</div>
