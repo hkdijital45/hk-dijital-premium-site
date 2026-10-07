@@ -6,34 +6,58 @@ import type { SiteContent } from "@/lib/types";
 
 type LogoVariant = "website" | "login" | "customer" | "footer";
 
-export function Logo({ content, footer = false, compact = false, variant = "website", large = false }: { content: SiteContent; footer?: boolean; compact?: boolean; variant?: LogoVariant; /** Public navbar only: the real hk-dijital-logo.png asset is a single square frame (emblem on top, "HK DIJITAL" wordmark + its orange underline stacked below) — at the previous 44-48px render the wordmark was illegible. Scoped to the one call site that opts in (Header.tsx); every other variant (footer/login/customer/admin) keeps its existing size exactly. */ large?: boolean }) {
+// Dedicated horizontal lockup (emblem + "HK DİJİTAL" wordmark + its orange
+// underline, transparent background) for the public navbar only — the
+// square hk-dijital-logo.png asset reads as a tiny icon at navbar height
+// because its wordmark/underline are stacked BELOW the emblem in one
+// square frame, not beside it. Not CMS-configurable (unlike
+// content.brand.logoUrl): this is a fixed site-chrome asset, same way the
+// navbar itself isn't admin-editable.
+const HORIZONTAL_LOGO = "/branding/hk-dijital-logo-horizontal.png";
+const HORIZONTAL_LOGO_SIZE = { width: 384, height: 129 };
+
+export function Logo({
+  content,
+  footer = false,
+  compact = false,
+  variant = "website",
+  /** Public navbar only. */
+  large = false
+}: {
+  content: SiteContent;
+  footer?: boolean;
+  compact?: boolean;
+  variant?: LogoVariant;
+  large?: boolean;
+}) {
   const logoByVariant: Record<LogoVariant, string | undefined> = {
     website: content.brand.logoUrl,
     login: content.brand.loginLogoUrl || content.brand.logoUrl,
     customer: content.brand.customerLogoUrl || content.brand.logoUrl,
     footer: content.brand.footerLogoUrl || content.brand.logoUrl
   };
-  const logo = logoByVariant[footer ? "footer" : variant];
+  const logo = large ? HORIZONTAL_LOGO : logoByVariant[footer ? "footer" : variant];
   const [failedLogo, setFailedLogo] = useState("");
   const failed = Boolean(logo && failedLogo === logo);
 
   if (logo && !failed) {
-    // PageSpeed flagged this exact asset: an 886x886 ~308 KiB PNG shipped
+    // PageSpeed flagged the square asset: an 886x886 ~308 KiB PNG shipped
     // unoptimized for a ~44-48px render. `unoptimized` bypassed next/image's
-    // built-in resizing entirely. Only the default, same-origin brand asset
-    // (/branding/hk-dijital-logo.png) is safe to let next/image optimize —
-    // next.config.ts has no remotePatterns configured, so an arbitrary
-    // customer-uploaded external logo URL would otherwise fail to render.
+    // built-in resizing entirely. Only same-origin brand assets under
+    // /branding/ are safe to let next/image optimize — next.config.ts has no
+    // remotePatterns configured, so an arbitrary customer-uploaded external
+    // logo URL would otherwise fail to render.
     const isRelative = logo.startsWith("/");
+    const size = large ? HORIZONTAL_LOGO_SIZE : { width: 64, height: 64 };
     return (
       <Image
         src={logo}
-        alt={`${content.brand.companyName} logosu`}
-        width={large ? 112 : 64}
-        height={large ? 112 : 64}
+        alt={large ? "HK Dijital" : `${content.brand.companyName} logosu`}
+        width={size.width}
+        height={size.height}
         unoptimized={!isRelative}
         onError={() => setFailedLogo(logo)}
-        className={large ? "h-14 w-14 shrink-0 rounded-[10px] object-contain object-left sm:h-16 sm:w-16" : "h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12"}
+        className={large ? "h-10 w-auto shrink-0 object-contain object-left sm:h-12" : "h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12"}
       />
     );
   }
