@@ -4,6 +4,7 @@ import {
   BRAND_PRESET_SERVICES,
   BRAND_SERVICES_MAX_COUNT,
   extensionForBrandLogo,
+  mapPublicBrandRow,
   matchPresetService,
   normalizeServices,
   parseBrandFields,
@@ -85,6 +86,23 @@ test("toggleService adds a preset once and removes it on a second toggle, never 
 test("preset list stays within the normal services cap and round-trips through normalizeServices", () => {
   assert.ok(BRAND_PRESET_SERVICES.length <= BRAND_SERVICES_MAX_COUNT);
   assert.deepEqual(normalizeServices([...BRAND_PRESET_SERVICES, "Meta Ads Yönetimi"]), [...BRAND_PRESET_SERVICES]);
+});
+
+test("mapPublicBrandRow hides a brand with no logo and preserves services/description", () => {
+  const base = { id: "1", name: "Görke Tasarım", services: ["Meta Ads Yönetimi", "SEO"], description: null, is_active: true, sort_order: 0, created_at: "2026-10-01T00:00:00Z" };
+  assert.equal(mapPublicBrandRow({ ...base, logo_url: null }), null);
+
+  const withLogo = mapPublicBrandRow({ ...base, logo_url: "https://example.com/logo.png" });
+  assert.ok(withLogo);
+  assert.equal(withLogo?.logoUrl, "https://example.com/logo.png");
+  assert.deepEqual(withLogo?.services, ["Meta Ads Yönetimi", "SEO"]);
+  assert.equal(withLogo?.description, null);
+
+  const withEmptyDescription = mapPublicBrandRow({ ...base, logo_url: "https://example.com/logo.png", description: "" });
+  assert.equal(withEmptyDescription?.description, null);
+
+  const withRealDescription = mapPublicBrandRow({ ...base, logo_url: "https://example.com/logo.png", description: "Kısa açıklama" });
+  assert.equal(withRealDescription?.description, "Kısa açıklama");
 });
 
 test("servicesArray reads both a JSON array and a JSON-encoded string", () => {

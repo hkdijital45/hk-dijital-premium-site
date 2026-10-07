@@ -26,6 +26,7 @@ const mainNav = [
   ["Nasıl Çalışıyoruz", "/#process"],
   ["Hakkımızda", "/hakkimda"],
   ["Blog", "/blog"],
+  ["Çalıştığımız Markalar", "/calistigimiz-markalar"],
   ["İletişim", "/iletisim"]
 ];
 

@@ -139,6 +139,30 @@ export function swapPlan(
   };
 }
 
+export type PublicBrandShowcase = {
+  id: string;
+  name: string;
+  logoUrl: string;
+  services: string[];
+  description: string | null;
+};
+
+// Maps one raw brand_showcases row to the public homepage/portfolio shape,
+// or null when it has no logo — a brand without a logo is incomplete and
+// must never render publicly, matching the admin's own "logo zorunlu" rule.
+// Active-only and sort_order ordering are already applied by the caller's
+// query; this only reshapes and never re-sorts or re-filters by status.
+export function mapPublicBrandRow(row: BrandShowcaseRow): PublicBrandShowcase | null {
+  if (!row.logo_url) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    logoUrl: row.logo_url,
+    services: servicesArray(row.services),
+    description: row.description || null
+  };
+}
+
 export function servicesArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => String(item));
   if (typeof value === "string") {

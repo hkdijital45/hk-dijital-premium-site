@@ -12,6 +12,7 @@ const staticRoutes = [
   "/iletisim",
   "/teklif-al",
   "/manisa-dijital-pazarlama",
+  "/calistigimiz-markalar",
   "/gizlilik-politikasi",
   "/kullanim-sartlari",
   "/veri-silme"

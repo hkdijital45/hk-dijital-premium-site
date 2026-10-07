@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
+import { MarketingButton, MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
 import type { PublicBrandShowcase } from "@/lib/brand-showcase-public";
 
 // "HK Dijital ile Çalışan Markalar" — admin-managed (see BrandShowcaseCenter /
@@ -58,6 +58,12 @@ export function BrandShowcaseSection({ brands }: { brands: PublicBrandShowcase[]
           </MarketingReveal>
         ))}
       </div>
+
+      <MarketingReveal className="mt-10 text-center sm:mt-12">
+        <MarketingButton href="/calistigimiz-markalar" variant="secondary" trackingLabel="Tüm Markaları Gör CTA">
+          Tüm Markaları Gör
+        </MarketingButton>
+      </MarketingReveal>
     </MarketingSection>
   );
 }

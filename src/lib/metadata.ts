@@ -18,7 +18,8 @@ export const publicPagePaths: Record<string, string> = {
   metaAds: "/hizmetler/meta-reklam-yonetimi",
   googleAds: "/hizmetler/google-ads-yonetimi",
   socialMedia: "/hizmetler/sosyal-medya-yonetimi",
-  consultancy: "/hizmetler/dijital-pazarlama-danismanligi"
+  consultancy: "/hizmetler/dijital-pazarlama-danismanligi",
+  brands: "/calistigimiz-markalar"
 };
 
 const fallbackSeo: Record<string, { title: string; description: string }> = {
@@ -69,6 +70,10 @@ const fallbackSeo: Record<string, { title: string; description: string }> = {
   consultancy: {
     title: "Dijital Pazarlama Danışmanlığı | HK Dijital",
     description: "Manisa merkezli işletmeler için reklam, ölçümleme, teklif, dönüşüm ve raporlama süreçlerini netleştiren danışmanlık."
+  },
+  brands: {
+    title: "Çalıştığımız Markalar | HK Dijital",
+    description: "HK Dijital'in dijital reklam, sosyal medya, web ve dijital strateji alanlarında birlikte çalıştığı marka ve kurumları keşfedin."
   }
 };
 
