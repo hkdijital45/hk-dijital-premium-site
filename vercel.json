@@ -39,10 +39,6 @@
     {
       "path": "/api/admin/social-autopilot/process-queue",
       "schedule": "40 4 * * *"
-    },
-    {
-      "path": "/api/admin/organic-growth/autopilot/run",
-      "schedule": "0 7 * * 1,4"
     }
   ]
 }

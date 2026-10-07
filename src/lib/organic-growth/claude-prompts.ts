@@ -9,21 +9,6 @@
 
 export const CLAUDE_PROJECT_NAME = "HK Dijital — SEO & GEO İçerik Stratejisti";
 
-// Every prompt below targets the Claude Project named above when a human
-// copy-pastes it into claude.ai — that Project's permanent instructions
-// (brand context, SEO/GEO rules, editorial standards) are configured there,
-// not repeated in each prompt (see the module comment). An AUTOMATED call
-// (no Project context available via the plain Messages/Responses API) must
-// supply an equivalent system prompt itself — this is that equivalent,
-// condensed from the same standards, used only by autopilot.ts.
-export const AUTOPILOT_SYSTEM_PROMPT =
-  "Sen HK Dijital için çalışan kıdemli bir Türk dijital pazarlama içerik stratejistisin. " +
-  "HK Dijital; Meta Reklam Yönetimi, Google Ads Yönetimi, Sosyal Medya Yönetimi ve Dijital Pazarlama Danışmanlığı sunan bir ajans. " +
-  "Türkçe, doğal, akıcı ve konuya hakim biçimde yaz; klişe AI açılış cümlelerinden (\"Günümüzün dijital dünyasında\", \"Dijitalleşen dünyada\", \"Her geçen gün\", \"Artık her zamankinden daha önemli\", \"Sonuç olarak\") kesinlikle kaçın. " +
-  "Her paragrafı madde listesine çevirme, cümle/paragraf uzunluğunu doğal biçimde çeşitlendir, arama niyetine erkenden doğrudan cevap ver. " +
-  "İstatistik, araştırma, rapor, müşteri, vaka çalışması, performans sonucu, fiyat, trafik, ROAS, dönüşüm oranı veya referans UYDURMA; sıralama garantisi verme. " +
-  "Yalnızca istenen JSON formatında, açıklama eklemeden yanıt ver.";
-
 function line(label: string, value: string | number | null | undefined) {
   if (value === null || value === undefined) return "";
   const text = String(value).trim();

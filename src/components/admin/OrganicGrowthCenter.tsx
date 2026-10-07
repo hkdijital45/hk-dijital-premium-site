@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   BarChart3, Calendar, CheckCircle2, ChevronDown, ClipboardCopy, FileText, Layers, Link2, RefreshCw,
-  Search, Sparkles, ThumbsUp, TrendingUp, Zap
+  Search, Sparkles, ThumbsUp, TrendingUp
 } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -16,7 +16,9 @@ import {
   CONTENT_PLAN_STATUSES, CONTENT_PLAN_STATUS_LABELS, TARGET_SERVICES, isOrganicRecommendationType,
   type ContentPlanItem, type ContentPlanStatus, type MonthlyStrategy, type TopicCluster
 } from "@/lib/organic-growth/types";
-import { buildArticlePrompt, buildMonthlyStrategyPrompt, CLAUDE_PROJECT_NAME } from "@/lib/organic-growth/claude-prompts";
+import { buildArticlePrompt, buildMonthlyStrategyPrompt, parseArticleImport, CLAUDE_PROJECT_NAME } from "@/lib/organic-growth/claude-prompts";
+import { detectCannibalization } from "@/lib/organic-growth/cannibalization";
+import { runQualityGate } from "@/lib/organic-growth/quality-gate";
 
 type Tab = "genel-bakis" | "aylik-strateji" | "icerik-plani" | "konu-kumeleri" | "yazilar" | "seo-geo" | "ic-baglantilar" | "search-console" | "ai-visibility" | "oneriler" | "performans";
 
@@ -166,7 +168,7 @@ export function OrganicGrowthCenter() {
 
       {loading ? <AdminLoadingState label="Organik Büyüme Merkezi yükleniyor..." /> : (
         <>
-          {tab === "genel-bakis" && <OverviewTab overview={overview} onNavigate={setTab} notify={notify} />}
+          {tab === "genel-bakis" && <OverviewTab overview={overview} onNavigate={setTab} />}
           {tab === "aylik-strateji" && (
             <StrategyTab
               strategies={strategies}
@@ -184,6 +186,7 @@ export function OrganicGrowthCenter() {
               items={items}
               strategies={strategies}
               clusters={clusters}
+              posts={posts}
               notify={notify}
               reload={loadAll}
             />
@@ -202,116 +205,50 @@ export function OrganicGrowthCenter() {
   );
 }
 
-// --- Otonom Üretim --------------------------------------------------------
+// --- Claude İçerik Akışı ---------------------------------------------------
+// Organic Growth Center never calls an AI provider API to write content —
+// Claude Project (the user's own interactive workspace) is the writer;
+// this panel is purely a navigation/explainer surface for that copy/paste
+// handoff, never a "send to Claude" network action.
 
-const DAY_LABELS: Record<string, string> = { mon: "Pzt", tue: "Sal", wed: "Çar", thu: "Per", fri: "Cum", sat: "Cmt", sun: "Paz" };
+const CLAUDE_WORKFLOW_STEPS = ["Plan", "Claude", "Taslak", "Kontrol", "Yayın"];
 
-function runOutcomeLabel(run: any) {
-  if (run.status === "success") return `Taslak oluşturuldu (${run.provider || "-"})`;
-  if (run.status === "failed") return `Başarısız — ${run.step || "-"}`;
-  if (run.status === "skipped") return `Atlandı — ${run.reasoning || "fırsat yok"}`;
-  return "Çalışıyor...";
-}
-
-function AutopilotPanel({ notify }: { notify: (text: string, tone?: "success" | "error") => void }) {
-  const [data, setData] = useState<{ settings: any; runs: any[]; providerConfigured: boolean } | null>(null);
-  const [running, setRunning] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
-
-  const load = useCallback(() => {
-    fetch("/api/admin/organic-growth/autopilot/status").then((r) => r.json()).then(setData).catch(() => {});
-  }, []);
-  useEffect(() => { load(); }, [load]);
-
-  async function runNow() {
-    setRunning(true);
-    try {
-      const response = await fetch("/api/admin/organic-growth/autopilot/run", { method: "POST" });
-      const outcome = await response.json().catch(() => ({}));
-      if (outcome.status === "success") notify(`Yeni taslak oluşturuldu${outcome.warnings?.length ? ` (${outcome.warnings.length} kalite uyarısı)` : ""}.`, "success");
-      else if (outcome.status === "skipped") notify(outcome.reason || "Üretilecek uygun bir fırsat bulunamadı.", "success");
-      else notify(outcome.error || "Otonom üretim başarısız oldu.", "error");
-    } catch {
-      notify("Otonom üretim tetiklenemedi.", "error");
-    } finally {
-      setRunning(false);
-      load();
-    }
-  }
-
-  async function toggleAutomation() {
-    if (!data?.settings) return;
-    setSavingSettings(true);
-    try {
-      const response = await fetch("/api/admin/organic-growth/autopilot/status", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ automation_enabled: !data.settings.automation_enabled })
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Ayar kaydedilemedi.");
-      setData((current) => current ? { ...current, settings: body.settings } : current);
-      notify(body.settings.automation_enabled ? "Otomatik üretim açıldı." : "Otomatik üretim kapatıldı.", "success");
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Ayar kaydedilemedi.", "error");
-    } finally {
-      setSavingSettings(false);
-    }
-  }
-
-  if (!data) return null;
-  const lastRun = data.runs?.[0];
-  const days = (data.settings?.generation_days || []).map((d: string) => DAY_LABELS[d] || d).join(" + ") || "Pzt + Per";
-
+function ClaudeWorkflowPanel({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
   return (
     <div className="rounded-[16px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Zap size={18} className="text-amber-500" />
+          <Sparkles size={18} className="text-cyan-600" />
           <div>
-            <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Otonom İçerik Üretimi</p>
-            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>
-              Program: {days} · {data.providerConfigured ? "AI sağlayıcı yapılandırılmış" : "AI sağlayıcı yapılandırılmamış"}
-              {lastRun && ` · Son çalışma: ${runOutcomeLabel(lastRun)}`}
-            </p>
+            <p className="text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>Claude İçerik Akışı</p>
+            <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Strateji ve brief HK Digital Center&apos;da. İçerik Claude Project&apos;te hazırlanır. Her içerik önce taslak olarak geri alınır.</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <AdminButton variant="secondary" onClick={toggleAutomation} disabled={savingSettings}>
-            {data.settings?.automation_enabled ? "Otomasyonu Kapat" : "Otomasyonu Aç"}
-          </AdminButton>
-          <AdminButton variant="primary" onClick={runNow} disabled={running || !data.providerConfigured}>
-            {running ? "Üretiliyor..." : "Şimdi Üret"}
-          </AdminButton>
+          <AdminButton variant="secondary" onClick={() => onNavigate("icerik-plani")}>İçerik Planına Git</AdminButton>
+          <AdminButton variant="primary" icon={<Sparkles size={14} />} onClick={() => onNavigate("icerik-plani")}>Claude&apos;dan Taslak İçe Aktar</AdminButton>
         </div>
       </div>
-      {!data.providerConfigured && (
-        <p className="mt-3 text-xs font-bold" style={{ color: "var(--admin-danger, #dc2626)" }}>
-          Otomatik üretim için ANTHROPIC_API_KEY, GEMINI_API_KEY veya OPENAI_API_KEY ortam değişkenlerinden biri gerekli.
-        </p>
-      )}
-      {data.runs?.length > 0 && (
-        <div className="mt-3 grid gap-1.5">
-          {data.runs.slice(0, 5).map((run: any) => (
-            <div key={run.id} className="flex items-center justify-between gap-2 rounded-[8px] px-2.5 py-1.5 text-xs" style={{ background: "var(--admin-surface-soft)" }}>
-              <span className="font-bold" style={{ color: "var(--admin-text-secondary)" }}>{new Date(run.started_at).toLocaleString("tr-TR")} · {run.trigger === "cron" ? "Zamanlı" : "Manuel"}</span>
-              <span style={{ color: run.status === "failed" ? "var(--admin-danger, #dc2626)" : run.status === "success" ? "var(--admin-success, #16a34a)" : "var(--admin-text-muted)" }}>{runOutcomeLabel(run)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-black" style={{ color: "var(--admin-text-muted)" }}>
+        {CLAUDE_WORKFLOW_STEPS.map((step, index) => (
+          <span key={step} className="flex items-center gap-1.5">
+            <span className="rounded-full px-2.5 py-1" style={{ background: "var(--admin-surface-soft)" }}>{step}</span>
+            {index < CLAUDE_WORKFLOW_STEPS.length - 1 && <span aria-hidden>→</span>}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
 // --- Genel Bakış ---------------------------------------------------------
 
-function OverviewTab({ overview, onNavigate, notify }: { overview: any; onNavigate: (tab: Tab) => void; notify: (text: string, tone?: "success" | "error") => void }) {
+function OverviewTab({ overview, onNavigate }: { overview: any; onNavigate: (tab: Tab) => void }) {
   if (!overview) return <AdminEmptyState title="Veriler yüklenemedi" description="Sayfayı yenileyin." />;
   const s = overview.statusCounts || {};
   return (
     <div className="flex flex-col gap-4">
-      <AutopilotPanel notify={notify} />
+      <ClaudeWorkflowPanel onNavigate={onNavigate} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <AdminKpiCard label="Bu Ay Planlanan" value={overview.thisMonthPlanned} icon={<Calendar size={18} />} tone="primary" onClick={() => onNavigate("icerik-plani")} />
         <AdminKpiCard label="Brief Hazır" value={s.BRIEF_READY || 0} icon={<FileText size={18} />} tone="info" onClick={() => onNavigate("icerik-plani")} />
@@ -491,13 +428,14 @@ const EMPTY_ITEM_FORM = {
   content_angle: "", seo_requirements: "", geo_requirements: "", facts_sources: "", editorial_notes: "", topic_cluster_id: "", strategy_id: ""
 };
 
-function ContentPlanTab({ items, strategies, clusters, notify, reload }: any) {
+function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: any) {
   const [selectedId, setSelectedId] = useState<string>("");
   const [form, setForm] = useState<any>(EMPTY_ITEM_FORM);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [importRaw, setImportRaw] = useState("");
+  const [importPreview, setImportPreview] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState("");
 
   const selected = items.find((i: ContentPlanItem) => i.id === selectedId) || null;
@@ -580,16 +518,61 @@ function ContentPlanTab({ items, strategies, clusters, notify, reload }: any) {
     }));
   }
 
-  async function importArticle() {
+  // "Claude Promptunu Kopyala" only advances the plan status to
+  // WAITING_FOR_CLAUDE when the user actually copies it (never just from
+  // opening/previewing the prompt), and never regresses an item that has
+  // already moved further along (DRAFT/REVIEW/APPROVED/...).
+  async function copyPromptAndAdvance() {
     if (!selected) return;
+    if (!(await copyToClipboard(prompt))) { notify("Panoya kopyalanamadı.", "error"); return; }
+    notify("Claude Project'e aktarılmaya hazır.");
+    if (selected.status === "PLANNED" || selected.status === "BRIEF_READY") {
+      await setStatus(selected.id, "WAITING_FOR_CLAUDE");
+    }
+  }
+
+  // Pure, deterministic, zero-AI-provider-call validation of Claude's
+  // pasted output — parses the structured envelope (parseArticleImport),
+  // runs the deterministic quality gate (banned clichés/short body/missing
+  // headings/placeholder text — see quality-gate.ts) and a cannibalization
+  // check against already-published posts (detectCannibalization). Nothing
+  // here ever calls runRealAgentProvider or any AI provider; this function
+  // makes no network request at all.
+  function validateImport() {
+    const parsed = parseArticleImport(importRaw);
+    if (!parsed.valid) {
+      setImportPreview({ valid: false, errors: parsed.errors });
+      return;
+    }
+    const wordCount = parsed.article.content.split(/\s+/).filter(Boolean).length;
+    const qualityWarnings = runQualityGate({ title: parsed.article.title, content: parsed.article.content, wordCount, minWordCount: 500 });
+
+    const publishedCandidates = (posts || [])
+      .filter((p: any) => p.status === "published")
+      .map((p: any) => ({ id: p.id, title: p.title, slug: p.slug, primaryTopic: p.primary_keyword || "", searchIntent: p.search_intent || "", targetService: "", topicClusterId: null }));
+    const pendingCandidate = { id: "__pending__", title: parsed.article.title, slug: parsed.article.slug || "", primaryTopic: parsed.article.primary_keyword || "", searchIntent: parsed.article.search_intent || "", targetService: selected?.target_service || "", topicClusterId: selected?.topic_cluster_id || null };
+    const conflicts = detectCannibalization([pendingCandidate, ...publishedCandidates]).filter((c) => c.aId === "__pending__" || c.bId === "__pending__");
+    const highSeverityConflict = conflicts.find((c) => c.severity === "high");
+
+    setImportPreview({
+      valid: true, errors: [], article: parsed.article, wordCount, qualityWarnings,
+      cannibalizationConflict: highSeverityConflict
+        ? { title: highSeverityConflict.aId === "__pending__" ? highSeverityConflict.bTitle : highSeverityConflict.aTitle, reasons: highSeverityConflict.reasons }
+        : null
+    });
+  }
+
+  async function importArticle() {
+    if (!selected || !importPreview?.valid) return;
     setBusy(true);
     try {
       const response = await fetch("/api/admin/organic-growth/import-article", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content_plan_item_id: selected.id, raw: importRaw }) });
       const data = await response.json();
       if (!response.ok) { notify(data.error || "Makale içe aktarılamadı.", "error"); return; }
-      notify("Makale taslak olarak Yazılar'a aktarıldı.");
+      notify("Taslak başarıyla kaydedildi.");
       if (data.flaggedClaims?.length) notify(`Doğrulama gereken iddialar: ${data.flaggedClaims.join("; ")}`, "error");
       setImportRaw("");
+      setImportPreview(null);
       await reload();
     } finally {
       setBusy(false);
@@ -689,22 +672,56 @@ function ContentPlanTab({ items, strategies, clusters, notify, reload }: any) {
               <>
                 <div className="admin-card rounded-[16px] p-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-black">Claude Promptu</h3>
-                    <AdminButton compact variant="ai" icon={<Sparkles size={14} />} onClick={generatePrompt}>Claude Promptu Hazırla</AdminButton>
+                    <h3 className="font-black">Claude&apos;a Aktar</h3>
+                    <AdminButton compact variant="ai" icon={<Sparkles size={14} />} onClick={generatePrompt}>Claude&apos;a Aktar</AdminButton>
                   </div>
-                  <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>Hedef Claude Project: <strong>{CLAUDE_PROJECT_NAME}</strong></p>
+                  <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>
+                    Kalıcı <strong>{CLAUDE_PROJECT_NAME}</strong> Project Instructions&apos;ı uygulayın. Bu yalnızca bir prompt hazırlar — hiçbir AI sağlayıcısı çağrılmaz.
+                  </p>
                   {prompt && (
                     <>
                       <textarea readOnly value={prompt} rows={10} className="hk-input mt-2 w-full font-mono text-xs" />
-                      <AdminButton compact className="mt-2" icon={<ClipboardCopy size={14} />} onClick={async () => { if (await copyToClipboard(prompt)) notify("Prompt kopyalandı."); }}>Promptu Kopyala</AdminButton>
+                      <AdminButton compact className="mt-2" icon={<ClipboardCopy size={14} />} onClick={copyPromptAndAdvance}>Claude Promptunu Kopyala</AdminButton>
                     </>
                   )}
                 </div>
 
                 <div className="admin-card rounded-[16px] p-4">
-                  <h3 className="font-black">Claude Çıktısını İçe Aktar (Makale)</h3>
-                  <textarea value={importRaw} onChange={(e) => setImportRaw(e.target.value)} rows={6} placeholder='{"title":"...","content":"..."}' className="hk-input mt-2 w-full font-mono text-xs" />
-                  <AdminButton compact className="mt-2" loading={busy} disabled={!importRaw.trim()} onClick={importArticle}>Makaleyi İçe Aktar → Yazılar</AdminButton>
+                  <h3 className="font-black">Claude&apos;dan Taslak İçe Aktar</h3>
+                  <p className="mt-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>Claude Project&apos;te hazırlanan yapılandırılmış makale çıktısını buraya yapıştırın. İçerik önce taslak olarak kaydedilir; otomatik yayınlanmaz.</p>
+                  <textarea value={importRaw} onChange={(e) => { setImportRaw(e.target.value); setImportPreview(null); }} rows={6} placeholder='{"title":"...","content":"..."}' className="hk-input mt-2 w-full font-mono text-xs" />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <AdminButton compact variant="secondary" disabled={!importRaw.trim()} onClick={validateImport}>Doğrula</AdminButton>
+                    <AdminButton compact loading={busy} disabled={!importPreview?.valid} onClick={importArticle}>Taslak Olarak Kaydet</AdminButton>
+                  </div>
+                  {importPreview && !importPreview.valid && (
+                    <div className="mt-2 rounded-[10px] p-2.5 text-xs font-bold" style={{ background: "#FEF2F2", color: "#b91c1c" }}>
+                      {importPreview.errors.map((e: string, i: number) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
+                  {importPreview?.valid && (
+                    <div className="mt-2 grid gap-2 rounded-[10px] border p-3 text-xs" style={{ borderColor: "var(--admin-border)" }}>
+                      <p><strong>Başlık:</strong> {importPreview.article.title}</p>
+                      {importPreview.article.slug && <p><strong>Slug:</strong> {importPreview.article.slug}</p>}
+                      {importPreview.article.meta_title && <p><strong>SEO Başlık:</strong> {importPreview.article.meta_title}</p>}
+                      {importPreview.article.meta_description && <p><strong>Meta Açıklama:</strong> {importPreview.article.meta_description}</p>}
+                      <p><strong>Kelime sayısı:</strong> {importPreview.wordCount}</p>
+                      {importPreview.cannibalizationConflict && (
+                        <p className="rounded-[8px] p-2 font-bold" style={{ background: "#FFFBEB", color: "#92400e" }}>
+                          Yüksek içerik çakışması riski: &quot;{importPreview.cannibalizationConflict.title}&quot; ile örtüşüyor olabilir — {importPreview.cannibalizationConflict.reasons.join(" ")}
+                        </p>
+                      )}
+                      {importPreview.qualityWarnings.length > 0 && (
+                        <div className="rounded-[8px] p-2" style={{ background: "#FFFBEB" }}>
+                          <p className="font-black" style={{ color: "#92400e" }}>Kalite uyarıları</p>
+                          {importPreview.qualityWarnings.map((w: any, i: number) => <p key={i} style={{ color: "#92400e" }}>• {w.message}</p>)}
+                        </div>
+                      )}
+                      {!importPreview.cannibalizationConflict && !importPreview.qualityWarnings.length && (
+                        <p className="font-bold" style={{ color: "var(--admin-success, #16a34a)" }}>Sorun bulunamadı.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             )}

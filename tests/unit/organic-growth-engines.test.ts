@@ -5,7 +5,7 @@ import { detectCannibalization } from "../../src/lib/organic-growth/cannibalizat
 import { suggestInternalLinks, findOrphanArticles } from "../../src/lib/organic-growth/internal-links.ts";
 import {
   buildMonthlyStrategyPrompt, buildArticlePrompt, parseMonthlyPlanImport, parseArticleImport, CLAUDE_PROJECT_NAME,
-  buildBriefPrompt, parseBriefImport, AUTOPILOT_SYSTEM_PROMPT
+  buildBriefPrompt, parseBriefImport
 } from "../../src/lib/organic-growth/claude-prompts.ts";
 import { CONTENT_PLAN_STATUSES, isOrganicRecommendationType } from "../../src/lib/organic-growth/types.ts";
 import { runQualityGate } from "../../src/lib/organic-growth/quality-gate.ts";
@@ -183,11 +183,6 @@ test("parseBriefImport: rejects invalid JSON instead of throwing", () => {
   const result = parseBriefImport("not json");
   assert.equal(result.valid, false);
   assert.ok(result.errors.length);
-});
-
-test("AUTOPILOT_SYSTEM_PROMPT: explicitly bans the same clichés as the quality gate (no drift between the instruction and the check)", () => {
-  assert.match(AUTOPILOT_SYSTEM_PROMPT, /Günümüzün dijital dünyasında/);
-  assert.match(AUTOPILOT_SYSTEM_PROMPT, /UYDURMA/);
 });
 
 test("runQualityGate: flags a short body, a banned cliché, and missing headings — all independently", () => {
