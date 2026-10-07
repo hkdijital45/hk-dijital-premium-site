@@ -28,6 +28,7 @@ import { scanWebsiteForAdSignals } from "@/lib/website-signal-scan";
 import { buildInstagramVerification, computeHkDigitalNeedLevel } from "@/lib/instagram-verification";
 import { DISCOVERY_WORKFLOW_STATUS } from "@/lib/discovery-workflow";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { classifyMetaError } from "@/lib/meta-api";
 
 // ============================================================================
 // Meta Ad Library automated check — name-based, independent of website.
@@ -41,8 +42,17 @@ import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
 const META_AD_LIBRARY_CONCURRENCY = 4;
 const META_AD_LIBRARY_TIMEOUT_MS = 8000;
+const META_AD_LIBRARY_MAX_ATTEMPTS = 2; // 1 real retry, only for transient failures
+const META_AD_LIBRARY_RETRY_DELAY_MS = 350;
+// Cache TTLs: a confident result (or a provider-confirmed ambiguity) is
+// stable for a while; a failed check gets a much shorter TTL so "Tekrar
+// Dene"/the next discovery run isn't stuck behind a long-lived failure.
+const META_AD_LIBRARY_CACHE_TTL_MS = 10 * 60 * 1000;
+const META_AD_LIBRARY_FAILURE_CACHE_TTL_MS = 60 * 1000;
+
 let metaAdLibraryInFlight = 0;
 const metaAdLibraryQueue: Array<() => void> = [];
+const metaAdLibraryCache = new Map<string, { result: import("@/lib/lead-scoring").MetaAdLibraryCheck; expiresAt: number }>();
 
 async function withMetaAdLibrarySlot<T>(fn: () => Promise<T>): Promise<T> {
   if (metaAdLibraryInFlight >= META_AD_LIBRARY_CONCURRENCY) {
@@ -62,14 +72,28 @@ function normalizeBusinessNameForMatch(value: string) {
   return value.trim().toLocaleLowerCase("tr").replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ");
 }
 
-export async function checkMetaAdLibraryByName(businessName: string): Promise<import("@/lib/lead-scoring").MetaAdLibraryCheck> {
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function checkMetaAdLibraryByName(
+  businessName: string,
+  options: { forceRefresh?: boolean } = {}
+): Promise<import("@/lib/lead-scoring").MetaAdLibraryCheck> {
   const token = process.env.META_AD_LIBRARY_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN || "";
   const checkedAt = new Date().toISOString();
   const name = clean(businessName);
   if (!token || !name) {
     return { status: "not_attempted", evidence: "", checkedAt };
   }
-  return withMetaAdLibrarySlot(async () => {
+
+  const cacheKey = normalizeBusinessNameForMatch(name);
+  if (!options.forceRefresh) {
+    const cached = metaAdLibraryCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+  }
+
+  const result = await withMetaAdLibrarySlot(async () => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), META_AD_LIBRARY_TIMEOUT_MS);
     try {
@@ -78,30 +102,75 @@ export async function checkMetaAdLibraryByName(businessName: string): Promise<im
         ad_type: "ALL",
         ad_reached_countries: "TR",
         search_terms: name,
-        fields: "id,page_name,ad_delivery_start_time",
+        // page_id lets us tell "one real business, several ads" apart from
+        // "several DIFFERENT businesses happen to share this name" — the
+        // actual false-positive risk the brief calls out for generic names
+        // (e.g. "Nail Studio"). Falls back to page_name grouping only if a
+        // response genuinely omits page_id (never fabricated).
+        fields: "id,page_name,page_id,ad_delivery_start_time",
         limit: "15"
       });
-      const response = await fetch(`https://graph.facebook.com/v20.0/ads_archive?${params}`, { cache: "no-store", signal: controller.signal });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data.error) {
-        return { status: "source_unavailable" as const, evidence: "Meta Ad Library sorgusu başarısız oldu; işletme adıyla otomatik kontrol şu an yapılamadı. Kontrol tekrar denenebilir.", checkedAt };
+      let lastFailureEvidence = "Meta Ad Library sorgusu başarısız oldu; işletme adıyla otomatik kontrol şu an yapılamadı. Kontrol tekrar denenebilir.";
+      for (let attempt = 1; attempt <= META_AD_LIBRARY_MAX_ATTEMPTS; attempt++) {
+        let response: Response;
+        let data: any;
+        try {
+          response = await fetch(`https://graph.facebook.com/v20.0/ads_archive?${params}`, { cache: "no-store", signal: controller.signal });
+          data = await response.json().catch(() => ({}));
+        } catch {
+          if (attempt < META_AD_LIBRARY_MAX_ATTEMPTS) { await delay(META_AD_LIBRARY_RETRY_DELAY_MS * attempt); continue; }
+          return { status: "source_unavailable" as const, evidence: "Meta Ad Library sorgusu zaman aşımına uğradı veya ağ hatası oluştu. Kontrol tekrar denenebilir.", checkedAt };
+        }
+        if (!response.ok || data?.error) {
+          const classified = classifyMetaError(data, "META_AD_LIBRARY_ERROR", lastFailureEvidence);
+          // Only rate limits and 5xx are transient/retryable — a bad/expired
+          // token or permission error will never succeed on retry, so don't
+          // burn an extra request or delay the result for those.
+          const retryable = classified.isRateLimit || response.status >= 500;
+          if (retryable && attempt < META_AD_LIBRARY_MAX_ATTEMPTS) {
+            lastFailureEvidence = classified.errorMessage;
+            await delay(META_AD_LIBRARY_RETRY_DELAY_MS * attempt);
+            continue;
+          }
+          return { status: "source_unavailable" as const, evidence: classified.isTokenExpired || classified.isPermissionError ? "Meta Ad Library erişimi (token/izin) şu anda geçersiz; otomatik kontrol yapılamadı." : classified.errorMessage, checkedAt };
+        }
+
+        const ads: Array<{ page_name?: string; page_id?: string }> = Array.isArray(data.data) ? data.data : [];
+        const normalizedTarget = normalizeBusinessNameForMatch(name);
+        const candidates = ads
+          .map((ad) => ({ pageId: String(ad.page_id || ""), pageName: String(ad.page_name || ""), normalizedPageName: normalizeBusinessNameForMatch(String(ad.page_name || "")) }))
+          .filter((ad) => ad.normalizedPageName.length > 0 && (ad.normalizedPageName.includes(normalizedTarget) || normalizedTarget.includes(ad.normalizedPageName)));
+
+        if (candidates.length === 0) {
+          return { status: "no_signal_detected" as const, evidence: `Meta Ad Library'de "${name}" adıyla arama yapıldı (ülke: TR); eşleşen aktif reklam bulunamadı.`, checkedAt };
+        }
+
+        // Prefer an EXACT normalized name match over a loose substring
+        // match when deciding how many distinct businesses are involved —
+        // a generic name can substring-match many unrelated pages, but an
+        // exact match is much stronger evidence of which one is real.
+        const exact = candidates.filter((ad) => ad.normalizedPageName === normalizedTarget);
+        const pool = exact.length > 0 ? exact : candidates;
+        const distinctEntities = new Set(pool.map((ad) => ad.pageId || ad.normalizedPageName));
+
+        if (distinctEntities.size > 1) {
+          const sampleNames = Array.from(new Set(pool.map((ad) => ad.pageName))).slice(0, 3).join(", ");
+          return { status: "ambiguous" as const, evidence: `Meta Ad Library'de "${name}" adıyla birden fazla farklı işletme/sayfa eşleşti (${sampleNames}); hangisinin bu işletme olduğu güvenle belirlenemedi.`, checkedAt };
+        }
+
+        return { status: "active_signal" as const, evidence: `Meta Ad Library'de işletme adıyla eşleşen reklam bulundu (sayfa: "${pool[0].pageName}").`, checkedAt };
       }
-      const ads: Array<{ page_name?: string }> = Array.isArray(data.data) ? data.data : [];
-      const normalizedTarget = normalizeBusinessNameForMatch(name);
-      const matching = ads.filter((ad) => {
-        const pageName = normalizeBusinessNameForMatch(String(ad.page_name || ""));
-        return pageName.length > 0 && (pageName.includes(normalizedTarget) || normalizedTarget.includes(pageName));
-      });
-      if (matching.length > 0) {
-        return { status: "active_signal" as const, evidence: `Meta Ad Library'de işletme adıyla eşleşen reklam bulundu (${matching.length} sonuç, sayfa: "${matching[0].page_name}").`, checkedAt };
-      }
-      return { status: "no_signal_detected" as const, evidence: `Meta Ad Library'de "${name}" adıyla arama yapıldı (ülke: TR); eşleşen aktif reklam bulunamadı.`, checkedAt };
-    } catch {
-      return { status: "source_unavailable" as const, evidence: "Meta Ad Library sorgusu zaman aşımına uğradı veya ağ hatası oluştu. Kontrol tekrar denenebilir.", checkedAt };
+      return { status: "source_unavailable" as const, evidence: lastFailureEvidence, checkedAt };
     } finally {
       clearTimeout(timeout);
     }
   });
+
+  metaAdLibraryCache.set(cacheKey, {
+    result,
+    expiresAt: Date.now() + (result.status === "source_unavailable" ? META_AD_LIBRARY_FAILURE_CACHE_TTL_MS : META_AD_LIBRARY_CACHE_TTL_MS)
+  });
+  return result;
 }
 
 export class DiscoveryConfigError extends Error {}
@@ -184,13 +253,14 @@ function numberFilter(value: unknown) {
 async function enrichBusiness(business: DiscoveredBusiness): Promise<Record<string, any>> {
   const scored = scoreDiscoveredBusiness(business);
   const [scan, metaAdLibrary] = await Promise.all([
-    scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() })),
+    scanWebsiteForAdSignals(business.website).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() })),
     checkMetaAdLibraryByName(business.name).catch(() => ({ status: "not_attempted" as const, evidence: "", checkedAt: new Date().toISOString() }))
   ]);
   const advertising: AdvertisingEvidence = evaluateAdvertisingSignals({
     website: business.website,
     metaPixelDetected: scan.metaPixelDetected,
     googleTagDetected: scan.googleTagDetected,
+    googleAdsConversionDetected: scan.googleAdsConversionDetected,
     scanFailed: scan.scanFailed,
     checkedAt: scan.checkedAt,
     metaAdLibrary

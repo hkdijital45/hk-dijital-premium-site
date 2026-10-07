@@ -401,6 +401,103 @@ function NotificationOverflowMenu({ unread, onToggleRead, onArchive }: { unread:
   );
 }
 
+/**
+ * Centered responsive modal (desktop AND mobile) for the "Favoriler" quick-
+ * access list — replaces the old anchored dropdown panel (top-14 right-0,
+ * no backdrop, no scroll lock, no Escape). Same backdrop/Escape/scroll-lock
+ * conventions as CustomerProfileModal.tsx: backdrop click only closes when
+ * the click target IS the backdrop itself (a click starting inside the
+ * card never closes it), Escape closes, body scroll is locked and restored
+ * on unmount. All favorite state/business logic (persistence, reorder,
+ * add/remove) is owned by the caller and passed in — this component is
+ * presentation-only.
+ */
+function FavoritesModal({
+  open,
+  onClose,
+  items,
+  saving,
+  activeSlug,
+  isActiveFavorite,
+  onToggleActive,
+  onMove,
+  onRemove,
+  getHref
+}: {
+  open: boolean;
+  onClose: () => void;
+  items: Array<{ slug?: string; label?: string } | null>;
+  saving: boolean;
+  activeSlug: string;
+  isActiveFavorite: boolean;
+  onToggleActive: () => void;
+  onMove: (slug: string, direction: number) => void;
+  onRemove: (slug: string) => void;
+  getHref: (slug: string) => string;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) { if (event.key === "Escape") onClose(); }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Favoriler"
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+      className="fixed inset-0 z-[140] grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm"
+    >
+      <div
+        className="flex w-full max-w-[760px] flex-col overflow-hidden rounded-[20px] border border-amber-200/70 bg-[var(--admin-surface)] shadow-2xl"
+        style={{ maxHeight: "85dvh", width: "min(760px, calc(100vw - 32px))" }}
+      >
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--admin-border)] p-4">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-base font-black text-[var(--admin-text-primary)]">
+              <Star size={17} className="shrink-0 fill-[#E4B83F] text-[#E4B83F]" /> Favoriler
+              <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: "var(--admin-surface-soft)" }}>{items.length}</span>
+            </p>
+            <p className="mt-0.5 truncate text-xs text-[var(--admin-text-muted)]">Hızlı erişim modüllerini düzenleyin — sıralama hesabınıza kaydedilir.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Favorileri kapat" className="hk-icon-button shrink-0 min-h-11 min-w-11">
+            <X size={18} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+          <div className="grid gap-2">
+            {items.map((item, index) => item && (
+              <div key={item.slug || "dashboard"} className="flex min-w-0 items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2">
+                <Link href={getHref(item.slug || "")} onClick={onClose} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link>
+                <button type="button" disabled={saving || index === 0} onClick={() => onMove(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button min-h-11 min-w-11 shrink-0"><ArrowUp size={15} /></button>
+                <button type="button" disabled={saving || index === items.length - 1} onClick={() => onMove(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button min-h-11 min-w-11 shrink-0"><ArrowDown size={15} /></button>
+                <button type="button" disabled={saving} onClick={() => onRemove(item.slug || "dashboard")} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button min-h-11 min-w-11 shrink-0 text-red-600"><X size={15} /></button>
+              </div>
+            ))}
+            {!items.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp "Bu Modülü Ekle" seçeneğini kullanın.</p>}
+          </div>
+        </div>
+        {activeSlug && (
+          <footer className="shrink-0 border-t border-[var(--admin-border)] p-3">
+            <button type="button" disabled={saving} onClick={onToggleActive} className="hk-button hk-button-compact hk-button-warning min-h-11 w-full sm:w-auto">
+              {isActiveFavorite ? "Favoriden Çıkar" : "+ Bu Modülü Ekle"}
+            </button>
+          </footer>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminDashboard({
   initialContent,
   supabaseConfigured = false,
@@ -839,13 +936,21 @@ export function AdminDashboard({
             <span className="block text-[10px]" style={{ color: aiHeaderModeIsWarning ? "var(--admin-danger, #b91c1c)" : "var(--admin-text-muted)" }}>Mod: {aiHeaderModeLabel}</span>
           </button>
           <div className="relative">
-            <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} className="admin-quick-action text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C9FB3]">
+            <button type="button" onClick={() => setFavoritesOpen((current) => !current)} aria-expanded={favoritesOpen} aria-haspopup="dialog" className="admin-quick-action text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0C9FB3]">
               <Star size={17} className="fill-[#E4B83F] text-[#E4B83F]" /> Favoriler <span className="rounded-full px-2 py-0.5 text-xs" style={{ background: "var(--admin-surface-soft)" }}>{favoriteNavigationItems.length}</span>
             </button>
-            {favoritesOpen && <div className="absolute right-0 top-14 z-50 w-[min(92vw,380px)] rounded-[16px] border border-amber-200 bg-[var(--admin-surface)] p-3 shadow-2xl">
-              <div className="flex items-center justify-between gap-3 px-1 pb-3"><div><p className="font-black text-[var(--admin-text-primary)]">Favori modüller</p><p className="text-xs text-[var(--admin-text-muted)]">Sıralama hesabınıza kaydedilir.</p></div>{activeFavoriteSlug && <button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])} className="hk-button hk-button-compact hk-button-warning">{favoriteSlugs.includes(activeFavoriteSlug) ? "Favoriden Çıkar" : "Bu Modülü Ekle"}</button>}</div>
-              <div className="grid max-h-[55vh] gap-2 overflow-y-auto">{favoriteNavigationItems.map((item, index) => item && <div key={item.slug || "dashboard"} className="flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-2"><Link href={getAdminHref(item.slug)} onClick={() => setFavoritesOpen(false)} className="min-w-0 flex-1 truncate px-2 text-sm font-black text-slate-800">{item.label}</Link><button type="button" disabled={favoritesSaving || index === 0} onClick={() => moveFavorite(item.slug || "dashboard", -1)} aria-label={`${item.label} favorisini yukarı taşı`} className="hk-icon-button"><ArrowUp size={15} /></button><button type="button" disabled={favoritesSaving || index === favoriteNavigationItems.length - 1} onClick={() => moveFavorite(item.slug || "dashboard", 1)} aria-label={`${item.label} favorisini aşağı taşı`} className="hk-icon-button"><ArrowDown size={15} /></button><button type="button" disabled={favoritesSaving} onClick={() => saveFavorites(favoriteSlugs.filter((slug) => slug !== (item.slug || "dashboard")))} aria-label={`${item.label} favorisini kaldır`} className="hk-icon-button text-red-600"><X size={15} /></button></div>)}{!favoriteNavigationItems.length && <p className="rounded-[12px] border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Bir modülü açıp “Bu Modülü Ekle” seçeneğini kullanın.</p>}</div>
-            </div>}
+            <FavoritesModal
+              open={favoritesOpen}
+              onClose={() => setFavoritesOpen(false)}
+              items={favoriteNavigationItems}
+              saving={favoritesSaving}
+              activeSlug={activeFavoriteSlug}
+              isActiveFavorite={favoriteSlugs.includes(activeFavoriteSlug)}
+              onToggleActive={() => saveFavorites(favoriteSlugs.includes(activeFavoriteSlug) ? favoriteSlugs.filter((slug) => slug !== activeFavoriteSlug) : [...favoriteSlugs, activeFavoriteSlug])}
+              onMove={moveFavorite}
+              onRemove={(slug) => saveFavorites(favoriteSlugs.filter((item) => item !== slug))}
+              getHref={getAdminHref}
+            />
           </div>
           {allowedModules.includes("musteriler") && <Link href="/hk-admin/musteriler" className="admin-quick-action text-sm"><UsersRound size={17} /> Müşteriler</Link>}
           <button onClick={() => setCopilotOpen(true)} className="admin-quick-action text-sm">

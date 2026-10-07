@@ -9,6 +9,13 @@
 export type WebsiteSignalScanResult = {
   metaPixelDetected: boolean | null;
   googleTagDetected: boolean | null;
+  // Narrower than googleTagDetected: ONLY Google Ads' own conversion/
+  // remarketing marker (googleadservices.com), never a plain GA4/GTM
+  // analytics tag. Kept separate (not a replacement for googleTagDetected,
+  // which many existing callers correctly use as a general "measurement
+  // installed" digital-maturity signal) so Ads-specific evidence is never
+  // worded as if generic analytics proved something about Google Ads.
+  googleAdsConversionDetected: boolean | null;
   whatsappLinkDetected: boolean | null;
   instagramProfile: { username: string; url: string } | null;
   scanFailed: boolean;
@@ -17,6 +24,7 @@ export type WebsiteSignalScanResult = {
 
 const META_PIXEL_MARKERS = ["connect.facebook.net", "fbq(", "fbevents.js", "facebook-jssdk"];
 const GOOGLE_TAG_MARKERS = ["googletagmanager.com/gtag/js", "googletagmanager.com/gtm.js", "google_tag_manager", "gtag(", "www.googleadservices.com"];
+const GOOGLE_ADS_CONVERSION_MARKERS = ["www.googleadservices.com", "googleadservices.com/pagead", "/pagead/conversion"];
 const WHATSAPP_MARKERS = ["wa.me/", "api.whatsapp.com", "whatsapp://send"];
 
 // Non-profile Instagram path segments — a link to one of these is not a
@@ -121,7 +129,7 @@ export async function scanWebsiteForAdSignals(website?: string | null, timeoutMs
   const checkedAt = new Date().toISOString();
   const url = website ? normalizeUrl(website) : null;
   if (!url) {
-    return { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: false, checkedAt };
+    return { metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: false, checkedAt };
   }
 
   // Google Places sometimes lists a business's own Instagram profile AS
@@ -134,7 +142,7 @@ export async function scanWebsiteForAdSignals(website?: string | null, timeoutMs
   // applicable" is not the same claim as "checked and absent").
   const directInstagramProfile = parseInstagramProfileUrl(url);
   if (directInstagramProfile) {
-    return { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: directInstagramProfile, scanFailed: false, checkedAt };
+    return { metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: directInstagramProfile, scanFailed: false, checkedAt };
   }
 
   const controller = new AbortController();
@@ -146,19 +154,20 @@ export async function scanWebsiteForAdSignals(website?: string | null, timeoutMs
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HKDijitalDiscoveryBot/1.0)" }
     });
     if (!response.ok) {
-      return { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt };
+      return { metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt };
     }
     const html = (await response.text()).toLocaleLowerCase("en-US").slice(0, 500_000);
     return {
       metaPixelDetected: META_PIXEL_MARKERS.some((marker) => html.includes(marker)),
       googleTagDetected: GOOGLE_TAG_MARKERS.some((marker) => html.includes(marker)),
+      googleAdsConversionDetected: GOOGLE_ADS_CONVERSION_MARKERS.some((marker) => html.includes(marker)),
       whatsappLinkDetected: WHATSAPP_MARKERS.some((marker) => html.includes(marker)),
       instagramProfile: extractInstagramProfile(html),
       scanFailed: false,
       checkedAt
     };
   } catch {
-    return { metaPixelDetected: null, googleTagDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt };
+    return { metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt };
   } finally {
     clearTimeout(timeout);
   }

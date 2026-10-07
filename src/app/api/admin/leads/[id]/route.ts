@@ -148,7 +148,7 @@ async function buildAdvertisingRecheckPatch(body: Record<string, unknown>, exist
 
   if (input.channel === "meta") {
     if (existing.meta_ads_verified_status) return {};
-    const metaAdLibrary = await checkMetaAdLibraryByName(String(existing.name || existing.company || ""));
+    const metaAdLibrary = await checkMetaAdLibraryByName(String(existing.name || existing.company || ""), { forceRefresh: true });
     const evidence = evaluateAdvertisingSignals({
       website: existing.website as string | undefined,
       metaPixelDetected: existing.meta_pixel_detected as boolean | null | undefined,
@@ -167,11 +167,12 @@ async function buildAdvertisingRecheckPatch(body: Record<string, unknown>, exist
   }
 
   if (existing.google_ads_verified_status || !existing.website) return {};
-  const scan = await scanWebsiteForAdSignals(String(existing.website)).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, scanFailed: true, checkedAt: new Date().toISOString() }));
+  const scan = await scanWebsiteForAdSignals(String(existing.website)).catch(() => ({ metaPixelDetected: null, googleTagDetected: null, googleAdsConversionDetected: null, whatsappLinkDetected: null, instagramProfile: null, scanFailed: true, checkedAt: new Date().toISOString() }));
   const evidence = evaluateAdvertisingSignals({
     website: existing.website as string | undefined,
     metaPixelDetected: existing.meta_pixel_detected as boolean | null | undefined,
     googleTagDetected: scan.googleTagDetected,
+    googleAdsConversionDetected: scan.googleAdsConversionDetected,
     scanFailed: scan.scanFailed,
     checkedAt: scan.checkedAt
   });

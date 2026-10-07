@@ -397,7 +397,12 @@ export type ManualAdVerification = {
 // domain. "not_attempted" means no token was configured or no name was
 // available; it must never be treated as a confirmed result.
 export type MetaAdLibraryCheck = {
-  status: "active_signal" | "no_signal_detected" | "source_unavailable" | "not_attempted";
+  // "ambiguous": the query succeeded and found candidate ads, but they
+  // belong to more than one distinct Page/business (a generic name like
+  // "Güzellik Merkezi" or "Nail Studio" matches many unrelated pages) — a
+  // real, provider-confirmed result that must NOT be reported as a
+  // confident ACTIVE_ADS_FOUND (false-positive protection).
+  status: "active_signal" | "no_signal_detected" | "ambiguous" | "source_unavailable" | "not_attempted";
   evidence: string;
   checkedAt: string;
 };
@@ -415,12 +420,22 @@ export type MetaAdLibraryCheck = {
  * - A real Meta Ad Library name-based query (input.metaAdLibrary) is tried
  *   BEFORE falling back to the website/Pixel heuristic, and is independent of
  *   whether a website exists at all — a missing website must never by itself
- *   force "manual_check_required" for Meta when this ran successfully.
+ *   force "manual_check_required" for Meta when this ran successfully. An
+ *   "ambiguous" Ad Library result (query matched more than one distinct
+ *   business) maps to the same UNCERTAIN bucket as "manual_check_required",
+ *   never to a false ACTIVE_ADS_FOUND.
+ * - googleAdsConversionDetected (when the caller can supply it — a fresh
+ *   website scan, not a DB re-read) refines ONLY the Google evidence
+ *   wording, never the status decision (still driven by googleTagDetected,
+ *   so passing it never changes behavior for callers that omit it): a plain
+ *   GA4/GTM tag is explicitly distinguished from Google Ads' own conversion
+ *   marker, so generic analytics is never worded as an Ads-specific signal.
  */
 export function evaluateAdvertisingSignals(input: {
   website?: string | null;
   metaPixelDetected?: boolean | null;
   googleTagDetected?: boolean | null;
+  googleAdsConversionDetected?: boolean | null;
   scanFailed?: boolean;
   manualMeta?: ManualAdVerification | null;
   manualGoogle?: ManualAdVerification | null;
@@ -430,8 +445,9 @@ export function evaluateAdvertisingSignals(input: {
   const hasWebsite = Boolean(input.website);
   const scanned = input.metaPixelDetected !== undefined && input.metaPixelDetected !== null;
   const metaAdLibraryAttempted = Boolean(input.metaAdLibrary && input.metaAdLibrary.status !== "not_attempted");
+  const metaAdLibraryStatus = metaAdLibraryAttempted ? input.metaAdLibrary!.status : null;
 
-  function resolve(manual: ManualAdVerification | null | undefined, pixelDetected: boolean | null | undefined, platformLabel: string) {
+  function resolve(manual: ManualAdVerification | null | undefined, pixelDetected: boolean | null | undefined, platformLabel: string, adsSpecificDetected?: boolean | null) {
     if (manual) {
       return {
         status: (manual.status === "active" ? "active_signal" : "no_signal_detected") as AdStatusValue,
@@ -444,11 +460,19 @@ export function evaluateAdvertisingSignals(input: {
     if (input.scanFailed) {
       return { status: "source_unavailable" as AdStatusValue, evidence: "Website taraması başarısız oldu veya kaynağa ulaşılamadı; kontrol tekrar denenebilir." };
     }
+    // Google-only: a plain GA4/GTM tag (no Ads-specific marker) is real
+    // evidence of *something*, but not of Google Ads specifically — say so
+    // explicitly rather than letting "Google etiketi tespit edildi" imply
+    // an Ads signal it isn't.
+    const genericAnalyticsOnlyNote = platformLabel === "Google" && adsSpecificDetected === false
+      ? " Not: tespit edilen genel ölçümleme (GA4/GTM) etiketidir, Google Ads'e özel bir işaretleyici değildir."
+      : "";
+    const tagLabel = platformLabel === "Meta" ? "Meta Pixel" : adsSpecificDetected === true ? "Google Ads dönüşüm etiketi" : "Google ölçümleme etiketi";
     if (pixelDetected === true) {
-      return { status: "unverified" as AdStatusValue, evidence: `${platformLabel === "Meta" ? "Meta Pixel" : "Google etiketi"} tespit edildi; bu tek başına aktif reklam kanıtı değildir (Pixel/etiket reklamsız da kurulu olabilir). Reklam kütüphanesi üzerinden doğrulama önerilir.` };
+      return { status: "unverified" as AdStatusValue, evidence: `${tagLabel} tespit edildi; bu tek başına aktif reklam kanıtı değildir (etiket reklamsız da kurulu olabilir).${genericAnalyticsOnlyNote} Reklam kütüphanesi/Ads Transparency üzerinden doğrulama önerilir.` };
     }
     if (pixelDetected === false) {
-      return { status: "unverified" as AdStatusValue, evidence: `Website taramasında ${platformLabel === "Meta" ? "Meta Pixel" : "Google etiketi"} tespit edilmedi; bu, reklam vermediği anlamına gelmez (etiketsiz de reklam yürütülebilir). Doğrulanmış sonuç için manuel kontrol gerekir.` };
+      return { status: "unverified" as AdStatusValue, evidence: `Website taramasında ${tagLabel.toLocaleLowerCase("tr")} tespit edilmedi; bu, reklam vermediği anlamına gelmez (etiketsiz de reklam yürütülebilir). Doğrulanmış sonuç için manuel kontrol gerekir.` };
     }
     return { status: "manual_check_required" as AdStatusValue, evidence: `${platformLabel} reklam durumu henüz kontrol edilmedi.` };
   }
@@ -462,13 +486,18 @@ export function evaluateAdvertisingSignals(input: {
   const meta = input.manualMeta
     ? resolve(input.manualMeta, input.metaPixelDetected, "Meta")
     : metaAdLibraryAttempted
-      ? { status: input.metaAdLibrary!.status as AdStatusValue, evidence: input.metaAdLibrary!.evidence }
+      ? { status: (metaAdLibraryStatus === "ambiguous" ? "manual_check_required" : metaAdLibraryStatus) as AdStatusValue, evidence: input.metaAdLibrary!.evidence }
       : metaFallback;
-  const google = resolve(input.manualGoogle, input.googleTagDetected, "Google");
+  const google = resolve(input.manualGoogle, input.googleTagDetected, "Google", input.googleAdsConversionDetected);
 
+  // Confidence reflects evidence STRENGTH, not just "a query ran": an
+  // ambiguous Ad Library match genuinely ran but proves nothing about THIS
+  // specific business, so it must not earn the same "medium" confidence as
+  // a clean single-business match or a confirmed no-signal result.
+  const metaAdLibraryConfident = metaAdLibraryStatus === "active_signal" || metaAdLibraryStatus === "no_signal_detected";
   const confidence: "low" | "medium" | "high" = (input.manualMeta || input.manualGoogle)
     ? "high"
-    : (metaAdLibraryAttempted || scanned)
+    : (metaAdLibraryConfident || scanned)
       ? "medium"
       : "low";
   const sources: string[] = [];

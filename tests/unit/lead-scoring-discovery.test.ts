@@ -109,6 +109,52 @@ test("evaluateAdvertisingSignals: metaAdLibrary not_attempted (no token/no name)
   assert.equal(evidence.metaAdsStatus, "manual_check_required");
 });
 
+test("evaluateAdvertisingSignals: an AMBIGUOUS Meta Ad Library match (generic name, multiple distinct businesses) maps to UNCERTAIN, never a false ACTIVE_ADS_FOUND", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "",
+    metaAdLibrary: { status: "ambiguous", evidence: "Meta Ad Library'de \"Nail Studio\" adıyla birden fazla farklı işletme/sayfa eşleşti.", checkedAt: "2026-10-07T00:00:00.000Z" }
+  });
+  assert.equal(evidence.metaAdsStatus, "manual_check_required");
+  assert.match(evidence.metaAdsEvidence, /birden fazla farklı işletme/);
+  // Ambiguous evidence is genuinely weaker than a clean single-business
+  // match or a confirmed no-signal result — must not earn "medium".
+  assert.equal(evidence.advertisingConfidence, "low");
+});
+
+test("evaluateAdvertisingSignals: Google — a plain GA4/GTM tag (no Ads-specific marker) is worded as generic analytics, never as an Ads-specific signal", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "https://example.com",
+    googleTagDetected: true,
+    googleAdsConversionDetected: false,
+    scanFailed: false
+  });
+  assert.equal(evidence.googleAdsStatus, "unverified");
+  assert.match(evidence.googleAdsEvidence, /genel ölçümleme/);
+  assert.match(evidence.googleAdsEvidence, /Google ölçümleme etiketi/);
+});
+
+test("evaluateAdvertisingSignals: Google — an Ads-specific conversion marker is worded distinctly from generic analytics", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "https://example.com",
+    googleTagDetected: true,
+    googleAdsConversionDetected: true,
+    scanFailed: false
+  });
+  assert.equal(evidence.googleAdsStatus, "unverified");
+  assert.match(evidence.googleAdsEvidence, /Google Ads dönüşüm etiketi/);
+  assert.doesNotMatch(evidence.googleAdsEvidence, /genel ölçümleme/);
+});
+
+test("evaluateAdvertisingSignals: omitting googleAdsConversionDetected (old callers) keeps the original generic wording — no regression", () => {
+  const evidence = evaluateAdvertisingSignals({
+    website: "https://example.com",
+    googleTagDetected: true,
+    scanFailed: false
+  });
+  assert.equal(evidence.googleAdsStatus, "unverified");
+  assert.match(evidence.googleAdsEvidence, /Google ölçümleme etiketi tespit edildi/);
+});
+
 test("evaluateAdvertisingSignals: a stored manual verification always wins over an automated Meta Ad Library result", () => {
   const evidence = evaluateAdvertisingSignals({
     website: "",
