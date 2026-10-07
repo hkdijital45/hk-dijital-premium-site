@@ -14,6 +14,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SiteContent } from "@/lib/types";
+import type { PublicBrandShowcase } from "@/lib/brand-showcase-public";
+import { BrandShowcaseSection } from "./BrandShowcaseSection";
 import { serviceIcons } from "@/lib/icons";
 import { ContactForm } from "./ContactForm";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
@@ -746,7 +748,7 @@ function LocalSeoSection() {
 
 /* ------------------------------- Composition -------------------------------- */
 
-export function HomepageExperience({ content }: { content: SiteContent }) {
+export function HomepageExperience({ content, brands = [] }: { content: SiteContent; brands?: PublicBrandShowcase[] }) {
   const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
   const services = content.services || [];
   const googleAds = services.find((service) => service.id === "google-ads");
@@ -783,6 +785,7 @@ export function HomepageExperience({ content }: { content: SiteContent }) {
         <ProcessSection />
         <PackagesTeaser intro={content.pages.packages?.intro || "Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini net kapsam, fiyat ve raporlama disipliniyle karşılaştırın."} />
         <TrustSection />
+        <BrandShowcaseSection brands={brands} />
         <LocalSeoSection />
         <FaqBlogSection />
         <FinalCtaSection whatsappUrl={whatsappUrl} />

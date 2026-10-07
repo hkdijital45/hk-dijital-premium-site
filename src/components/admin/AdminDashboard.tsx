@@ -26,6 +26,7 @@ const HKIntelligenceCommandCenter = dynamic(() => import("@/components/admin/HKI
 const HKAutonomousAgencyCenter = dynamic(() => import("@/components/admin/HKAutonomousAgencyCenter").then((m) => m.HKAutonomousAgencyCenter), { ssr: false });
 const AdInsightsCenter = dynamic(() => import("@/components/admin/AdInsightsCenter").then((m) => m.AdInsightsCenter), { ssr: false });
 import { ContactRequestsInbox } from "@/components/admin/ContactRequestsInbox";
+import { BrandShowcaseCenter } from "@/components/admin/BrandShowcaseCenter";
 import { contactRequestNotifications, unreadContactRequestCount } from "@/lib/contact-requests";
 const PreAuditCenter = dynamic(() => import("@/components/admin/PreAuditCenter").then((m) => m.PreAuditCenter), { ssr: false });
 const ReportCenterPanel = dynamic(() => import("@/components/admin/ReportCenterPanel").then((m) => m.ReportCenterPanel), { ssr: false });
@@ -963,6 +964,7 @@ export function AdminDashboard({
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
           {active === "Gelen Talepler" && <ContactRequestsInbox notify={notify} onRowsChange={(rows) => setContent((current) => ({ ...current, contactForms: rows }))} />}
+          {active === "Markalar" && <BrandShowcaseCenter notify={notify} />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}

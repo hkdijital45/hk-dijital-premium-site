@@ -1,6 +1,7 @@
 import { resolvePublicPhoneE164 } from "@/lib/public-contact";
 import type { Metadata } from "next";
 import { getSiteContent } from "@/lib/content";
+import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
 import { HomepageExperience } from "@/components/public/HomepageExperience";
 import { JsonLd } from "@/components/public/JsonLd";
@@ -13,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const content = await getSiteContent();
+  const [content, brands] = await Promise.all([getSiteContent(), getActiveBrandShowcases()]);
 
   return (
     <PublicShell>
@@ -51,7 +52,7 @@ export default async function Home() {
           url: SITE_URL
         }
       ]} />
-      <HomepageExperience content={content} />
+      <HomepageExperience content={content} brands={brands} />
     </PublicShell>
   );
 }

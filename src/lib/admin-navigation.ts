@@ -152,7 +152,8 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Sosyal Medya Planı", slug: "sosyal-medya-icerik-plani", module: "sosyal-medya-plani", description: "Müşteri bazlı sosyal medya içerik takvimi." },
       { label: "Social Autopilot", slug: "social-autopilot", module: "social-autopilot", description: "HK Dijital Instagram hesabı için otonom strateji, içerik üretimi, görsel render, yayın kuyruğu, analitik ve performans öğrenmesi." },
       { label: "Kreatif Stüdyo", slug: "kampanya-onerileri", module: "kampanya-hazirligi", description: "Kreatif öneriler, reklam metni, kampanya fikirleri ve içerik taslakları." },
-      { label: "Medya", slug: "medya", module: "medya", description: "Görsel, video ve marka dosyaları." }
+      { label: "Medya", slug: "medya", module: "medya", description: "Görsel, video ve marka dosyaları." },
+      { label: "Markalar", slug: "markalar", module: "markalar", description: "Web sitesinde gösterilen \"HK Dijital ile Çalışan Markalar\" bölümünü yönetin." }
     ]
   },
   {

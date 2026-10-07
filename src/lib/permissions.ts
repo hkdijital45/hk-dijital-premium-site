@@ -17,7 +17,7 @@ export const adminModules = [
   "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "agent-hub", "hk-intelligence-ceo", "sektor-sistemleri",
   "sistem-sagligi", "sistem-test-merkezi", "sistem-rehberi", "veri-aktarma", "veri-sifirlama", "qa-center", "iletisim-merkezi", "blog-seo",
   "growth-intelligence", "customer-risk", "ad-optimization", "seo-autopilot", "operational-quality", "ai-workforce", "social-autopilot",
-  "analiz-raporlama", "on-inceleme", "gelen-talepler", "rapor-merkezi"
+  "analiz-raporlama", "on-inceleme", "gelen-talepler", "rapor-merkezi", "markalar"
 ] as const;
 
 export type AdminModule = (typeof adminModules)[number];
@@ -45,12 +45,12 @@ export const roleTemplates: Record<CanonicalRole, AdminModule[]> = {
     "kaydedilen-adaylar", "meta-analiz", "google-analiz", "sosyal-medya-denetimi", "hazirlik", "ai-studio", "agent-hub", "hk-intelligence-ceo", "ai-workforce", "blog-seo", "growth-intelligence", "kampanyalar", "reklam-operasyon-merkezi", "teklifler", "teklif-listesi",
     "raporlar", "website-analytics", "ad-insights", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "gorevler", "belgeler",
     "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "hk-asistan", "sektor-sistemleri", "sistem-sagligi", "sistem-rehberi", "veri-aktarma", "iletisim-merkezi",
-    "customer-risk", "ad-optimization", "seo-autopilot", "operational-quality", "social-autopilot", "analiz-raporlama", "on-inceleme", "gelen-talepler", "rapor-merkezi"
+    "customer-risk", "ad-optimization", "seo-autopilot", "operational-quality", "social-autopilot", "analiz-raporlama", "on-inceleme", "gelen-talepler", "rapor-merkezi", "markalar"
   ],
   editor: [
     "dashboard", "genel-arama", "kullanim-kilavuzu", "crm", "leads", "hazirlik",
     "ai-studio", "agent-hub", "blog-seo", "growth-intelligence", "seo-autopilot", "social-autopilot", "icerik-onerileri", "prompt-kutuphanesi", "kampanya-hazirligi",
-    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "reklam-operasyon-merkezi", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi", "iletisim-merkezi", "rapor-merkezi"
+    "teklifler", "teklif-listesi", "raporlar", "website-analytics", "reklam-operasyon-merkezi", "growth-engine", "funnel-builder", "marketplace", "rapor-yorumlari", "disa-aktarimlar", "medya", "sistem-rehberi", "iletisim-merkezi", "rapor-merkezi", "markalar"
   ],
   musteri: []
 };
