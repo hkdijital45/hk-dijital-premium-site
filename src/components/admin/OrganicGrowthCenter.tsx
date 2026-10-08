@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount + selection-sync pattern, same accepted precedent as PreAuditCenter.tsx/ContentPlanningCenter.tsx */
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BarChart3, Calendar, CheckCircle2, ChevronDown, ClipboardCopy, FileText, Layers, Link2, RefreshCw,
   Search, Sparkles, ThumbsUp, TrendingUp
@@ -99,8 +99,18 @@ export function OrganicGrowthCenter() {
     fetch("/api/admin/companies").then((r) => r.json()).then((body) => setCompanies(body.companies || [])).catch(() => {});
   }, []);
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  // `silent` skips the `loading` flip used only for the very first mount's
+  // full-panel spinner. Every editorial action (save/status-change/import)
+  // also calls this to refresh data, and previously always went through the
+  // `loading` branch below — unmounting and remounting the entire active tab
+  // on every single click. That wiped each tab's own local state (selected
+  // content-plan item, in-progress import JSON/preview, open form, status
+  // filter) on every successful action, which both felt like an unwanted
+  // page reload and was the reason the content-plan dropdown/sidebar
+  // appeared to "lose" the just-saved item instead of reflecting its new
+  // status in place.
+  const loadAll = useCallback(async (opts: { silent?: boolean } = {}) => {
+    if (!opts.silent) setLoading(true);
     try {
       const [overviewRes, strategiesRes, itemsRes, clustersRes, postsRes] = await Promise.all([
         fetch("/api/admin/organic-growth/overview").then((r) => r.json()).catch(() => null),
@@ -115,9 +125,10 @@ export function OrganicGrowthCenter() {
       setClusters(clustersRes.clusters || []);
       setPosts(postsRes.posts || []);
     } finally {
-      setLoading(false);
+      if (!opts.silent) setLoading(false);
     }
   }, []);
+  const silentReload = useCallback(() => loadAll({ silent: true }), [loadAll]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
@@ -178,7 +189,7 @@ export function OrganicGrowthCenter() {
               items={items}
               posts={posts}
               notify={notify}
-              reload={loadAll}
+              reload={silentReload}
             />
           )}
           {tab === "icerik-plani" && (
@@ -188,17 +199,17 @@ export function OrganicGrowthCenter() {
               clusters={clusters}
               posts={posts}
               notify={notify}
-              reload={loadAll}
+              reload={silentReload}
             />
           )}
-          {tab === "konu-kumeleri" && <ClustersTab clusters={clusters} notify={notify} reload={loadAll} />}
-          {tab === "yazilar" && <ArticlesTab posts={posts} notify={notify} reload={loadAll} />}
+          {tab === "konu-kumeleri" && <ClustersTab clusters={clusters} notify={notify} reload={silentReload} />}
+          {tab === "yazilar" && <ArticlesTab posts={posts} notify={notify} reload={silentReload} />}
           {tab === "seo-geo" && <SeoGeoTab posts={posts} cannibalization={cannibalization} />}
           {tab === "ic-baglantilar" && <InternalLinksTab linkData={linkData} />}
           {tab === "search-console" && <SearchConsoleTab companyId={selectedCompanyId} companyName={selectedCompanyName} overview={overview} />}
           {tab === "ai-visibility" && <AiVisibilityTab companyId={selectedCompanyId} companyName={selectedCompanyName} />}
           {tab === "oneriler" && <RecommendationsTab companyId={selectedCompanyId} companyName={selectedCompanyName} />}
-          {tab === "performans" && <RefreshTab posts={posts} notify={notify} reload={loadAll} />}
+          {tab === "performans" && <RefreshTab posts={posts} notify={notify} reload={silentReload} />}
         </>
       )}
     </div>
@@ -433,6 +444,11 @@ function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: 
   const [form, setForm] = useState<any>(EMPTY_ITEM_FORM);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
+  // React's `disabled={busy}` on the buttons below only takes effect on the
+  // next render, which leaves a narrow window where two fast clicks (or a
+  // duplicated network retry) can both start a request. `busyRef` is
+  // checked synchronously, before that render has happened, to close it.
+  const busyRef = useRef(false);
   const [prompt, setPrompt] = useState("");
   const [importRaw, setImportRaw] = useState("");
   const [importPreview, setImportPreview] = useState<any>(null);
@@ -464,6 +480,8 @@ function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: 
   }
 
   async function save() {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const payload = toPayload(form);
@@ -476,6 +494,7 @@ function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: 
       await reload();
       if (!selected) setSelectedId(data.item.id);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
@@ -564,6 +583,8 @@ function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: 
 
   async function importArticle() {
     if (!selected || !importPreview?.valid) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const response = await fetch("/api/admin/organic-growth/import-article", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content_plan_item_id: selected.id, raw: importRaw }) });
@@ -575,6 +596,7 @@ function ContentPlanTab({ items, strategies, clusters, posts, notify, reload }: 
       setImportPreview(null);
       await reload();
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
