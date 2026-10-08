@@ -39,3 +39,8 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# local CocoaPods bundler install (system Ruby is too old for cocoapods'
+# own gem requirements — pinned via Gemfile/Gemfile.lock + `bundle install
+# --path vendor/bundle` instead of a global gem install)
+/vendor/bundle

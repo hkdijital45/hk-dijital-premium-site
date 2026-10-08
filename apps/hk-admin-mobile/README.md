@@ -107,6 +107,51 @@ soon" state in the app, or listed as web-only in Menü, never faked):
   byte-identical copy of `public/branding/hk-dijital-logo.png` from the
   web app — never recreated or redrawn.
 
+## Standalone iOS build (no Expo Go, no Metro after install)
+
+For installing directly on a physical iPhone as a real standalone app
+(not through Expo Go), without any paid Apple Developer account:
+
+```bash
+cd apps/hk-admin-mobile
+npm install
+bundle install                       # installs CocoaPods locally into vendor/bundle —
+                                      # system Ruby on macOS is too old for a global
+                                      # `gem install cocoapods`, see Gemfile
+npx expo prebuild --platform ios     # generates ios/ (gitignored, regenerate anytime)
+bundle exec pod install --project-directory=ios
+```
+
+Then, **one-time manual step** (cannot be scripted — it needs your own
+Apple ID credentials):
+
+1. Open `ios/HKAdmin.xcworkspace` in Xcode.
+2. Xcode menu → **Settings → Accounts → +** → sign in with your free
+   Apple ID (no paid Developer Program required).
+3. Select the `HKAdmin` project in the navigator → target `HKAdmin` →
+   **Signing & Capabilities** → check **Automatically manage signing** →
+   set **Team** to your Apple ID's "Personal Team".
+4. Connect your iPhone via USB (or confirm it's visible — Xcode →
+   Window → Devices and Simulators), enable **Developer Mode** on the
+   phone if prompted (Settings → Privacy & Security → Developer Mode).
+
+After that one-time setup, build and install from the command line:
+
+```bash
+npx expo run:ios --device --configuration Release
+```
+
+The first launch on the phone will show an "Untrusted Developer" prompt
+— go to **Settings → General → VPN & Device Management** on the iPhone
+and trust your Apple ID's developer profile once. After that, the app
+launches standalone: no Expo Go, no Metro bundler, no Mac required to
+stay on.
+
+Bundle identifier: `com.hkdijital.hkadmin`. A free Personal Team
+certificate expires after 7 days — reinstalling (`npx expo run:ios
+--device`) re-signs it; this is an Apple platform limit of the free
+tier, not something this project can remove.
+
 ## Compatibility
 
 - Expo SDK 57 (current stable at the time this was built), React Native
