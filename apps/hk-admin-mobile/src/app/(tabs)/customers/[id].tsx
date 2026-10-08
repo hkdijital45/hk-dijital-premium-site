@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../../lib/auth-context";
 import { apiFetch, ApiError } from "../../../lib/api";
 import { Badge, Card, ErrorState, LoadingState } from "../../../components/ui";
@@ -66,6 +67,14 @@ export default function CustomerDetailScreen() {
             <Text style={[typography.body, { marginTop: spacing.sm }]}>Entegrasyon verisi şu anda kullanılamıyor.</Text>
           )}
         </Card>
+
+        <Pressable onPress={() => router.push("/(tabs)/advertising")}>
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <Ionicons name="megaphone-outline" size={20} color={colors.accent} />
+            <Text style={[typography.heading, { flex: 1 }]}>Reklam Bağlantı Durumunu Gör</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

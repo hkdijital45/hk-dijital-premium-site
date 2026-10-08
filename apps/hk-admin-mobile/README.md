@@ -43,20 +43,35 @@ production database via new `/api/mobile/*` routes, nothing fabricated):
   unread notifications)
 - Customers list + search + detail (real `companies` rows) with real
   Meta/Google Ads **connection status** (not performance metrics)
-- Advertising tab: same connection-status data, batched across all
-  customers
+- Advertising screen (Menü → Reklamlar, or from a customer's detail
+  screen): same connection-status data, batched across all customers
 - Notifications: real, persisted `agency_notifications` rows (read/unread
   state round-trips to the server)
+- Favoriler: real, server-backed, cross-device module favorites — the
+  exact same `admin_user_preferences.favorite_modules` row the web
+  admin's own Favoriler button reads/writes. Tapping a favorite opens its
+  native screen if one exists (Ana Sayfa, Müşteriler, Görevler,
+  Reklamlar); otherwise it opens the real web route
+  (`/hk-admin/<slug>`) in the system browser — never a WebView.
+- Görevler (Menü → Görevler): real `agency_tasks` rows, filterable by
+  status, with a one-tap status advance (Yapılacak → Devam Ediyor →
+  Tamamlandı) that writes back to the same table/enum the web Görevler
+  module uses.
+
+See `MODULE_INTEGRATION.md` for the full, repository-derived inventory of
+every web admin module and its exact mobile status.
 
 **Explicitly NOT implemented** (shown as an honest "unavailable"/"coming
-soon" state in the app, never faked):
+soon" state in the app, or listed as web-only in Menü, never faked):
 
 - Live ad-performance metrics (spend, reach, CTR, CPC, CPM, frequency,
   cost per result) — reaching these honestly requires the existing
   Reklam Doktoru Pro sync pipeline; not reproduced here in this pass
-- Reklam Doktoru Pro, Müşteri Keşfi, Organik Büyüme Merkezi, Görevler,
-  Finans Özeti, Raporlar screens — listed in the "Menü" tab as
-  not-yet-integrated, not hidden
+- Reklam Doktoru Pro's analysis UI, Müşteri Keşfi, Organik Büyüme
+  Merkezi, Muhasebe Merkezi, Rapor Merkezi, and every other module not
+  marked VERIFIED/IN_PROGRESS in `MODULE_INTEGRATION.md` — listed in the
+  "Menü" tab under "Web'de Açılır", opened via the system browser, not
+  hidden and not faked as native
 - Push notifications — Expo Go does not support them without a config
   that requires `expo-notifications` + a development build (a real
   Apple Developer account's push credentials or EAS's free push service
@@ -81,8 +96,10 @@ soon" state in the app, never faked):
   `getCustomerIntegrations()` for Meta/Google Ads connection status) —
   nothing here bypasses Supabase RLS or invents a new data model.
 - **Navigation**: Expo Router, file-based, routes under `src/app/`. Five
-  bottom tabs (`(tabs)/_layout.tsx`): Ana Sayfa, Müşteriler, Reklamlar,
-  Bildirimler, Menü.
+  bottom tabs (`(tabs)/_layout.tsx`): Ana Sayfa, Müşteriler, Favoriler,
+  Bildirimler, Menü. Reklamlar and Görevler are real routes reachable from
+  Menü/Favoriler/customer-detail but intentionally not in the bottom bar
+  (`Tabs.Screen` with `href: null`), per the approved navigation spec.
 - **Design tokens**: `src/lib/theme.ts` — dark navy surfaces, turquoise
   accent, controlled orange highlight, matching the HK Dijital brand
   without copying the web admin's light-mode tokens 1:1.
