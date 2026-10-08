@@ -42,6 +42,11 @@ const eslintConfig = defineConfig([
     // binary-ish JS/asset bundles that aren't valid source to parse (tripped
     // up ESLint with a parse error on a tauri-codegen-assets file).
     "src-tauri/target/**",
+    // HK Admin mobile (Expo/React Native) — a fully separate app with its
+    // own package.json/tsconfig/lint setup (apps/hk-admin-mobile/package.json
+    // "lint": "expo lint"), never part of this Next.js app's TS program/lint
+    // run.
+    "apps/**",
   ]),
 ]);
 
