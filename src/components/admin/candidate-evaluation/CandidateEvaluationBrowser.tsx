@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount/fetch-on-selection pattern, same accepted precedent as PreAuditCenter.tsx/ReportCenterPanel.tsx */
 // Shared Aday Değerlendirme (Candidate Evaluation) presentation —
 // deliberately separate from Ön İnceleme. Used by:
 //  - ReportCenterPanel.tsx ("Aday Değerlendirme Raporları" context)
@@ -102,10 +103,30 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [overview, setOverview] = useState<any>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [latestDetail, setLatestDetail] = useState<Record<string, unknown> | null>(null);
+  const [latestDetailLoading, setLatestDetailLoading] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/candidate-evaluation").then((r) => r.json()).then((body) => setReports(body.reports || [])).catch(() => setReports([]));
   }, []);
+
+  // BUSINESS OVERVIEW — name/sector/source, resolved via the same context
+  // service the MCP tools use (get_candidate_evaluation_context), reused
+  // here through a thin HTTP wrapper. "if available" per spec: a missing
+  // sector/source simply isn't rendered, never fabricated.
+  useEffect(() => {
+    if (!selectedKey) { setOverview(null); return; }
+    const [kind, id] = selectedKey.split(":");
+    setOverviewLoading(true);
+    const params = kind === "company" ? `companyId=${encodeURIComponent(id)}` : `leadId=${encodeURIComponent(id)}`;
+    fetch(`/api/admin/candidate-evaluation/context?${params}`)
+      .then((r) => r.json())
+      .then((body) => setOverview(body.status === "resolved" ? body : null))
+      .catch(() => setOverview(null))
+      .finally(() => setOverviewLoading(false));
+  }, [selectedKey]);
 
   const entities = useMemo<Entity[]>(() => {
     if (!reports) return [];
@@ -134,6 +155,21 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
       .filter((r) => (kind === "company" ? r.company_id === id : r.lead_id === id))
       .sort((a, b) => (b.report_date || b.created_at).localeCompare(a.report_date || a.created_at));
   }, [reports, selectedKey]);
+
+  const latest = selectedReports[0] || null;
+
+  // LATEST EVALUATION — fetched and shown in full, separately from the
+  // (collapsed-by-default) EVALUATION HISTORY list below it.
+  useEffect(() => {
+    if (!latest) { setLatestDetail(null); return; }
+    setLatestDetail(null);
+    setLatestDetailLoading(true);
+    fetch(`/api/admin/candidate-evaluation/${latest.id}`)
+      .then((r) => r.json())
+      .then((body) => setLatestDetail(body.report || null))
+      .catch(() => setLatestDetail(null))
+      .finally(() => setLatestDetailLoading(false));
+  }, [latest?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function openDetail(id: string) {
     if (expandedId === id) { setExpandedId(null); setDetail(null); return; }
@@ -171,27 +207,59 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
       {!entities.length && <AdminEmptyState title="Henüz görüntülenecek rapor bulunmuyor." />}
       {selectedKey && !selectedReports.length && <AdminEmptyState title="Bu işletme için henüz aday değerlendirme raporu bulunmuyor." />}
 
-      {selectedReports.map((r) => (
-        <div key={r.id} className="hk-card p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-black">{r.title || "İsimsiz aday"}</p>
-              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted, #64748b)" }}>
-                {r.recommendation && <AdminStatusBadge tone={r.recommendation.toLocaleLowerCase("tr").includes("değil") ? "danger" : "success"}>{r.recommendation}</AdminStatusBadge>}
-                {r.priority && <AdminStatusBadge tone="info">{r.priority}</AdminStatusBadge>}
-                {typeof r.score === "number" && <span>Puan: {r.score}/100</span>}
-                <span>{formatDate(r.report_date)}</span>
-              </p>
-            </div>
-            <AdminButton variant="secondary" compact icon={<Eye size={13} />} onClick={() => openDetail(r.id)}>{expandedId === r.id ? "Gizle" : "Detay"}</AdminButton>
-          </div>
-          {expandedId === r.id && (
-            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
-              {detailLoading ? <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Yükleniyor…</p> : <CandidateEvaluationDetail report={detail} />}
-            </div>
-          )}
+      {selectedKey && overview && !overviewLoading && (
+        <div className="hk-card p-4">
+          <p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>İşletme Bilgisi</p>
+          <p className="mt-1 text-sm font-black">{overview.business?.name}</p>
+          <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+            {overview.business?.sector && <span>Sektör: {overview.business.sector}</span>}
+            {overview.lead?.source && <span>Kaynak: {overview.lead.source}</span>}
+            {overview.business?.city && <span>Konum: {overview.business.city}</span>}
+          </p>
         </div>
-      ))}
+      )}
+
+      {latest && (
+        <div className="hk-card p-4" style={{ borderColor: "#0891b2" }}>
+          <p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "#0891b2" }}>Son Değerlendirme</p>
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted, #64748b)" }}>
+            {latest.recommendation && <AdminStatusBadge tone={latest.recommendation.toLocaleLowerCase("tr").includes("değil") ? "danger" : "success"}>{latest.recommendation}</AdminStatusBadge>}
+            {latest.priority && <AdminStatusBadge tone="info">{latest.priority}</AdminStatusBadge>}
+            {typeof latest.score === "number" && <span>Puan: {latest.score}/100</span>}
+            <span>{formatDate(latest.report_date)}</span>
+          </p>
+          <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+            {latestDetailLoading ? <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Yükleniyor…</p> : <CandidateEvaluationDetail report={latestDetail} />}
+          </div>
+        </div>
+      )}
+
+      {selectedReports.length > 0 && (
+        <div className="grid gap-3">
+          <p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>Değerlendirme Geçmişi ({selectedReports.length})</p>
+          {selectedReports.map((r) => (
+            <div key={r.id} className="hk-card p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black">{r.title || "İsimsiz aday"}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted, #64748b)" }}>
+                    {r.recommendation && <AdminStatusBadge tone={r.recommendation.toLocaleLowerCase("tr").includes("değil") ? "danger" : "success"}>{r.recommendation}</AdminStatusBadge>}
+                    {r.priority && <AdminStatusBadge tone="info">{r.priority}</AdminStatusBadge>}
+                    {typeof r.score === "number" && <span>Puan: {r.score}/100</span>}
+                    <span>{formatDate(r.report_date)}</span>
+                  </p>
+                </div>
+                <AdminButton variant="secondary" compact icon={<Eye size={13} />} onClick={() => openDetail(r.id)}>{expandedId === r.id ? "Gizle" : "Detay"}</AdminButton>
+              </div>
+              {expandedId === r.id && (
+                <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--admin-border)" }}>
+                  {detailLoading ? <p className="text-sm" style={{ color: "var(--admin-text-muted, #64748b)" }}>Yükleniyor…</p> : <CandidateEvaluationDetail report={detail} />}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

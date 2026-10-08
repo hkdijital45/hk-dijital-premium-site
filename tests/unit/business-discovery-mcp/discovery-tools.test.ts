@@ -6,18 +6,28 @@
 // only the Claude/MCP layer on top of them was removed. This file now
 // guards against regression: the 3 tools must stay gone, the rest of the
 // MCP connector must stay intact, and the admin route must keep working.
+//
+// The exact tool count is intentionally NOT asserted as a fixed magic
+// number — this connector legitimately grows over time (most recently:
+// get_candidate_evaluation_context/save_candidate_evaluation/
+// get_latest_candidate_evaluation for Aday Değerlendirme). What actually
+// matters and IS asserted: no duplicate names, the 3 removed tools stay
+// gone, and the known pre-existing/new tools stay registered.
 import test from "node:test";
 import assert from "node:assert/strict";
 
-test("REGRESSION — Claude customer-discovery MCP tools have been removed (23 tools remain, no duplicate names)", async () => {
+test("REGRESSION — Claude customer-discovery MCP tools have been removed (no duplicate names)", async () => {
   const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
   const names = tools.map((t: any) => t.name);
-  assert.equal(names.length, 23);
+  assert.ok(names.length > 0);
   assert.equal(new Set(names).size, names.length, "no duplicate tool names");
   for (const removed of ["search_customer_discovery", "get_customer_discovery_candidate", "save_discovery_as_lead"]) {
     assert.ok(!names.includes(removed), `${removed} must no longer be registered`);
   }
-  for (const existing of ["get_pre_audit_context", "customer_list", "meta_ads_account", "get_instagram_account", "save_marketing_intelligence", "get_ads_strategy_context"]) {
+  for (const existing of [
+    "get_pre_audit_context", "customer_list", "meta_ads_account", "get_instagram_account", "save_marketing_intelligence", "get_ads_strategy_context",
+    "get_candidate_evaluation_context", "save_candidate_evaluation", "get_latest_candidate_evaluation"
+  ]) {
     assert.ok(names.includes(existing), `pre-existing tool ${existing} must still be registered`);
   }
 });
