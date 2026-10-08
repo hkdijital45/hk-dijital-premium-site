@@ -1,0 +1,155 @@
+[
+  {
+    "date": "2026-09-08",
+    "date_range_label": "Son 30 Gün",
+    "period_start": "2026-09-08",
+    "period_end": "2026-10-08",
+    "created_at": "2026-10-08T12:53:35.074877+00:00",
+    "updated_at": "2026-10-08T12:53:35.074877+00:00",
+    "spend": 1488.85,
+    "impressions": 17084,
+    "reach": 6359,
+    "clicks": 102,
+    "results": 42,
+    "ctr": 2.464294,
+    "cpc": 3.536461,
+    "cpm": 87.148794,
+    "id": "snapshot-2026-09-08",
+    "meta_campaign_id": "campaign-1",
+    "meta_adset_id": "adset-1",
+    "placement_breakdown": [
+      {},
+      {},
+      {},
+      {}
+    ],
+    "age_breakdown": [
+      {},
+      {},
+      {},
+      {},
+      {}
+    ],
+    "gender_breakdown": [
+      {},
+      {},
+      {}
+    ],
+    "location_breakdown": [
+      {},
+      {}
+    ],
+    "raw_data": {
+      "insight": {
+        "spend": "1488.85",
+        "impressions": "17084",
+        "reach": "6359",
+        "inline_link_clicks": "102",
+        "clicks": "421",
+        "date_start": "2026-09-08",
+        "date_stop": "2026-10-08"
+      }
+    }
+  },
+  {
+    "date": "2026-09-07",
+    "date_range_label": "Son 30 Gün",
+    "period_start": "2026-09-07",
+    "period_end": "2026-10-07",
+    "created_at": "2026-10-07T21:59:01.46144+00:00",
+    "updated_at": "2026-10-07T21:59:01.46144+00:00",
+    "spend": 1398.63,
+    "impressions": 16058,
+    "reach": 6123,
+    "clicks": 93,
+    "results": 39,
+    "ctr": 2.434923,
+    "cpc": 3.577059,
+    "cpm": 87.098642,
+    "id": "snapshot-2026-09-07",
+    "meta_campaign_id": "campaign-1",
+    "meta_adset_id": "adset-1",
+    "placement_breakdown": [
+      {},
+      {},
+      {},
+      {}
+    ],
+    "age_breakdown": [
+      {},
+      {},
+      {},
+      {},
+      {}
+    ],
+    "gender_breakdown": [
+      {},
+      {},
+      {}
+    ],
+    "location_breakdown": [
+      {}
+    ],
+    "raw_data": {
+      "insight": {
+        "spend": "1398.63",
+        "impressions": "16058",
+        "reach": "6123",
+        "inline_link_clicks": "93",
+        "clicks": "391",
+        "date_start": "2026-09-07",
+        "date_stop": "2026-10-07"
+      }
+    }
+  },
+  {
+    "date": "2026-09-02",
+    "date_range_label": "Son 30 Gün",
+    "period_start": "2026-09-02",
+    "period_end": "2026-10-02",
+    "created_at": "2026-10-02T16:24:09.828253+00:00",
+    "updated_at": "2026-10-02T16:24:09.828253+00:00",
+    "spend": 346.59,
+    "impressions": 4336,
+    "reach": 2532,
+    "clicks": 31,
+    "results": 12,
+    "ctr": 2.744465,
+    "cpc": 2.912521,
+    "cpm": 79.933118,
+    "id": "snapshot-2026-09-02",
+    "meta_campaign_id": "campaign-1",
+    "meta_adset_id": "adset-1",
+    "placement_breakdown": [
+      {},
+      {},
+      {},
+      {}
+    ],
+    "age_breakdown": [
+      {},
+      {},
+      {},
+      {}
+    ],
+    "gender_breakdown": [
+      {},
+      {},
+      {}
+    ],
+    "location_breakdown": [
+      {}
+    ],
+    "raw_data": {
+      "insight": {
+        "spend": "346.59",
+        "impressions": "4336",
+        "reach": "2532",
+        "inline_link_clicks": "31",
+        "clicks": "119",
+        "date_start": "2026-09-02",
+        "date_stop": "2026-10-02"
+      }
+    }
+  }
+]
