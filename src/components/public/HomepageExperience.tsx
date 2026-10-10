@@ -1,12 +1,12 @@
 "use client";
 import { resolvePublicWhatsappUrl } from "@/lib/public-contact";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion, MotionConfig, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import {
-  ArrowRight, BarChart3, CalendarDays, ChevronDown, Clapperboard, ClipboardCheck, Compass, FileSearch2,
+  ArrowRight, ChevronDown, ClipboardCheck, Compass, FileSearch2,
   Handshake, LineChart, Map, MessageCircle, MousePointerClick, Rocket, ShieldCheck,
   Sparkles, Target, Wallet, Zap
 } from "lucide-react";
@@ -16,13 +16,12 @@ import type { SiteContent } from "@/lib/types";
 import type { PublicBrandShowcase } from "@/lib/brand-showcase-public";
 import { BrandShowcaseSection } from "./BrandShowcaseSection";
 import { serviceIcons } from "@/lib/icons";
-import { ContactForm } from "./ContactForm";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
+import { trackEvent } from "./TrackingPlaceholders";
 import { blogPosts } from "@/lib/public-seo-content";
-import { PACKAGE_CATEGORIES, formatTRY, getPackagePricing, servicePackagesByCategory } from "@/lib/packages";
-import { CheckCircle2 } from "@/lib/icons";
+import { PACKAGE_CATEGORIES } from "@/lib/packages";
 import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, MarketingReveal, MarketingSection } from "./marketing/MarketingUI";
-import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
+import { platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
 import { serviceVisualVariantForKey } from "./marketing/serviceVisualVariant";
 import { AdOperationsPanel } from "./AdOperationsPanel";
@@ -54,13 +53,6 @@ const whyHkPoints: Array<{ title: string; text: string; Icon: LucideIcon }> = [
   { title: "Gerçekçi beklenti", text: "Satış garantisi verilmez; ölçülebilir bir büyüme sistemi kurulur ve işletilir.", Icon: ShieldCheck }
 ];
 
-const proofMetrics: Array<[string, string, string]> = [
-  ["3.8%", "CTR", "Reklamı görenlerin tıklama davranışını görünür hale getirir."],
-  ["₺4,20", "CPC", "Reklam bütçesini daha kontrollü yönetmeye yardımcı olur."],
-  ["5.4x", "ROAS", "Satış garantisi değil, ölçülebilir büyüme sistemi."],
-  ["128", "Dönüşüm", "Form, arama, WhatsApp veya satış aksiyonu tek ekranda takip edilir."]
-];
-
 const faqEntries: Array<[string, string]> = [
   ["Hangi işletmelerle çalışıyorsunuz?", "Manisa merkez ve ilçelerindeki yerel işletmelerle; ayrıca Türkiye genelinde uzaktan çalışma modeliyle büyümek isteyen markalarla çalışıyoruz."],
   ["Reklam bütçesi hizmet ücretine dahil mi?", "Hayır. Reklam bütçesi doğrudan Meta veya Google'a ödenir; hizmet bedeli strateji, kurulum, optimizasyon ve raporlama çalışmasını kapsar."],
@@ -71,12 +63,13 @@ const faqEntries: Array<[string, string]> = [
   ["Raporlama nasıl yapılır?", "Kampanya ve içerik performansı düzenli aralıklarla, anlaşılır Türkçe yorumlar ve sonraki adım önerileriyle raporlanır."]
 ];
 
-function FaqAccordion() {
+function FaqAccordion({ limit }: { limit?: number } = {}) {
   const baseId = useId();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const entries = limit ? faqEntries.slice(0, limit) : faqEntries;
   return (
     <div className="grid gap-1">
-      {faqEntries.map(([question, answer], index) => {
+      {entries.map(([question, answer], index) => {
         const open = openIndex === index;
         const panelId = `${baseId}-panel-${index}`;
         const buttonId = `${baseId}-button-${index}`;
@@ -192,130 +185,6 @@ function PlatformStrip() {
               <span className="whitespace-nowrap text-sm font-bold" style={{ color: "var(--mk-ink-soft)" }}>{label}</span>
             </div>
           ))}
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* --------------------------- Ads story sections ------------------------ */
-
-function AdsStorySection({
-  id, reverse, badgeIcon: BadgeIcon, eyebrow, title, description, problem, bullets, ctaLabel, trackingLabel, visual
-}: {
-  id: string; reverse?: boolean; badgeIcon: LucideIcon; eyebrow: string; title: string; description: string; problem: string; bullets: string[]; ctaLabel: string; trackingLabel: string; visual?: ReactNode;
-}) {
-  return (
-    <MarketingSection id={id} className="overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className={`grid items-center gap-16 lg:grid-cols-[1.05fr_1fr] ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
-          <MarketingReveal>
-            <div className="relative mx-auto max-w-sm lg:max-w-none">
-              <div className="marketing-glow" style={{ width: 260, height: 260, top: -40, left: reverse ? undefined : -40, right: reverse ? -40 : undefined, background: "rgba(16, 124, 115,.1)" }} aria-hidden="true" />
-              {visual && (
-                <div className="ads-story-visual">
-                  <div className="ads-story-badge grid h-14 w-14 place-items-center rounded-2xl" style={{ color: "var(--mk-violet)" }}>
-                    <BadgeIcon size={24} />
-                  </div>
-                  {visual}
-                </div>
-              )}
-            </div>
-          </MarketingReveal>
-          <MarketingReveal delay={0.1}>
-            <MarketingEyebrow>{eyebrow}</MarketingEyebrow>
-            <MarketingHeading className="mt-4 text-3xl sm:text-[2.7rem]">{title}</MarketingHeading>
-            <p className="mt-5 max-w-lg text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{description}</p>
-            <p className="ads-story-problem">
-              <span className="ads-story-problem-label">Hangi problemi çözer?</span> {problem}
-            </p>
-            <ol className="ads-story-bullets">
-              {bullets.map((bullet, index) => (
-                <li key={bullet}>
-                  <span className="ads-story-bullet-index">0{index + 1}</span>
-                  <span>{bullet}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-8">
-              <PrimaryLink href="/teklif-al" trackingLabel={trackingLabel}>{ctaLabel} <ArrowRight size={18} /></PrimaryLink>
-            </div>
-          </MarketingReveal>
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* ------------------------ Social media management ----------------------- */
-
-function PhoneMockup() {
-  return (
-    <div className="relative mx-auto w-full max-w-[240px]">
-      <div className="rounded-[2.4rem] border-[6px] p-2 shadow-[0_30px_80px_rgba(15,16,36,.22)]" style={{ borderColor: "#14132b", background: "#14132b" }}>
-        <div className="relative aspect-[9/19] overflow-hidden rounded-[1.9rem]" style={{ background: "#0b0a1a" }}>
-          <div className="absolute left-1/2 top-2 h-4 w-20 -translate-x-1/2 rounded-full bg-black/60" aria-hidden="true" />
-          <div className="flex h-full flex-col gap-3 p-4 pt-8">
-            <div className="flex items-center gap-2">
-              <InstagramMark className="size-6" />
-              <span className="text-[10px] font-black uppercase tracking-wide text-white/80">Reels Planı</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <div key={index} className="aspect-square rounded-[6px]" style={{ background: [1, 4, 7].includes(index) ? "linear-gradient(135deg, #107C73, #F5A000)" : "rgba(255,255,255,.08)" }} />
-              ))}
-            </div>
-            <div className="mt-auto rounded-xl p-3" style={{ background: "rgba(255,255,255,.06)" }}>
-              <p className="text-[9px] font-bold text-white/70">Bu hafta yayında</p>
-              <p className="mt-1 text-[10px] font-black text-white">3 Reels · 2 Gönderi</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SocialMediaSection({ description }: { description: string }) {
-  const cards = [
-    { label: "İçerik Takvimi", Icon: CalendarDays, pos: { top: "4%", left: "-6%" } },
-    { label: "Kreatif Üretim", Icon: Clapperboard, pos: { top: "20%", right: "-10%" } },
-    { label: "Topluluk & Analiz", Icon: BarChart3, pos: { bottom: "8%", left: "-10%" } }
-  ];
-  return (
-    <MarketingSection id="sosyal-medya-yonetimi" alt>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <MarketingReveal>
-            <MarketingEyebrow>Sosyal Medya Yönetimi</MarketingEyebrow>
-            <MarketingHeading className="mt-4 text-3xl sm:text-5xl">İçerikten <span className="marketing-gradient-text">Topluluğa</span> Tek Akış</MarketingHeading>
-            <p className="mt-5 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{description}</p>
-          </MarketingReveal>
-        </div>
-        <div className="relative mx-auto mt-14 max-w-md">
-          <PhoneMockup />
-          {cards.map((card, index) => (
-            <motion.div
-              key={card.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, amount: "some" }}
-              transition={{ duration: 0.5, delay: 0.15 + index * 0.12 }}
-              className="absolute hidden items-center gap-2 rounded-2xl border bg-white px-4 py-3 shadow-[0_18px_46px_rgba(15,16,36,.14)] sm:flex"
-              style={{ ...card.pos, borderColor: "var(--mk-border)" }}
-            >
-              <card.Icon size={16} className="text-[#107C73]" />
-              <span className="whitespace-nowrap text-xs font-black" style={{ color: "var(--mk-ink)" }}>{card.label}</span>
-            </motion.div>
-          ))}
-          <div className="mt-10 grid grid-cols-1 gap-3 sm:hidden">
-            {cards.map((card) => (
-              <div key={card.label} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3" style={{ borderColor: "var(--mk-border)" }}>
-                <card.Icon size={16} className="text-[#107C73]" />
-                <span className="text-xs font-black" style={{ color: "var(--mk-ink)" }}>{card.label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </MarketingSection>
@@ -443,216 +312,58 @@ function ServicesSection({ services }: { services: SiteContent["services"] }) {
   );
 }
 
-/* --------------------------- Performance (dark) -------------------------- */
+/* ----------------------- Strategic value proposition ---------------------- */
 
-function PerformanceSection() {
+/**
+ * 2026-10 IA simplification: merges what used to be four separate homepage
+ * sections (Performance/proofMetrics, AI-GEO, Process, Trust) into one.
+ * Nothing here is new copy — every sentence already existed in one of
+ * those four sections; this just drops the redundant parts (the 4 numeric
+ * "proof metric" cards, which repeated the same "örnek senaryo" idea the
+ * hero's AdOperationsPanel already shows more concretely, and the AI/GEO
+ * example-query visual, which repeated the same "örnek görselleştirme"
+ * pattern) and compacts the rest. `id="process"` is kept so the existing
+ * header link (/#process) and any external links to it keep working.
+ */
+function ValuePropSection() {
   return (
-    <MarketingSection dark id="performans" className="overflow-hidden">
+    <MarketingSection dark id="process" className="overflow-hidden">
       <div className="marketing-section-bleed" aria-hidden="true" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
-          <MarketingEyebrow>Performans Pazarlama</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Veriye bakmak yetmez. <span className="marketing-gradient-text">Veriyi aksiyona</span> dönüştürmek gerekir.</MarketingHeading>
-          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-400">Aşağıdaki gösterge panosu örnek bir senaryodur — satış garantisi değil, ölçülebilir bir sistemdir.</p>
+          <MarketingEyebrow>Neden HK Dijital</MarketingEyebrow>
+          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Deneyim, <span className="marketing-gradient-text">şeffaflık</span> ve net bir süreç</MarketingHeading>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-400">Satış garantisi vermeyiz; kararlar izlenime değil ölçülen sinyale dayanır, bütçe yayına çıkmadan önce hedef ve kanal uyumu netleştirilir.</p>
         </MarketingReveal>
-        <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {proofMetrics.map(([value, label, text]) => (
-            <MarketingReveal key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-3xl font-black text-white">{value}</p>
-              <p className="mt-2 text-xs font-black uppercase tracking-wide text-[#8FE9E2]">{label}</p>
-              <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
+
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {whyHkPoints.slice(0, 3).map((point) => (
+            <MarketingReveal key={point.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+              <point.Icon size={20} className="text-[#23D9CE]" />
+              <h3 className="mt-3 text-base font-black text-white">{point.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{point.text}</p>
             </MarketingReveal>
           ))}
         </div>
-      </div>
-    </MarketingSection>
-  );
-}
 
-/* --------------------------------- AI / GEO ------------------------------ */
-
-function AiGeoSection() {
-  return (
-    <MarketingSection dark id="ai-geo" className="border-t border-white/10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_.9fr]">
-          <MarketingReveal>
-            <MarketingEyebrow>Yapay Zekâ Destekli Görünürlük</MarketingEyebrow>
-            <MarketingHeading className="mt-4 text-3xl sm:text-4xl">Reklam ve sosyal medya operasyonunuz, <span className="marketing-gradient-text">yapay zekâ ile desteklenir.</span></MarketingHeading>
-            <p className="mt-5 max-w-xl text-base leading-7 text-slate-400">
-              Arama artık yalnızca Google değil; kullanıcılar Gemini gibi yapay zekâ motorlarına da soru soruyor. HK Dijital&apos;in kullandığı yapay zekâ katmanı; görünürlük analizi, dijital olgunluk değerlendirmesi ve içerik/kampanya fikirleriyle ana reklam ve sosyal medya çalışmasını destekler.
-            </p>
-            <Link href="/hk-intelligence" className="mt-7 inline-flex items-center gap-2 text-sm font-black text-white">HK Intelligence sistemini inceleyin <ArrowRight size={16} /></Link>
-          </MarketingReveal>
-          <MarketingReveal delay={0.1}>
-            <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6">
-              <div className="marketing-scanline" aria-hidden="true" />
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Örnek görselleştirme — gerçek müşteri verisi değildir</p>
-              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-xs font-bold text-slate-400">&quot;Bölgede güvenilir hizmet sağlayıcı önerir misin?&quot;</p>
-                <p className="mt-2 text-sm leading-6 text-slate-200">Yapay zekâ yanıtında markanızın adı, alternatif adları ve rakip görünürlüğü tespit edilir.</p>
-              </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl border border-[#8FE9E2]/25 bg-[#107C73]/[0.1] p-4">
-                <span className="text-xs font-bold text-slate-300">Görünürlük Skoru</span>
-                <span className="text-lg font-black text-white">—/100</span>
-              </div>
-            </div>
-          </MarketingReveal>
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* --------------------------------- Process ------------------------------- */
-
-function ProcessSection() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
-  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start 0.75", "end 0.35"] });
-  const fillScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  useMotionValueEvent(scrollYProgress, "change", (value) => {
-    setActive(Math.min(processSteps.length - 1, Math.max(0, Math.floor(value * processSteps.length))));
-  });
-
-  return (
-    <MarketingSection id="process" alt>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MarketingReveal>
+        <div className="mt-10 border-t border-white/10 pt-10">
           <MarketingEyebrow>Nasıl Çalışıyoruz</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Keşiften <span className="marketing-gradient-text">Rapora</span> Kadar</MarketingHeading>
-        </MarketingReveal>
-        <div ref={containerRef} className="mt-12 grid gap-8 lg:grid-cols-[auto_1fr]">
-          <div className="hidden lg:flex lg:justify-center">
-            <div className="marketing-progress-track h-full min-h-[480px]">
-              <motion.div className="marketing-progress-fill" style={{ scaleY: fillScale, height: "100%" }} />
-            </div>
-          </div>
-          <div className="grid gap-3">
-            {processSteps.map((step, index) => {
-              const isActive = index === active;
-              return (
-                <motion.div
-                  key={step.label}
-                  initial={{ opacity: 0, x: 20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true, amount: 0.4 }}
-                  transition={{ duration: 0.5 }}
-                  className="flex items-center gap-4 rounded-2xl border p-5 transition"
-                  style={{ borderColor: isActive ? "var(--mk-violet)" : "var(--mk-border)", background: isActive ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
-                >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-full border text-sm font-black italic" style={{ borderColor: isActive ? "var(--mk-violet)" : "var(--mk-border-strong)", color: isActive ? "var(--mk-violet)" : "var(--mk-ink-faint)" }}>0{index + 1}</span>
-                  <step.Icon size={20} className={isActive ? "text-[#107C73]" : ""} style={{ color: isActive ? undefined : "var(--mk-ink-faint)" }} />
-                  <div>
-                    <h3 className="text-base font-black sm:text-lg" style={{ color: "var(--mk-ink)" }}>{step.label}</h3>
-                    <p className="mt-1 text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{step.text}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* --------------------------------- Packages entry ------------------------- */
-
-function PackagesTeaser({ intro }: { intro: string }) {
-  const [active, setActive] = useState(PACKAGE_CATEGORIES[0].key);
-  const activeCategory = PACKAGE_CATEGORIES.find((category) => category.key === active) || PACKAGE_CATEGORIES[0];
-  return (
-    <MarketingSection id="packages">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MarketingReveal>
-          <MarketingEyebrow>Paketler</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Kapsamı ve <span className="marketing-gradient-text">bütçeyi</span> netleştirin</MarketingHeading>
-          <p className="mt-5 max-w-2xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>{intro}</p>
-        </MarketingReveal>
-        <div className="mt-8 flex flex-wrap gap-2">
-          {PACKAGE_CATEGORIES.map((category) => (
-            <button key={category.key} type="button" onClick={() => setActive(category.key)} className="rounded-full border px-5 py-2.5 text-sm font-bold transition" style={{ borderColor: active === category.key ? "var(--mk-violet)" : "var(--mk-border-strong)", background: active === category.key ? "var(--mk-violet)" : "transparent", color: active === category.key ? "#fff" : "var(--mk-ink-soft)" }}>
-              {category.shortLabel}
-            </button>
-          ))}
-        </div>
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {servicePackagesByCategory(activeCategory.key).slice(0, 3).map((pkg) => {
-            const pricing = getPackagePricing(pkg);
-            return (
-              <MarketingCard key={pkg.slug} feature={pkg.popular} className="relative p-7">
-                {pkg.popular && <span className="absolute right-6 top-6 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white" style={{ background: "linear-gradient(97deg, var(--mk-violet), var(--mk-blue))" }}>Önerilen</span>}
-                <h3 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>{pkg.name}</h3>
-                <p className="mt-2 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--mk-ink-faint)" }}>{pkg.idealFor}</p>
-                <p className="mt-4 text-3xl font-black" style={{ color: "var(--mk-ink)" }}>{formatTRY(pricing?.basePrice || pkg.monthlyPrice)}<span className="ml-2 text-xs font-bold" style={{ color: "var(--mk-ink-faint)" }}>+KDV/ay</span></p>
-                <ul className="mt-5 space-y-2.5">
-                  {pkg.features.slice(0, 3).map((feature) => (
-                    <li key={feature.label} className="flex gap-2 text-xs leading-5" style={{ color: "var(--mk-ink-soft)" }}>
-                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[#107C73]" /> <span><b style={{ color: "var(--mk-ink)" }}>{feature.label}:</b> {feature.value}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link href={`/teklif-al?paket=${pkg.slug}`} className="marketing-btn marketing-btn-secondary mt-6 w-full">Bu Paketi Seç</Link>
-              </MarketingCard>
-            );
-          })}
-        </div>
-        <div className="mt-8 flex flex-wrap items-center gap-4">
-          <Link href="/paketler" className="marketing-btn-ghost inline-flex items-center gap-1.5">Tüm paketleri görüntüle <ArrowRight size={15} /></Link>
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* --------------------------------- Trust --------------------------------- */
-
-function TrustSection() {
-  return (
-    <MarketingSection id="neden-hk" alt>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MarketingReveal>
-          <MarketingEyebrow>Neden HK Dijital</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Deneyim ve <span className="marketing-gradient-text">şeffaflık</span></MarketingHeading>
-        </MarketingReveal>
-        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {whyHkPoints.map((point) => (
-            <MarketingCard key={point.title} className="p-6">
-              <point.Icon size={22} className="text-[#107C73]" />
-              <h3 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>{point.title}</h3>
-              <p className="mt-2 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{point.text}</p>
-            </MarketingCard>
-          ))}
-        </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* ------------------------------ FAQ + Blog -------------------------------- */
-
-function FaqBlogSection() {
-  return (
-    <MarketingSection id="faq-blog">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MarketingReveal>
-          <MarketingEyebrow>Kaynaklar</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Merak <span className="marketing-gradient-text">Ettikleriniz</span></MarketingHeading>
-        </MarketingReveal>
-        <div className="mt-10 grid gap-8 lg:grid-cols-[.95fr_1.05fr]">
-          <FaqAccordion />
-          <div className="grid gap-4">
-            {blogPosts.map((post) => (
-              <Link key={post.slug} href={`/blog/${post.slug}`}>
-                <MarketingCard className="p-6">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#107C73]">{post.readingTime}</p>
-                  <h3 className="mt-3 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h3>
-                  <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.description}</p>
-                </MarketingCard>
-              </Link>
+          <div className="mt-5 flex flex-wrap gap-2.5">
+            {processSteps.map((step, index) => (
+              <div key={step.label} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-2 pl-2.5 pr-4">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white/10 text-[11px] font-black text-white">{index + 1}</span>
+                <step.Icon size={14} className="text-[#23D9CE]" />
+                <span className="text-xs font-bold text-white">{step.label}</span>
+              </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-start gap-3 border-t border-white/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-xl text-sm leading-7 text-slate-400">
+            <span className="font-black text-white">Yapay zekâ destekli görünürlük:</span> arama artık yalnızca Google değil — HK Intelligence, Gemini gibi motorlardaki marka görünürlüğünüzü de analiz eder.
+          </p>
+          <Link href="/hk-intelligence" className="inline-flex shrink-0 items-center gap-2 text-sm font-black text-white">HK Intelligence&apos;ı inceleyin <ArrowRight size={16} /></Link>
         </div>
       </div>
     </MarketingSection>
@@ -661,11 +372,26 @@ function FaqBlogSection() {
 
 /* -------------------------------- Final CTA -------------------------------- */
 
+/**
+ * Also carries a compact package-category strip (replacing the old
+ * separate, full PackagesTeaser section — same 4 real categories, same
+ * /paketler destination, no invented pricing shown here since the real
+ * prices already live on /paketler and in the full AdsStorySection-era
+ * teaser this replaces) so "see pricing" and "take action" read as one
+ * beat instead of two separate sections.
+ */
 function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
     <MarketingSection>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
+          <div className="flex flex-wrap items-center justify-center gap-2.5 pb-6">
+            {PACKAGE_CATEGORIES.map((category) => (
+              <Link key={category.key} href="/paketler" onClick={() => trackEvent("package_category_clicked", { category: category.key, href: "/paketler" })} className="rounded-full border px-4 py-2 text-xs font-bold transition hover:-translate-y-0.5" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink-soft)" }}>
+                {category.shortLabel}
+              </Link>
+            ))}
+          </div>
           <div className="relative overflow-hidden rounded-[28px] px-6 py-16 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #07111B, #0D1B28 55%, #107C73)" }}>
             <div className="marketing-bokeh" aria-hidden="true">
               <span style={{ width: 70, height: 70, top: "10%", left: "8%" }} />
@@ -687,57 +413,52 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
   );
 }
 
-/* -------------------------------- Contact --------------------------------- */
+/* --------------------------- FAQ + Blog + Contact -------------------------- */
 
-function ContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
+/**
+ * Replaces the old separate FaqBlogSection + full-width ContactSection
+ * (which embedded a second copy of <ContactForm>). The FAQ is trimmed to
+ * its top 4 of 7 real questions (most-asked first, per the original
+ * array order); the rest remain exactly where they always were — nothing
+ * deleted, just not all shown twice on the homepage. The contact form
+ * itself is NOT duplicated here: this section only offers the same
+ * WhatsApp/teklif-form quick actions the old ContactSection already had
+ * alongside its embedded form, and links to /iletisim for the full form
+ * (still exactly as it was, untouched).
+ */
+function FaqAndContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
-    <MarketingSection id="contact" alt>
+    <MarketingSection id="faq-blog" alt>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
-          <MarketingEyebrow>İletişim</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Yol Haritasını <span className="marketing-gradient-text">Netleştirelim</span></MarketingHeading>
+          <MarketingEyebrow>Kaynaklar</MarketingEyebrow>
+          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Merak <span className="marketing-gradient-text">Ettikleriniz</span></MarketingHeading>
         </MarketingReveal>
-        <div className="mt-10 grid items-start gap-8 lg:grid-cols-[.9fr_1.1fr]">
-          <MarketingCard className="p-7">
-            <MessageCircle className="text-[#107C73]" size={30} />
-            <h3 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>Hızlı başlangıç</h3>
-            <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>İsterseniz WhatsApp üzerinden doğrudan yazın, isterseniz teklif formunu açıp işletmenizin hedeflerini gönderin.</p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              {whatsappUrl && <WhatsappLink href={whatsappUrl} trackingLabel="Final WhatsApp ile Görüş">WhatsApp ile Görüş</WhatsappLink>}
-              <SecondaryLink href="/teklif-al" trackingLabel="Final Teklif Formunu Aç">Teklif Formunu Aç</SecondaryLink>
-            </div>
-            <div className="mt-7 grid gap-2 border-t pt-6 text-xs" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-faint)" }}>
-              <span className="flex items-center gap-2"><Wallet size={14} className="text-[#107C73]" /> Fiyatlara KDV dahil değildir.</span>
-              <span className="flex items-center gap-2"><Target size={14} className="text-[#107C73]" /> Reklam bütçesi hizmet bedelinden ayrıdır.</span>
-              <span className="flex items-center gap-2"><MousePointerClick size={14} className="text-[#107C73]" /> Satış garantisi verilmez, süreç ölçülür ve raporlanır.</span>
-            </div>
-          </MarketingCard>
-          <ContactForm />
+        <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_.85fr]">
+          <FaqAccordion limit={4} />
+          <div className="grid gap-4">
+            {blogPosts.map((post) => (
+              <Link key={post.slug} href={`/blog/${post.slug}`}>
+                <MarketingCard className="p-6">
+                  <p className="text-xs font-black uppercase tracking-wide text-[#107C73]">{post.readingTime}</p>
+                  <h3 className="mt-3 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h3>
+                  <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.description}</p>
+                </MarketingCard>
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
-    </MarketingSection>
-  );
-}
-
-/* -------------------------------- Local SEO -------------------------------- */
-
-function LocalSeoSection() {
-  const districts = ["Şehzadeler", "Yunusemre", "Akhisar", "Turgutlu", "Salihli", "Soma", "Alaşehir", "Saruhanlı"];
-  return (
-    <MarketingSection id="local-seo" alt>
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MarketingReveal>
-          <MarketingEyebrow>Manisa ve Türkiye geneli</MarketingEyebrow>
-          <MarketingHeading className="mt-4 max-w-2xl text-3xl sm:text-5xl">Yerel bilgi, <span className="marketing-gradient-text">geniş kapsam</span></MarketingHeading>
-          <p className="mt-5 max-w-2xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>Şehzadeler, Yunusemre, Akhisar, Turgutlu, Salihli, Soma, Alaşehir ve Saruhanlı başta olmak üzere Manisa merkez ve ilçelerine; ayrıca Türkiye geneline uzaktan hizmet veriyoruz.</p>
-          <div className="mt-7 flex flex-wrap gap-2">
-            {[...districts, "Türkiye Geneli (Uzaktan)"].map((item) => <MarketingBadge key={item}>{item}</MarketingBadge>)}
+        <div className="mt-10 flex flex-col items-start justify-between gap-5 border-t pt-8 sm:flex-row sm:items-center" style={{ borderColor: "var(--mk-border)" }}>
+          <div className="grid gap-2 text-xs" style={{ color: "var(--mk-ink-faint)" }}>
+            <span className="flex items-center gap-2"><Wallet size={14} className="text-[#107C73]" /> Fiyatlara KDV dahil değildir.</span>
+            <span className="flex items-center gap-2"><Target size={14} className="text-[#107C73]" /> Reklam bütçesi hizmet bedelinden ayrıdır.</span>
+            <span className="flex items-center gap-2"><MousePointerClick size={14} className="text-[#107C73]" /> Satış garantisi verilmez, süreç ölçülür ve raporlanır.</span>
           </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <SecondaryLink href="/manisa-dijital-pazarlama" trackingLabel="Manisa Landing İncele">Manisa dijital pazarlama hizmetleri</SecondaryLink>
-            <Link href="/hakkimda" className="marketing-btn-ghost inline-flex items-center gap-1.5">HK Dijital&apos;i Tanıyın <ArrowRight size={15} /></Link>
+          <div className="flex flex-wrap gap-3">
+            {whatsappUrl && <WhatsappLink href={whatsappUrl} trackingLabel="Final WhatsApp ile Görüş">WhatsApp ile Görüş</WhatsappLink>}
+            <SecondaryLink href="/iletisim" trackingLabel="Final İletişim Formu">İletişim Formunu Aç</SecondaryLink>
           </div>
-        </MarketingReveal>
+        </div>
       </div>
     </MarketingSection>
   );
@@ -745,48 +466,27 @@ function LocalSeoSection() {
 
 /* ------------------------------- Composition -------------------------------- */
 
+// 2026-10 IA simplification: 16 sections → 7. Every KEEP/MOVE/MERGE/REMOVE
+// decision is documented in docs/PUBLIC-SITE-REDESIGN-2026-10.md. Nothing
+// here is new copy — removed sections' real content either already lives
+// on its own dedicated page (Google/Meta Ads "story" detail →
+// /hizmetler/*, Manisa/district content → /manisa-dijital-pazarlama, now
+// linked from the footer) or was folded, trimmed, into ValuePropSection /
+// FaqAndContactSection above.
 export function HomepageExperience({ content, brands = [] }: { content: SiteContent; brands?: PublicBrandShowcase[] }) {
   const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
   const services = content.services || [];
-  const googleAds = services.find((service) => service.id === "google-ads");
-  const metaAds = services.find((service) => service.id === "meta-ads");
-  const socialStrategy = services.find((service) => service.id === "social-strategy");
 
   return (
     <MotionConfig reducedMotion="user">
       <div className="marketing-shell relative">
         <Hero whatsappUrl={whatsappUrl} />
         <PlatformStrip />
-        {googleAds && (
-          <AdsStorySection
-            id="google-ads" badgeIcon={GoogleMark as unknown as LucideIcon} eyebrow="Google Ads Yönetimi" title={googleAds.name}
-            description={googleAds.description} problem={googleAds.problem}
-            bullets={["Anahtar kelime ve teklif stratejisi", "Arama niyeti yüksek trafik", "Ölçülebilir dönüşüm takibi"]}
-            ctaLabel="Google Ads için teklif al" trackingLabel="Google Ads Story CTA"
-            visual={<ServiceVisual variant="googleAds" />}
-          />
-        )}
-        {metaAds && (
-          <AdsStorySection
-            id="meta-ads" reverse badgeIcon={MetaMark as unknown as LucideIcon} eyebrow="Meta Ads Yönetimi" title={metaAds.name}
-            description={metaAds.description} problem={metaAds.problem}
-            bullets={["Instagram ve Facebook reklam kurgusu", "Kreatif ve hedef kitle testi", "Bütçe ve teklif optimizasyonu"]}
-            ctaLabel="Meta Ads için teklif al" trackingLabel="Meta Ads Story CTA"
-            visual={<ServiceVisual variant="metaAds" />}
-          />
-        )}
-        <SocialMediaSection description={socialStrategy?.description || "İçerik, konumlandırma ve reklam dilini markanızın hedeflerine göre sistemleştirin."} />
         <ServicesSection services={services} />
-        <PerformanceSection />
-        <AiGeoSection />
-        <ProcessSection />
-        <PackagesTeaser intro={content.pages.packages?.intro || "Meta, Google Ads, kombin reklam yönetimi ve sosyal medya hizmetlerini net kapsam, fiyat ve raporlama disipliniyle karşılaştırın."} />
-        <TrustSection />
+        <ValuePropSection />
         <BrandShowcaseSection brands={brands} />
-        <LocalSeoSection />
-        <FaqBlogSection />
         <FinalCtaSection whatsappUrl={whatsappUrl} />
-        <ContactSection whatsappUrl={whatsappUrl} />
+        <FaqAndContactSection whatsappUrl={whatsappUrl} />
       </div>
     </MotionConfig>
   );

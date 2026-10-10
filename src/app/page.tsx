@@ -14,6 +14,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
+  // getSiteContent() itself is request-deduped now (see src/lib/content.ts)
+  // — this call and PublicShell's own getSiteContent() call below no
+  // longer mean two real Supabase round-trips per request. A cross-request
+  // cache (unstable_cache) was also tried here, but the site_content +
+  // brand_showcases payload is ~3.4MB — over Next's 2MB data-cache entry
+  // limit — so it silently never cached; removed rather than keep
+  // ineffective code. The real remaining cost is that payload size itself,
+  // which is a separate, larger fix (trimming what getSiteContent actually
+  // needs to return) than this pass had room for.
   const [content, brands] = await Promise.all([getSiteContent(), getActiveBrandShowcases()]);
 
   return (

@@ -141,8 +141,11 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
       return;
     }
     setSent(true);
+    // A single event per successful submission — this used to also fire a
+    // second "lead_form_submitted" right after, which double-counted the
+    // same conversion in Meta Pixel, first-party analytics and now GA4
+    // (all three key off the "form_submitted" substring in trackEvent).
     trackEvent("quote_form_submitted", { form_name: "Dijital Pazarlama Ön Analizi" });
-    trackEvent("lead_form_submitted", { form_name: "Dijital Pazarlama Ön Analizi" });
   }
 
   const whatsappNumber = resolvePublicWhatsappNumber(content.contact.whatsappNumber);

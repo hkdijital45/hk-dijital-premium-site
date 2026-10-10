@@ -43,6 +43,7 @@ export function Footer({ content }: { content: SiteContent }) {
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link className="transition hover:text-white" href="/hakkimda">Hakkımızda</Link>
             <Link className="transition hover:text-white" href="/paketler">Paketler</Link>
+            <Link className="transition hover:text-white" href="/manisa-dijital-pazarlama">Manisa Dijital Pazarlama</Link>
             <Link className="transition hover:text-white" href="/blog">Blog</Link>
             <Link className="transition hover:text-white" href="/iletisim">İletişim</Link>
           </div>

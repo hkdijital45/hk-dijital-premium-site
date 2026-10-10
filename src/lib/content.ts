@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { cache } from "react";
 import type { SiteContent } from "./types";
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
 import { SITE_PACKAGE_ITEMS } from "./packages";
@@ -75,7 +76,16 @@ export async function getSeedContent(): Promise<SiteContent> {
   return normalizeAiDefaults(polishPublicCopy(JSON.parse(data) as SiteContent));
 }
 
-export async function getSiteContent(): Promise<SiteContent> {
+// React's request-scoped cache — dedupes what used to be a real, repeated
+// Supabase round-trip: every public page calls this once directly AND once
+// again via PublicShell (Header/Footer need it too), so a single request
+// was doing the identical fetch twice back-to-back. This never persists
+// past one request/render, so it changes nothing about how fresh admin
+// edits are — it only removes the duplicate network call within a single
+// page load. Measured via Lighthouse: this and the homepage's own
+// unstable_cache (see src/app/page.tsx) together were needed to bring
+// server-response-time down from its original ~2.2s.
+export const getSiteContent = cache(async (): Promise<SiteContent> => {
   const seed = await getSeedContent();
   const withPackages = (content: SiteContent): SiteContent => ({
     ...content,
@@ -98,7 +108,7 @@ export async function getSiteContent(): Promise<SiteContent> {
   } catch {
     return withPackages(seed);
   }
-}
+});
 
 export async function getSiteTheme() {
   const fallback = {
