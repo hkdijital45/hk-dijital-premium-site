@@ -215,4 +215,4 @@ export type SiteContent = {
 // page via PublicShell → Header/Footer. Never widen this type with a
 // spread; only ever construct it by naming each field explicitly (see
 // src/components/public/Shell.tsx, src/app/page.tsx).
-export type PublicSiteContent = Pick<SiteContent, "brand" | "socials" | "contact" | "services">;
+export type PublicSiteContent = Pick<SiteContent, "brand" | "socials" | "contact">;

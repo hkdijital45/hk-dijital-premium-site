@@ -1,7 +1,6 @@
 import { resolvePublicPhoneE164 } from "@/lib/public-contact";
 import type { Metadata } from "next";
 import { getPublicSiteContent } from "@/lib/content";
-import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
 import { HomepageExperience } from "@/components/public/HomepageExperience";
 import { JsonLd } from "@/components/public/JsonLd";
@@ -14,16 +13,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  // getPublicSiteContent queries Supabase for only brand/socials/contact/
-  // services (PostgREST JSON-path select — ~30 KB instead of the full
-  // ~3.2 MB site_content row, which also carries real leads/users/customer
-  // data that must never reach HomepageExperience, a "use client"
-  // component — see PublicSiteContent in types.ts). Replaces the earlier
-  // getSiteContent() + manual field-picking; also fixes the
-  // server-response-time bottleneck the unstable_cache attempt couldn't
-  // (that payload was simply too large to cache — this fetches a payload
-  // small enough that caching it is no longer the bottleneck).
-  const [content, brands] = await Promise.all([getPublicSiteContent(), getActiveBrandShowcases()]);
+  // getPublicSiteContent queries Supabase for only brand/socials/contact
+  // (PostgREST JSON-path select — a few KB instead of the full ~3.2 MB
+  // site_content row, which also carries real leads/users/customer data
+  // that must never reach HomepageExperience, a "use client" component —
+  // see PublicSiteContent in types.ts). The homepage no longer renders a
+  // brand gallery at all (moved to /calistigimiz-markalar only, Phase 4
+  // IA simplification), so getActiveBrandShowcases() is no longer called
+  // here either — one less query on the highest-traffic page.
+  const content = await getPublicSiteContent();
 
   return (
     <PublicShell>
@@ -61,7 +59,7 @@ export default async function Home() {
           url: SITE_URL
         }
       ]} />
-      <HomepageExperience content={content} brands={brands} />
+      <HomepageExperience content={content} />
     </PublicShell>
   );
 }

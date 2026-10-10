@@ -117,30 +117,32 @@ export const getSiteContent = cache(async (): Promise<SiteContent> => {
 // to do with public marketing content (see PublicSiteContent's doc
 // comment in types.ts, and the security fix this was found alongside:
 // that data was never supposed to reach a public page in the first place).
-// Public pages only ever need brand/socials/contact/services, so this
-// queries Supabase with PostgREST's JSON-path select
-// (`value->brand`, etc.) to fetch only those four fields — confirmed via
-// direct curl against production: ~30 KB instead of ~3.2 MB. This directly
-// targets the server-response-time bottleneck Lighthouse measured
-// (previously ~2.2s, now a fraction of that), on top of the already-fixed
-// client-payload leak. Reuses getSeedContent() for the local-dev/
-// Supabase-down fallback rather than introducing a second seed source.
+// Public pages only ever need brand/socials/contact (services was dropped
+// 2026-10-11 Phase 4 once the homepage stopped rendering a service
+// explorer — nothing public reads it via this type anymore; /hizmetler
+// fetches its own services directly via getSiteContent), so this queries
+// Supabase with PostgREST's JSON-path select (`value->brand`, etc.) to
+// fetch only those three fields — confirmed via direct curl against
+// production: a few KB instead of ~3.2 MB. This directly targets the
+// server-response-time bottleneck Lighthouse measured (previously ~2.2s,
+// now a fraction of that), on top of the already-fixed client-payload
+// leak. Reuses getSeedContent() for the local-dev/Supabase-down fallback
+// rather than introducing a second seed source.
 export const getPublicSiteContent = cache(async (): Promise<PublicSiteContent> => {
   const seed = await getSeedContent();
-  const base: PublicSiteContent = { brand: seed.brand, socials: seed.socials, contact: seed.contact, services: seed.services };
+  const base: PublicSiteContent = { brand: seed.brand, socials: seed.socials, contact: seed.contact };
   if (!hasSupabaseConfig()) return base;
 
   try {
     const rows = await supabaseRest<Array<Partial<PublicSiteContent>>>(
-      `site_settings?key=eq.${siteContentKey}&select=brand:value->brand,socials:value->socials,contact:value->contact,services:value->services&limit=1`
+      `site_settings?key=eq.${siteContentKey}&select=brand:value->brand,socials:value->socials,contact:value->contact&limit=1`
     );
     const row = rows[0];
     if (!row) return base;
     return polishPublicCopy<PublicSiteContent>({
       brand: row.brand ? { ...base.brand, ...row.brand } : base.brand,
       socials: row.socials ? { ...base.socials, ...row.socials } : base.socials,
-      contact: row.contact ? { ...base.contact, ...row.contact } : base.contact,
-      services: row.services && row.services.length ? row.services : base.services
+      contact: row.contact ? { ...base.contact, ...row.contact } : base.contact
     });
   } catch {
     return base;

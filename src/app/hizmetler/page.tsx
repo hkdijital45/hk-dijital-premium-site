@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Compass, FileSearch2, ClipboardCheck, Rocket, Zap, LineChart, Sparkles, type LucideIcon } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { pageMetadata } from "@/lib/metadata";
 import { serviceIcons } from "@/lib/icons";
@@ -8,6 +9,20 @@ import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } f
 import { MarketingCTA, MarketingNetworkBackground, ServiceVisual } from "@/components/public/marketing/MarketingVisualSystem";
 import { serviceVisualVariantForKey } from "@/components/public/marketing/serviceVisualVariant";
 import { servicePages } from "@/lib/public-seo-content";
+
+// Moved here from the homepage (2026-10-11 IA simplification, Phase 4):
+// this was the homepage's only "Nasıl Çalışıyoruz" content and had no
+// other page of its own — this is its one real home now. Header.tsx's
+// nav link points at #surec below.
+const processSteps: Array<{ label: string; text: string; Icon: LucideIcon }> = [
+  { label: "Analiz", text: "İşletme, hedef kitle ve mevcut dijital varlıklar birlikte değerlendirilir.", Icon: FileSearch2 },
+  { label: "Strateji", text: "Kanal, bütçe ve mesaj önceliği hedefe göre netleştirilir.", Icon: Compass },
+  { label: "Kurulum", text: "Kampanya, ölçümleme ve içerik altyapısı devreye alınır.", Icon: ClipboardCheck },
+  { label: "Yayın", text: "Reklam ve içerikler planlanan takvimle yayına çıkar.", Icon: Rocket },
+  { label: "Optimizasyon", text: "Sinyaller izlenir, bütçe ve kreatif buna göre ayarlanır.", Icon: Zap },
+  { label: "Raporlama", text: "Sonuçlar anlaşılır bir dille, sade raporla paylaşılır.", Icon: LineChart },
+  { label: "Büyüme", text: "Öğrenilenler bir sonraki döneme aksiyon olarak taşınır.", Icon: Sparkles }
+];
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -75,6 +90,26 @@ export default async function ServicesPage() {
                   </MarketingReveal>
                 );
               })}
+            <MarketingReveal>
+              <section id="surec" className="scroll-mt-28 rounded-[28px] p-7 sm:p-10" style={{ background: "#07111B" }}>
+                <p className="marketing-eyebrow" style={{ color: "#23D9CE" }}>Nasıl Çalışıyoruz</p>
+                <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">Keşiften Rapora Kadar</h2>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {processSteps.map((step, index) => (
+                    <div key={step.label} className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-white">{index + 1}</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <step.Icon size={15} className="text-[#23D9CE]" />
+                          <h3 className="text-sm font-black text-white">{step.label}</h3>
+                        </div>
+                        <p className="mt-1.5 text-xs leading-6 text-slate-400">{step.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </MarketingReveal>
             <MarketingReveal>
               <MarketingCTA
                 title="Hangi hizmetin işletmenize uygun olduğundan emin değil misiniz?"

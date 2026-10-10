@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, FileText, MapPin, ShieldCheck, Target } from "lucide-react";
+import { Award, Compass, FileText, Handshake, LineChart, Map, MapPin, MessageCircle, ShieldCheck, Target, type LucideIcon } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
 import { absoluteUrl, pageMetadata } from "@/lib/metadata";
 import { JsonLd } from "@/components/public/JsonLd";
 import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
 import { MarketingCTA, MarketingDashboardCard, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
+
+// Moved here from the homepage (2026-10-11 IA simplification, Phase 4):
+// this was the homepage's "Neden HK Dijital" trust section — About is its
+// natural home (replaces the two overlapping one-off cards this page
+// already had, "Manisa merkezli çalışma"/"Ölçüm ve şeffaflık", which said
+// the same thing as two of these six points).
+const whyHkPoints: Array<{ title: string; text: string; Icon: LucideIcon }> = [
+  { title: "Yerel bilgi", text: "Manisa ve ilçelerindeki işletme dinamiklerini yakından tanıyan bir ajans deneyimi.", Icon: Map },
+  { title: "Kişisel ilgi", text: "Her hesap toplu bir şablon değil, kendi hedefine göre yönetilen ayrı bir çalışma olarak ele alınır.", Icon: Handshake },
+  { title: "Şeffaf iletişim", text: "Bütçe, kapsam ve beklenti başında netleşir; süreç boyunca aynı netlikte iletişim sürer.", Icon: MessageCircle },
+  { title: "Veri odaklı yaklaşım", text: "Kararlar izlenime değil, ölçülen sinyale — tıklama, mesaj, form, maliyet — dayanır.", Icon: LineChart },
+  { title: "Önce strateji, sonra reklam", text: "Bütçe yayına çıkmadan önce hedef, teklif ve kanal uyumu netleştirilir.", Icon: Compass },
+  { title: "Gerçekçi beklenti", text: "Satış garantisi verilmez; ölçülebilir bir büyüme sistemi kurulur ve işletilir.", Icon: ShieldCheck }
+];
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -45,19 +59,24 @@ export default async function AboutPage() {
               </MarketingCard>
             </MarketingReveal>
             <div className="grid gap-4">
-              <MarketingCard className="p-6">
-                <MapPin className="text-[#107C73]" />
-                <h2 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>Manisa merkezli çalışma</h2>
-                <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Manisa’daki işletmelerin yerel rekabetini dikkate alır; Türkiye geneli hedeflemelerde uzaktan çalışma modeli kurar.</p>
-              </MarketingCard>
-              <MarketingCard className="p-6">
-                <ShieldCheck className="text-[#107C73]" />
-                <h2 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>Ölçüm ve şeffaflık</h2>
-                <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Reklam performansı yalnız metrik değil, anlaşılır karar ve sonraki aksiyon olarak raporlanır.</p>
-              </MarketingCard>
               {about.highlights.map((item) => (
                 <MarketingCard key={item} className="p-6">
                   <h2 className="text-lg font-black" style={{ color: "var(--mk-ink)" }}>{item}</h2>
+                </MarketingCard>
+              ))}
+            </div>
+          </div>
+          <div className="mx-auto mt-12 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <MarketingReveal>
+              <p className="marketing-eyebrow">Neden HK Dijital</p>
+              <h2 className="mt-3 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Deneyim ve şeffaflık</h2>
+            </MarketingReveal>
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {whyHkPoints.map((point) => (
+                <MarketingCard key={point.title} className="p-6">
+                  <point.Icon size={22} className="text-[#107C73]" />
+                  <h3 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>{point.title}</h3>
+                  <p className="mt-2 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{point.text}</p>
                 </MarketingCard>
               ))}
             </div>

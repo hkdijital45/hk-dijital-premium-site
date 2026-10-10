@@ -8,6 +8,21 @@ import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
 import { MarketingCTA, MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 
+// Moved here from the homepage (2026-10-11 IA simplification, Phase 4):
+// the homepage's FAQ had no other page of its own, and most of these
+// questions are directly about packages/pricing/contracts, so this is
+// their natural home. Native <details>/<summary> gives accordion behavior
+// with zero client JS, appropriate for this server component.
+const faqEntries: Array<[string, string]> = [
+  ["Hangi işletmelerle çalışıyorsunuz?", "Manisa merkez ve ilçelerindeki yerel işletmelerle; ayrıca Türkiye genelinde uzaktan çalışma modeliyle büyümek isteyen markalarla çalışıyoruz."],
+  ["Reklam bütçesi hizmet ücretine dahil mi?", "Hayır. Reklam bütçesi doğrudan Meta veya Google'a ödenir; hizmet bedeli strateji, kurulum, optimizasyon ve raporlama çalışmasını kapsar."],
+  ["Satış garantisi veriyor musunuz?", "Hayır. Satış garantisi verilmez; strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama süreci yönetilir."],
+  ["Sonuçlar ne kadar sürede görülür?", "İlk sinyaller genellikle kampanya yayına girdikten sonraki ilk haftalarda görülür; sağlıklı bir değerlendirme için 60-90 günlük bir optimizasyon süreci önerilir."],
+  ["Paket nasıl seçilir?", "Paket seçimi sektör, hedef ve bütçeye göre değişir. Paket Seçme Robotu birkaç soruyla size uygun paketi önerir; ön görüşmede birlikte netleştirebiliriz."],
+  ["Sözleşme veya taahhüt var mı?", "Kapsam ve çalışma süresi ön görüşmede netleştirilir; şartlar teklif aşamasında açıkça paylaşılır."],
+  ["Raporlama nasıl yapılır?", "Kampanya ve içerik performansı düzenli aralıklarla, anlaşılır Türkçe yorumlar ve sonraki adım önerileriyle raporlanır."]
+];
+
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -140,6 +155,23 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
               ))}
             </div>
 
+            <MarketingReveal>
+              <div className="mb-10">
+                <p className="marketing-eyebrow">Sıkça Sorulan Sorular</p>
+                <h2 className="mt-3 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Merak Ettikleriniz</h2>
+                <div className="mt-6 grid gap-1">
+                  {faqEntries.map(([question, answer]) => (
+                    <details key={question} className="group border-b py-1" style={{ borderColor: "var(--mk-border)" }}>
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]" style={{ color: "var(--mk-ink)" }}>
+                        {question}
+                        <ArrowRight size={16} className="shrink-0 text-[#107C73] transition-transform group-open:rotate-90" aria-hidden="true" />
+                      </summary>
+                      <p className="max-w-xl pb-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{answer}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            </MarketingReveal>
             <MarketingReveal>
               <MarketingCTA
                 title="Doğru paketi seçmek için birlikte netleştirelim"
