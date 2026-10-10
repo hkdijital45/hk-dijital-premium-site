@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isGenericBusinessCategory, isValidCustomCategory, normalizeCustomCategory, resolveBusinessCategory, resolvedBusinessCategoryOrFallback, sanitizeBusinessCategory } from "../../src/lib/business-category.ts";
+import { businessCards, extraBusinessCards, isGenericBusinessCategory, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, resolveBusinessCategory, resolvedBusinessCategoryOrFallback, sanitizeBusinessCategory } from "../../src/lib/business-category.ts";
 
 test("normalizeCustomCategory: trims and collapses internal whitespace", () => {
   assert.equal(normalizeCustomCategory("  Oto   Servis  "), "Oto Servis");
@@ -42,4 +42,35 @@ test("isGenericBusinessCategory: flags 'Diğer' / 'other' / empty as generic", (
 test("resolvedBusinessCategoryOrFallback: keeps a real category, replaces a generic one", () => {
   assert.equal(resolvedBusinessCategoryOrFallback("Güzellik Merkezi"), "Güzellik Merkezi");
   assert.equal(resolvedBusinessCategoryOrFallback("Diğer"), "belirtilmemiş sektör");
+});
+
+// 2026-10-11: expanded sector list (14 new, behind a "diğer sektörleri
+// göster" toggle in the UI) — the original 8 ids/order/labels must be
+// byte-for-byte unchanged (existing saved leads reference these ids), and
+// every id anywhere in the combined list must be unique so
+// resolveBusinessCategory never resolves two different sectors to the
+// same id or silently collides with OTHER_BUSINESS_TYPE_ID.
+test("businessCards: the original 8 ids/labels are unchanged", () => {
+  assert.deepEqual(businessCards.map((c) => c.id), ["bakery", "cafe", "restaurant", "health", "real-estate", "education", "ecommerce", OTHER_BUSINESS_TYPE_ID]);
+  assert.deepEqual(businessCards.map((c) => c.label), ["Butik Pasta", "Kafe", "Restoran", "Sağlık", "Emlak", "Eğitim", "E-Ticaret", "Diğer"]);
+});
+
+test("extraBusinessCards: has exactly the 14 requested sectors, each a unique id distinct from businessCards", () => {
+  assert.equal(extraBusinessCards.length, 14);
+  const existingIds = new Set(businessCards.map((c) => c.id));
+  const extraIds = extraBusinessCards.map((c) => c.id);
+  assert.equal(new Set(extraIds).size, 14, "no duplicate ids within extraBusinessCards");
+  for (const id of extraIds) assert.ok(!existingIds.has(id), `extra id "${id}" must not collide with an existing businessCards id`);
+  assert.ok(!extraIds.includes(OTHER_BUSINESS_TYPE_ID));
+});
+
+test("resolveBusinessCategory: resolves every extra sector id to its real label, not 'Diğer' or the raw id", () => {
+  for (const card of extraBusinessCards) {
+    assert.equal(resolveBusinessCategory(card.id, ""), card.label);
+  }
+});
+
+test("resolveBusinessCategory: an unknown/garbage id never crashes and never silently becomes 'Diğer'", () => {
+  assert.equal(resolveBusinessCategory("not-a-real-id", ""), "not-a-real-id");
+  assert.equal(resolveBusinessCategory(undefined, ""), "-");
 });
