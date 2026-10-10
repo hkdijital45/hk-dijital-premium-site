@@ -61,7 +61,7 @@ export function Header({ content }: { content: SiteContent }) {
         onMouseLeave={() => setNavHover(null)}
         onFocus={() => setNavHover(href)}
         onBlur={() => setNavHover(null)}
-        className={`marketing-nav-link relative inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 ${showPill ? "marketing-nav-link-active" : ""}`}
+        className={`marketing-nav-link relative inline-flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#107C73]/50 ${showPill ? "marketing-nav-link-active" : ""}`}
       >
         {showPill && <motion.span layoutId="nav-pill" className="marketing-nav-indicator" transition={pillTransition} />}
         <span className="relative z-10 inline-flex items-center gap-1">
@@ -189,7 +189,7 @@ export function Header({ content }: { content: SiteContent }) {
               {navLink("/hizmetler", "Hizmetler", { chevron: true })}
               <div className="invisible absolute left-0 top-full z-50 mt-3 w-80 translate-y-2 rounded-[18px] border p-2 opacity-0 shadow-[0_24px_80px_rgba(15,16,36,.14)] backdrop-blur-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100" style={{ borderColor: "var(--mk-border)", background: "rgba(255,255,255,.98)" }}>
                 {serviceLinks.map(([label, href]) => (
-                  <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#7c3aed]/[0.06]" style={{ color: "var(--mk-ink)" }}>
+                  <Link key={`${href}-${label}`} href={href} className="block rounded-[12px] px-4 py-3 text-sm font-bold transition hover:bg-[#107C73]/[0.06]" style={{ color: "var(--mk-ink)" }}>
                     {label}
                   </Link>
                 ))}

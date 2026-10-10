@@ -40,7 +40,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="mb-8 flex gap-2 overflow-x-auto rounded-2xl border p-2" style={{ borderColor: "var(--mk-border)", background: "var(--mk-surface)" }}>
               {PACKAGE_CATEGORIES.map((category) => (
-                <a key={category.key} href={`#${category.key}`} className="shrink-0 rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#7c3aed] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>
+                <a key={category.key} href={`#${category.key}`} className="shrink-0 rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#107C73] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>
                   {category.shortLabel}
                 </a>
               ))}
@@ -122,7 +122,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
                             <ul className="mt-5 grid gap-3">
                               {pkg.features.map((feature) => (
                                 <li key={`${pkg.slug}-${feature.label}`} className="flex gap-3 text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>
-                                  <CheckCircle2 className="mt-1 shrink-0 text-[#7c3aed]" size={17} />
+                                  <CheckCircle2 className="mt-1 shrink-0 text-[#107C73]" size={17} />
                                   <span><b style={{ color: "var(--mk-ink)" }}>{feature.label}:</b> {feature.value}</span>
                                 </li>
                               ))}
@@ -149,7 +149,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
             </MarketingReveal>
             <MarketingCard className="mt-6 p-7">
               <div className="flex items-start gap-3">
-                <Sparkles className="mt-1 text-[#7c3aed]" size={22} />
+                <Sparkles className="mt-1 text-[#107C73]" size={22} />
                 <div>
                   <h2 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>Önemli bilgilendirme</h2>
                   <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{disclaimerText}</p>

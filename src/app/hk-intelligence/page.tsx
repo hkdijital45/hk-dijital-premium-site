@@ -23,7 +23,7 @@ export default async function IntelligencePage() {
             {page.features.map((feature, index) => (
               <MarketingReveal key={feature} delay={index * 0.03}>
                 <MarketingCard className="p-6">
-                  <BrainCircuit className="text-[#7c3aed]" />
+                  <BrainCircuit className="text-[#107C73]" />
                   <h2 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{feature}</h2>
                   <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>
                     HK Intelligence bu başlığı stratejik karar sürecine destek olacak şekilde analiz eder ve reklam danışmanlığı akışına bağlar.

@@ -227,7 +227,7 @@ html {
   background:
     radial-gradient(circle at 18% 20%, rgba(6, 182, 212, .15), transparent 24rem),
     radial-gradient(circle at 80% 12%, rgba(251, 146, 60, .10), transparent 22rem),
-    radial-gradient(circle at 65% 75%, rgba(37, 99, 235, .10), transparent 26rem);
+    radial-gradient(circle at 65% 75%, rgba(16, 124, 115, .10), transparent 26rem);
   animation: public-bg-drift 28s ease-in-out infinite;
 }
 
@@ -382,7 +382,7 @@ html {
   right: 0;
   bottom: -3px;
   height: 2px;
-  background: linear-gradient(90deg, #7c3aed, #4fa8f0, #ec4899);
+  background: linear-gradient(90deg, #107C73, #23D9CE, #F5A000);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform .22s ease;
@@ -671,8 +671,8 @@ html {
   --hk-ref-bg: #030304;
   --hk-ref-accent: #2f5bff;
   --hk-ref-accent-2: #4fa8f0;
-  --hk-ref-violet: #7c3aed;
-  --hk-ref-indigo: #4f46e5;
+  --hk-ref-violet: #107C73;
+  --hk-ref-indigo: #0D1B28;
   --hk-ref-pink: #ec4899;
   font-family: var(--font-jakarta), var(--font-geist-sans), sans-serif;
   background: var(--hk-ref-bg);
@@ -685,11 +685,11 @@ html {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(circle at 20% 15%, rgba(124, 58, 237, .32), transparent 52%),
+    radial-gradient(circle at 20% 15%, rgba(16, 124, 115, .32), transparent 52%),
     radial-gradient(circle at 82% 12%, rgba(47, 91, 255, .3), transparent 50%),
     radial-gradient(circle at 85% 70%, rgba(236, 72, 153, .2), transparent 48%),
     radial-gradient(circle at 15% 80%, rgba(79, 168, 240, .22), transparent 50%),
-    radial-gradient(circle at 50% 45%, rgba(79, 70, 229, .16), transparent 60%);
+    radial-gradient(circle at 50% 45%, rgba(13, 27, 40, .16), transparent 60%);
   animation: cinematic-aurora-drift 24s ease-in-out infinite;
 }
 
@@ -832,7 +832,7 @@ html {
    --------------------------------------------------------------------- */
 
 .cinematic-gradient-text {
-  background: linear-gradient(96deg, #c4b5fd, #4fa8f0 55%, #f9a8d4);
+  background: linear-gradient(96deg, #8FE9E2, #4fa8f0 55%, #f9a8d4);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -855,7 +855,7 @@ html {
 
 .cinematic-badge:hover {
   border-color: rgba(167, 139, 250, .45);
-  background: rgba(124, 58, 237, .1);
+  background: rgba(16, 124, 115, .1);
   transform: translateY(-2px);
 }
 
@@ -906,7 +906,7 @@ html {
 
 .cinematic-bento:hover {
   transform: translateY(-6px);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, .4), 0 0 50px rgba(124, 58, 237, .16);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .4), 0 0 50px rgba(16, 124, 115, .16);
 }
 
 .cinematic-bento:hover::before {
@@ -915,7 +915,7 @@ html {
 
 .cinematic-bento-featured {
   background:
-    radial-gradient(circle at 20% -10%, rgba(124, 58, 237, .3), transparent 55%),
+    radial-gradient(circle at 20% -10%, rgba(16, 124, 115, .3), transparent 55%),
     radial-gradient(circle at 100% 110%, rgba(236, 72, 153, .22), transparent 50%),
     linear-gradient(160deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02));
 }
@@ -942,7 +942,7 @@ html {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 15% 20%, rgba(124, 58, 237, .32), transparent 50%),
+    radial-gradient(circle at 15% 20%, rgba(16, 124, 115, .32), transparent 50%),
     radial-gradient(circle at 85% 30%, rgba(79, 168, 240, .22), transparent 45%),
     radial-gradient(circle at 50% 90%, rgba(236, 72, 153, .16), transparent 50%);
 }
@@ -966,7 +966,7 @@ html {
 
 .cinematic-node {
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 30%, #c4b5fd, #7c3aed 65%);
+  background: radial-gradient(circle at 35% 30%, #8FE9E2, #107C73 65%);
   box-shadow: 0 0 18px rgba(167, 139, 250, .55);
   animation: cinematic-node-pulse 3s ease-in-out infinite;
 }
@@ -989,7 +989,7 @@ html {
   left: 0;
   width: 100%;
   border-radius: 999px;
-  background: linear-gradient(180deg, #7c3aed, #4fa8f0, #ec4899);
+  background: linear-gradient(180deg, #107C73, #4fa8f0, #ec4899);
   transform-origin: top;
 }
 
@@ -1004,7 +1004,7 @@ html {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 12% 0%, rgba(124, 58, 237, .18), transparent 45%),
+    radial-gradient(circle at 12% 0%, rgba(16, 124, 115, .18), transparent 45%),
     radial-gradient(circle at 88% 20%, rgba(47, 91, 255, .14), transparent 42%),
     radial-gradient(circle at 50% 100%, rgba(236, 72, 153, .1), transparent 45%);
 }
@@ -2037,9 +2037,9 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-button-ai {
-  background: linear-gradient(135deg, #7c3aed, #c026d3);
+  background: linear-gradient(135deg, #107C73, #c026d3);
   color: #fff;
-  box-shadow: 0 8px 22px rgba(124, 58, 237, .18);
+  box-shadow: 0 8px 22px rgba(16, 124, 115, .18);
 }
 
 .hk-button-edit {
@@ -2219,8 +2219,8 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
   --hk-success: #059669;
   --hk-warning: #d97706;
   --hk-danger: #dc2626;
-  --hk-info: #2563eb;
-  --hk-ai: #6d28d9;
+  --hk-info: #107C73;
+  --hk-ai: #0C6E66;
   --hk-focus-ring: #22d3ee;
   --hk-shadow-sm: 0 8px 24px rgba(15, 23, 42, .06);
   --hk-shadow-md: 0 16px 44px rgba(15, 23, 42, .09);
@@ -2578,12 +2578,12 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-admin .hk-button-info {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  background: linear-gradient(135deg, #107C73, #1d4ed8);
   color: #fff;
 }
 
 .hk-admin .hk-button-ai {
-  background: linear-gradient(135deg, #6d28d9, #9333ea);
+  background: linear-gradient(135deg, #0C6E66, #0C6E66);
   color: #fff;
 }
 
@@ -2683,8 +2683,8 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 }
 
 .hk-admin .admin-quick-action-ai {
-  border-color: #7c3aed;
-  background: linear-gradient(135deg, #6d28d9, #9333ea);
+  border-color: #107C73;
+  background: linear-gradient(135deg, #0C6E66, #0C6E66);
   color: #fff;
 }
 
@@ -4178,10 +4178,10 @@ html[data-hk-theme] :is(.hk-admin, .customer-portal) :is(button, a, input, selec
 
 .admin-kpi-strip-primary .admin-kpi-strip-icon { background: #0891b2; }
 .admin-kpi-strip-success .admin-kpi-strip-icon { background: #059669; }
-.admin-kpi-strip-info .admin-kpi-strip-icon { background: #2563eb; }
+.admin-kpi-strip-info .admin-kpi-strip-icon { background: #107C73; }
 .admin-kpi-strip-warning .admin-kpi-strip-icon { background: #d97706; }
 .admin-kpi-strip-danger .admin-kpi-strip-icon { background: #dc2626; }
-.admin-kpi-strip-ai .admin-kpi-strip-icon { background: #7c3aed; }
+.admin-kpi-strip-ai .admin-kpi-strip-icon { background: #107C73; }
 .admin-kpi-strip-gold .admin-kpi-strip-icon { background: var(--hk-gold); color: var(--hk-gold-text); }
 
 .admin-kpi-strip-text {
@@ -5912,25 +5912,38 @@ table.admin-data-grid {
    codebase (verified against the hk- and admin- prefixed admin tokens),
    so defining it globally is harmless: pages that never reference these
    custom properties are completely unaffected. */
+/* 2026-10 repaint: premium navy/teal/orange system replacing the original
+   bright-violet MARKETING V2 palette (see audit note below). Variable
+   NAMES are left as-is (--mk-violet, --mk-indigo, --mk-pink, --mk-blue) to
+   keep every existing call site working unchanged — only their values
+   were repurposed. --mk-violet is the single primary accent (teal) now;
+   --mk-indigo is the deep structural navy used as its gradient partner;
+   --mk-pink is the sparing warm accent (orange); --mk-blue folds into the
+   same teal accent rather than adding a second bright hue. Values chosen
+   so white text on --mk-violet clears 4.5:1 (verified: #107C73/#ffffff ≈
+   6:1) — the brighter logo teal (#23D9CE) reads well as text/icon/border
+   color on dark backgrounds but fails contrast as a solid white-text
+   button fill, which is why it isn't used as --mk-violet directly. */
 :root {
-  --mk-bg: #fbfaff;
-  --mk-bg-alt: #f3f1ff;
+  --mk-bg: #F4F7FA;
+  --mk-bg-alt: #E8EEF1;
   --mk-surface: #ffffff;
-  --mk-ink: #0f1024;
-  --mk-ink-soft: #4b4d6b;
-  --mk-ink-faint: #8688a8;
-  --mk-border: #e6e4f5;
-  --mk-border-strong: #d6d3ef;
-  --mk-violet: #7c3aed;
-  --mk-indigo: #4f46e5;
-  --mk-blue: #2563eb;
-  --mk-pink: #db2777;
-  --mk-cyan: #0891b2;
-  --mk-dark-bg: #0b0a1a;
-  --mk-dark-surface: #14132b;
-  --mk-dark-border: rgba(255, 255, 255, .1);
-  --mk-dark-ink: #f3f2ff;
-  --mk-dark-ink-soft: #a8a7c9;
+  --mk-ink: #0B1721;
+  --mk-ink-soft: #3E4C58;
+  --mk-ink-faint: #71818C;
+  --mk-border: #DCE3E7;
+  --mk-border-strong: #C4CED3;
+  --mk-violet: #107C73;
+  --mk-indigo: #0D1B28;
+  --mk-blue: #107C73;
+  --mk-pink: #F5A000;
+  --mk-cyan: #0E7F8C;
+  --mk-accent-bright: #23D9CE;
+  --mk-dark-bg: #07111B;
+  --mk-dark-surface: #0D1B28;
+  --mk-dark-border: rgba(35, 217, 206, .16);
+  --mk-dark-ink: #F4F7FA;
+  --mk-dark-ink-soft: #AEC2CB;
 }
 
 .marketing-shell {
@@ -5971,7 +5984,7 @@ table.admin-data-grid {
 }
 
 .marketing-section-dark .marketing-eyebrow {
-  color: #c4b5fd;
+  color: #8FE9E2;
 }
 
 .marketing-eyebrow::before {
@@ -6018,8 +6031,8 @@ table.admin-data-grid {
 .marketing-card-feature {
   border-color: var(--mk-border-strong);
   background:
-    radial-gradient(circle at 15% 0%, rgba(124, 58, 237, .07), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(219, 39, 119, .05), transparent 50%),
+    radial-gradient(circle at 15% 0%, rgba(16, 124, 115, .07), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(245, 160, 0, .05), transparent 50%),
     var(--mk-surface);
 }
 
@@ -6064,12 +6077,12 @@ table.admin-data-grid {
   border: 1px solid transparent;
   background: linear-gradient(97deg, var(--mk-violet), var(--mk-indigo));
   color: #fff;
-  box-shadow: 0 12px 30px rgba(124, 58, 237, .28);
+  box-shadow: 0 12px 30px rgba(16, 124, 115, .28);
 }
 
 .marketing-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 18px 40px rgba(124, 58, 237, .34);
+  box-shadow: 0 18px 40px rgba(16, 124, 115, .34);
 }
 
 .marketing-btn-secondary {
@@ -6143,8 +6156,8 @@ table.admin-data-grid {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 10% 0%, rgba(124, 58, 237, .16), transparent 45%),
-    radial-gradient(circle at 90% 30%, rgba(37, 99, 235, .12), transparent 42%);
+    radial-gradient(circle at 10% 0%, rgba(16, 124, 115, .16), transparent 45%),
+    radial-gradient(circle at 90% 30%, rgba(16, 124, 115, .12), transparent 42%);
 }
 
 .marketing-scanline {
@@ -6339,14 +6352,14 @@ table.admin-data-grid {
 }
 
 .marketing-chroma::before {
-  color: #ec4899;
-  -webkit-text-fill-color: #ec4899;
+  color: #F5A000;
+  -webkit-text-fill-color: #F5A000;
   animation: marketing-chroma-snap-r .6s cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .marketing-chroma::after {
-  color: #22d3ee;
-  -webkit-text-fill-color: #22d3ee;
+  color: #23D9CE;
+  -webkit-text-fill-color: #23D9CE;
   animation: marketing-chroma-snap-c .6s cubic-bezier(.16, 1, .3, 1) both;
 }
 
@@ -6378,7 +6391,7 @@ table.admin-data-grid {
   border-radius: 999px;
   filter: blur(2px);
   opacity: .5;
-  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .9), rgba(124, 58, 237, .18) 60%, transparent 72%);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .9), rgba(16, 124, 115, .18) 60%, transparent 72%);
   animation: marketing-bokeh-drift 14s ease-in-out infinite;
 }
 
@@ -6407,7 +6420,7 @@ table.admin-data-grid {
   border-radius: 999px;
   pointer-events: none;
   z-index: 30;
-  background: radial-gradient(circle, rgba(124, 58, 237, .16), rgba(37, 99, 235, .08) 45%, transparent 72%);
+  background: radial-gradient(circle, rgba(16, 124, 115, .16), rgba(16, 124, 115, .08) 45%, transparent 72%);
   transform: translate3d(var(--cx, -420px), var(--cy, -420px), 0) scale(var(--cscale, 1));
   opacity: 0;
   transition: opacity .3s ease, background .3s ease;
@@ -6423,12 +6436,12 @@ table.admin-data-grid {
    un-transitioned transform path so the glow never lags the pointer. */
 .marketing-cursor-glow[data-context="cta"] {
   --cscale: 1.4;
-  background: radial-gradient(circle, rgba(219, 39, 119, .2), rgba(124, 58, 237, .1) 45%, transparent 72%);
+  background: radial-gradient(circle, rgba(245, 160, 0, .2), rgba(16, 124, 115, .1) 45%, transparent 72%);
 }
 
 .marketing-cursor-glow[data-context="service"] {
   --cscale: 1.2;
-  background: radial-gradient(circle, rgba(37, 99, 235, .2), rgba(124, 58, 237, .1) 45%, transparent 72%);
+  background: radial-gradient(circle, rgba(16, 124, 115, .2), rgba(16, 124, 115, .1) 45%, transparent 72%);
 }
 
 .marketing-cursor-glow[data-context="link"] {
@@ -6801,7 +6814,7 @@ table.admin-data-grid {
 }
 
 .service-explorer-item-active {
-  background: linear-gradient(97deg, rgba(124, 58, 237, .08), rgba(37, 99, 235, .06));
+  background: linear-gradient(97deg, rgba(16, 124, 115, .08), rgba(16, 124, 115, .06));
   border-color: var(--mk-border-strong);
   color: var(--mk-ink);
 }
@@ -6872,7 +6885,7 @@ table.admin-data-grid {
   transform: translate(-50%, -50%);
   opacity: .22;
   animation: marketing-nav-aurora-spin 20s linear infinite;
-  background: conic-gradient(from 0deg, transparent 0deg, rgba(56, 189, 248, .4) 45deg, transparent 120deg, rgba(74, 222, 128, .3) 190deg, transparent 250deg, rgba(124, 58, 237, .38) 310deg, transparent 360deg);
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(56, 189, 248, .4) 45deg, transparent 120deg, rgba(74, 222, 128, .3) 190deg, transparent 250deg, rgba(16, 124, 115, .38) 310deg, transparent 360deg);
 }
 
 @keyframes marketing-nav-aurora-spin {
@@ -6882,6 +6895,30 @@ table.admin-data-grid {
 @media (prefers-reduced-motion: reduce) {
   .marketing-nav-aurora::before {
     animation: none !important;
+  }
+}
+
+/* Hero ad-operations panel (AdOperationsPanel.tsx) — replaces the old
+   hero-poster.png device-mockup screenshot with a real HTML/CSS/SVG
+   illustrative UI. Only the small "live" status dot animates. */
+.ad-panel {
+  box-shadow: 0 30px 90px rgba(7, 17, 27, .35), 0 0 0 1px rgba(255, 255, 255, .02) inset;
+}
+
+.ad-panel-pulse {
+  animation: ad-panel-pulse 2.2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+
+@keyframes ad-panel-pulse {
+  0% { opacity: .65; transform: scale(1); }
+  70% { opacity: 0; transform: scale(2.2); }
+  100% { opacity: 0; transform: scale(2.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-panel-pulse {
+    animation: none !important;
+    opacity: 0 !important;
   }
 }
 

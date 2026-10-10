@@ -46,12 +46,12 @@ export default async function AboutPage() {
             </MarketingReveal>
             <div className="grid gap-4">
               <MarketingCard className="p-6">
-                <MapPin className="text-[#7c3aed]" />
+                <MapPin className="text-[#107C73]" />
                 <h2 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>Manisa merkezli çalışma</h2>
                 <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Manisa’daki işletmelerin yerel rekabetini dikkate alır; Türkiye geneli hedeflemelerde uzaktan çalışma modeli kurar.</p>
               </MarketingCard>
               <MarketingCard className="p-6">
-                <ShieldCheck className="text-[#7c3aed]" />
+                <ShieldCheck className="text-[#107C73]" />
                 <h2 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>Ölçüm ve şeffaflık</h2>
                 <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Reklam performansı yalnız metrik değil, anlaşılır karar ve sonraki aksiyon olarak raporlanır.</p>
               </MarketingCard>

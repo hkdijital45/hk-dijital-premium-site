@@ -23,14 +23,14 @@ export function Footer({ content }: { content: SiteContent }) {
 
       <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.1fr_.8fr_.8fr_.8fr_.9fr] lg:px-8">
         <div className="relative">
-          <Logo content={content} footer />
+          <Logo content={content} large />
           <p className="mt-5 max-w-xl text-sm leading-7 text-slate-400">{content.brand.footerDescription || content.brand.slogan}</p>
           <p className="mt-5 text-xs leading-6 text-slate-500">
             Satış garantisi verilmez. Reklam bütçesi hizmet bedeline dahil değildir. Fiyatlara KDV dahil değildir.
           </p>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#c4b5fd]">Hizmetler</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#8FE9E2]">Hizmetler</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link className="transition hover:text-white" href="/hizmetler/meta-reklam-yonetimi">Meta Reklam Yönetimi</Link>
             <Link className="transition hover:text-white" href="/hizmetler/google-ads-yonetimi">Google Ads Yönetimi</Link>
@@ -39,7 +39,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#c4b5fd]">HK Dijital</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#8FE9E2]">HK Dijital</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link className="transition hover:text-white" href="/hakkimda">Hakkımızda</Link>
             <Link className="transition hover:text-white" href="/paketler">Paketler</Link>
@@ -48,7 +48,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#c4b5fd]">Yasal</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#8FE9E2]">Yasal</h2>
           <div className="mt-4 grid gap-3 text-sm text-slate-300">
             <Link className="transition hover:text-white" href="/gizlilik-politikasi">Gizlilik Politikası</Link>
             <Link className="transition hover:text-white" href="/kullanim-sartlari">Kullanım Koşulları</Link>
@@ -56,7 +56,7 @@ export function Footer({ content }: { content: SiteContent }) {
           </div>
         </div>
         <div className="relative">
-          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#c4b5fd]">İletişim</h2>
+          <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#8FE9E2]">İletişim</h2>
           <div className="mt-4 space-y-2 text-sm text-slate-300">
             <p>{content.contact.address}</p>
             <a className="block transition hover:text-white" href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
@@ -69,7 +69,7 @@ export function Footer({ content }: { content: SiteContent }) {
       <div className="relative border-t border-white/10">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} {content.brand.companyName}. Tüm hakları saklıdır.</p>
-          <Link href="/teklif-al" className="inline-flex items-center gap-1.5 font-bold text-[#c4b5fd] transition hover:text-white">
+          <Link href="/teklif-al" className="inline-flex items-center gap-1.5 font-bold text-[#8FE9E2] transition hover:text-white">
             Ücretsiz analiz talep edin <ArrowUpRight size={13} />
           </Link>
         </div>

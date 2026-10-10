@@ -99,7 +99,7 @@ function MetaAdsFragment() {
     <div className="grid gap-2 rounded-xl border p-3.5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }} aria-hidden="true">
       {rows.map((row, index) => (
         <div key={row.label} className="flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2" style={{ borderColor: "var(--mk-border)", marginLeft: index * 10 }}>
-          <row.Icon size={14} className="shrink-0 text-[#7c3aed]" />
+          <row.Icon size={14} className="shrink-0 text-[#107C73]" />
           <span className="min-w-0">
             <span className="block truncate text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>{row.label}</span>
             <span className="block truncate text-[10px] font-bold" style={{ color: "var(--mk-ink-faint)" }}>{row.sub}</span>
@@ -115,11 +115,11 @@ function SocialMediaFragment() {
     <div className="grid gap-2 rounded-xl border p-3.5" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }} aria-hidden="true">
       <div className="grid grid-cols-4 gap-1.5">
         {Array.from({ length: 8 }).map((_, index) => (
-          <div key={index} className="aspect-square rounded-[5px]" style={{ background: [1, 4].includes(index) ? "linear-gradient(135deg, #7c3aed, #db2777)" : "rgba(15,16,36,.06)" }} />
+          <div key={index} className="aspect-square rounded-[5px]" style={{ background: [1, 4].includes(index) ? "linear-gradient(135deg, #107C73, #F5A000)" : "rgba(15,16,36,.06)" }} />
         ))}
       </div>
       <div className="flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2" style={{ borderColor: "var(--mk-border)" }}>
-        <CalendarDays size={14} className="shrink-0 text-[#7c3aed]" />
+        <CalendarDays size={14} className="shrink-0 text-[#107C73]" />
         <span className="text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>Bu hafta 4 gönderi · 3 Reels</span>
       </div>
     </div>
@@ -139,7 +139,7 @@ function ConsultancyFragment() {
         ))}
       </div>
       <div className="flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2" style={{ borderColor: "var(--mk-border)" }}>
-        <BarChart3 size={14} className="shrink-0 text-[#7c3aed]" />
+        <BarChart3 size={14} className="shrink-0 text-[#107C73]" />
         <span className="text-[11px] font-black" style={{ color: "var(--mk-ink)" }}>Tek stratejide birleşen sistem</span>
       </div>
     </div>
@@ -166,7 +166,7 @@ export function ServiceVisual({ variant, className = "" }: { variant: ServiceVis
 export function MarketingDashboardCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl border bg-white p-3.5 text-center" style={{ borderColor: "var(--mk-border)" }}>
-      <div className="mx-auto grid size-6 place-items-center text-[#7c3aed]">{icon}</div>
+      <div className="mx-auto grid size-6 place-items-center text-[#107C73]">{icon}</div>
       <p className="mt-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--mk-ink-faint)" }}>{label}</p>
       <p className="mt-1 text-sm font-black" style={{ color: "var(--mk-ink)" }}>{value}</p>
     </div>
@@ -183,12 +183,12 @@ export function MarketingCTA({
   secondaryHref?: string; secondaryLabel?: string; trackingPrefix?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-[28px] px-6 py-14 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #5b21b6, #4338ca 55%, #a21caf)" }}>
+    <div className="relative overflow-hidden rounded-[28px] px-6 py-14 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #07111B, #0D1B28 55%, #107C73)" }}>
       <p className="text-xs font-black uppercase tracking-[.22em] text-white/80">{eyebrow}</p>
       <h2 className="mx-auto mt-5 max-w-2xl text-3xl font-black leading-tight text-white sm:text-4xl">{title}</h2>
       {text && <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/85">{text}</p>}
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-        <Link href={primaryHref} onClick={() => trackMetaCtaClick(`${trackingPrefix} ${primaryLabel}`, primaryHref)} className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">
+        <Link href={primaryHref} onClick={() => trackMetaCtaClick(`${trackingPrefix} ${primaryLabel}`, primaryHref)} className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#107C73] transition hover:-translate-y-0.5">
           {primaryLabel} <ArrowRight size={18} />
         </Link>
         {secondaryHref && secondaryLabel && (

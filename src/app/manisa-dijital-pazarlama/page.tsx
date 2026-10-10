@@ -65,7 +65,7 @@ export default function ManisaDigitalMarketingPage() {
                   <MarketingReveal key={service.href} delay={index * 0.04}>
                     <Link href={service.href}>
                       <MarketingCard className="p-6">
-                        <Icon className="text-[#7c3aed]" size={28} />
+                        <Icon className="text-[#107C73]" size={28} />
                         <h2 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{service.title}</h2>
                         <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{service.text}</p>
                       </MarketingCard>
@@ -76,7 +76,7 @@ export default function ManisaDigitalMarketingPage() {
             </div>
             <div className="grid gap-6 lg:grid-cols-[1fr_.9fr]">
               <MarketingCard className="p-7">
-                <Target className="text-[#7c3aed]" size={30} />
+                <Target className="text-[#107C73]" size={30} />
                 <h2 className="mt-5 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>HK Dijital’in çalışma süreci</h2>
                 <div className="mt-5 grid gap-3">
                   {["Keşif ve hedef netleştirme", "Kanal ve bütçe önceliği", "Kampanya kurulumu ve dönüşüm takibi", "Düzenli optimizasyon", "Anlaşılır performans raporu"].map((item, index) => (
@@ -88,7 +88,7 @@ export default function ManisaDigitalMarketingPage() {
                 </div>
               </MarketingCard>
               <MarketingCard className="p-7">
-                <MapPin className="text-[#7c3aed]" size={30} />
+                <MapPin className="text-[#107C73]" size={30} />
                 <h2 className="mt-5 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Manisa ve ilçelerine hizmet yaklaşımı</h2>
                 <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Manisa merkez ve ilçelerindeki işletmeler için lokasyon, hizmet alanı ve rekabet durumu dikkate alınır. Her ilçe için ayrı ince sayfalar yerine, hizmet ihtiyacına göre tek ve doğru strateji oluşturulur.</p>
                 <div className="mt-5 flex flex-wrap gap-2">

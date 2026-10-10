@@ -251,7 +251,7 @@ function Options({ title, text, options, onSelect, selectedId }: { title: string
               onClick={() => onSelect(option.id)}
               aria-pressed={isSelected}
               className="group min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition"
-              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
+              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
             >
               <span className="grid size-14 place-items-center rounded-xl text-3xl" style={{ background: "var(--mk-bg-alt)" }}>{option.emoji || "✨"}</span>
               <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
@@ -285,8 +285,8 @@ function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContin
               whileTap={{ scale: 0.98 }}
               onClick={() => onTogglePlatform(option.id)}
               aria-pressed={isSelected}
-              className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]"
-              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
+              className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]"
+              style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
             >
               {isSelected && (
                 <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-white" style={{ background: "var(--mk-violet)" }}>
@@ -306,8 +306,8 @@ function PlatformMultiSelect({ selected, onTogglePlatform, onToggleAll, onContin
           whileTap={{ scale: 0.98 }}
           onClick={onToggleAll}
           aria-pressed={allSelected}
-          className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]"
-          style={{ borderColor: allSelected ? "var(--mk-violet)" : "var(--mk-border)", background: allSelected ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
+          className="group relative min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]"
+          style={{ borderColor: allSelected ? "var(--mk-violet)" : "var(--mk-border)", background: allSelected ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
         >
           {allSelected && (
             <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full text-white" style={{ background: "var(--mk-violet)" }}>

@@ -72,7 +72,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
             {!hasAnyPublished ? (
               <MarketingReveal>
                 <MarketingCard className="mt-8 flex flex-col items-center gap-4 p-10 text-center">
-                  <BookOpenText className="text-[#7c3aed]" size={34} />
+                  <BookOpenText className="text-[#107C73]" size={34} />
                   <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Yeni içerikler hazırlanıyor</h2>
                   <p className="max-w-xl text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>
                     HK Dijital blogu; reklam, sosyal medya ve dijital pazarlama üzerine pratik rehberlerle yakında burada. Bu arada hizmetlerimizi inceleyebilir veya doğrudan bizimle iletişime geçebilirsiniz.
@@ -111,7 +111,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
                       <MarketingReveal key={post.slug} delay={index * 0.04}>
                         <Link href={`/blog/${post.slug}`}>
                           <MarketingCard className="p-6">
-                            <BookOpenText className="text-[#7c3aed]" size={26} />
+                            <BookOpenText className="text-[#107C73]" size={26} />
                             <p className="mt-5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>{post.category?.name || "Blog"} · {post.reading_time} dk</p>
                             <h2 className="mt-3 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h2>
                             <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>

@@ -6,17 +6,20 @@ import type { SiteContent } from "@/lib/types";
 
 type LogoVariant = "website" | "login" | "customer" | "footer";
 
-// Dedicated horizontal lockup (emblem + "HK DİJİTAL" wordmark + its orange
-// underline, transparent background) for the public navbar only — the
-// square hk-dijital-logo.png asset reads as a tiny icon at navbar height
-// because its wordmark/underline are stacked BELOW the emblem in one
-// square frame, not beside it. Not CMS-configurable (unlike
-// content.brand.logoUrl): this is a fixed site-chrome asset, same way the
-// navbar itself isn't admin-editable.
-const HORIZONTAL_LOGO = "/branding/hk-dijital-logo-horizontal.png";
+// The ORIGINAL full-composition mark (teal tech-ring + rising arrow, metallic
+// "HK", "HK DİJİTAL" wordmark, orange underline — one lossless crop of fully
+// transparent canvas margin only, no pixel redrawn/recolored/split) for the
+// public navbar/footer — see public/branding/hk-dijital-logo-original.png for
+// the untouched 1024x1024 source this was cropped from. Replaces the earlier
+// horizontally-stretched lockup that spread the emblem and wordmark apart;
+// the full composition is taller than it is wide, so it needs real navbar
+// height (not a thin strip) to read clearly — see the `large` className
+// below. Not CMS-configurable (unlike content.brand.logoUrl): this is a
+// fixed site-chrome asset, same way the navbar itself isn't admin-editable.
+const FULL_LOGO = "/branding/hk-dijital-logo-full.png";
 // Intrinsic dimensions of the source PNG — keep in sync with the asset file
 // so next/image serves correctly-sized 1x/2x candidates (no upscaling blur).
-const HORIZONTAL_LOGO_SIZE = { width: 2138, height: 736 };
+const FULL_LOGO_SIZE = { width: 666, height: 641 };
 
 export function Logo({
   content,
@@ -38,7 +41,7 @@ export function Logo({
     customer: content.brand.customerLogoUrl || content.brand.logoUrl,
     footer: content.brand.footerLogoUrl || content.brand.logoUrl
   };
-  const logo = large ? HORIZONTAL_LOGO : logoByVariant[footer ? "footer" : variant];
+  const logo = large ? FULL_LOGO : logoByVariant[footer ? "footer" : variant];
   const [failedLogo, setFailedLogo] = useState("");
   const failed = Boolean(logo && failedLogo === logo);
 
@@ -50,16 +53,17 @@ export function Logo({
     // remotePatterns configured, so an arbitrary customer-uploaded external
     // logo URL would otherwise fail to render.
     const isRelative = logo.startsWith("/");
-    const size = large ? HORIZONTAL_LOGO_SIZE : { width: 64, height: 64 };
+    const size = large ? FULL_LOGO_SIZE : { width: 64, height: 64 };
     return (
       <Image
         src={logo}
         alt={large ? "HK Dijital" : `${content.brand.companyName} logosu`}
         width={size.width}
         height={size.height}
-        unoptimized={!isRelative}
+        priority={large}
         onError={() => setFailedLogo(logo)}
-        className={large ? "h-10 w-auto shrink-0 object-contain object-left sm:h-12" : "h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12"}
+        unoptimized={!isRelative}
+        className={large ? "h-14 w-auto shrink-0 object-contain object-left sm:h-16" : "h-11 w-11 shrink-0 rounded-[10px] object-contain object-left sm:h-12 sm:w-12"}
       />
     );
   }

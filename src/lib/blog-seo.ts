@@ -3,14 +3,57 @@ import { absoluteUrl } from "@/lib/metadata";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import {
   blogPublishedAt,
+  calculateBlogMetrics,
   seedBlogPosts,
   slugifyBlogValue,
   type BlogCategory,
   type BlogPost,
   type BlogStatus
 } from "@/lib/blog-seo-shared";
+import { blogPosts as staticHomepageBlogPosts } from "@/lib/public-seo-content";
 
 export * from "@/lib/blog-seo-shared";
+
+// The homepage ("Blogdan" / FaqBlogSection) has always linked to these 3
+// real, fully-written articles — but they only ever existed as this static
+// array, never as rows in the blog_posts table the /blog list and
+// /blog/[slug] detail route actually query. The links 404'd in production
+// (Ekim 2026 ön inceleme). The content itself is real (not placeholder),
+// so the fix is to repair the route/data connection, not to invent new
+// articles or quietly unlink the homepage from them: normalize each one
+// into the same BlogPost shape a real database row would have (same
+// markdown rendering path, same metadata, same sitemap/related-posts
+// inclusion) and serve it whenever the database doesn't have that slug.
+// A database row for the same slug always wins over this static fallback.
+const staticPostsAsBlogPosts: BlogPost[] = staticHomepageBlogPosts.map((post) => {
+  const content = post.sections.map(([heading, text]) => `## ${heading}\n\n${text}`).join("\n\n");
+  const metrics = calculateBlogMetrics(content);
+  return {
+    title: post.title,
+    slug: post.slug,
+    excerpt: post.description,
+    content,
+    content_format: "markdown",
+    status: "published",
+    author_name: post.author,
+    category: null,
+    primary_keyword: "",
+    secondary_keywords: [],
+    search_intent: "",
+    meta_title: post.title,
+    meta_description: post.description,
+    featured: false,
+    allow_indexing: true,
+    published_at: new Date(`${post.date}T09:00:00.000Z`).toISOString(),
+    updated_at: new Date(`${post.updated}T09:00:00.000Z`).toISOString(),
+    reading_time: metrics.reading_time,
+    word_count: metrics.word_count,
+    seo_score: 0,
+    readability_score: 0,
+    clarity_score: 0,
+    content_quality_score: 0
+  };
+});
 
 function normalizePost(row: Record<string, unknown>): BlogPost {
   const category = Array.isArray(row.blog_categories) ? row.blog_categories[0] : row.blog_categories;
@@ -59,6 +102,12 @@ function normalizePost(row: Record<string, unknown>): BlogPost {
   };
 }
 
+function withStaticFallbackPosts(dbPosts: BlogPost[]): BlogPost[] {
+  const dbSlugs = new Set(dbPosts.map((post) => post.slug));
+  const fallbacks = staticPostsAsBlogPosts.filter((post) => !dbSlugs.has(post.slug));
+  return [...dbPosts, ...fallbacks];
+}
+
 export const getPublicBlogPosts = cache(async () => {
   if (!hasSupabaseConfig()) return seedBlogPosts;
   try {
@@ -68,14 +117,18 @@ export const getPublicBlogPosts = cache(async () => {
       {},
       false
     );
-    return rows.map(normalizePost);
+    return withStaticFallbackPosts(rows.map(normalizePost));
   } catch (error) {
     // Never silently show fake seed content in place of a real query
     // failure — an empty result renders an honest empty state instead.
     // seedBlogPosts is a LOCAL DEV placeholder only (the !hasSupabaseConfig
-    // branch above), not a production error fallback.
+    // branch above), not a production error fallback. The static homepage
+    // posts above are a different thing (real, deliberately-shipped
+    // content with no database row yet, not a failure fallback), so they
+    // still apply here — a database outage shouldn't 404 content that
+    // never depended on the database in the first place.
     console.error("getPublicBlogPosts hatası:", error instanceof Error ? error.message : error);
-    return [];
+    return staticPostsAsBlogPosts;
   }
 });
 
@@ -89,10 +142,11 @@ export const getPublicBlogPost = cache(async (slug: string) => {
       {},
       false
     );
-    return rows[0] ? normalizePost(rows[0]) : null;
+    if (rows[0]) return normalizePost(rows[0]);
+    return staticPostsAsBlogPosts.find((post) => post.slug === cleanSlug) || null;
   } catch (error) {
     console.error("getPublicBlogPost hatası:", error instanceof Error ? error.message : error);
-    return null;
+    return staticPostsAsBlogPosts.find((post) => post.slug === cleanSlug) || null;
   }
 });
 

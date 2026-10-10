@@ -55,7 +55,7 @@ export function ContactForm() {
         </label>
         <button type="submit" className="marketing-btn marketing-btn-primary">Gönder</button>
         {error && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(220,38,38,.08)", color: "#b91c1c" }}>{error}</p>}
-        {sent && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(124,58,237,.08)", color: "var(--mk-violet)" }}>Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
+        {sent && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(16, 124, 115,.08)", color: "var(--mk-violet)" }}>Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>
     </MarketingCard>
   );

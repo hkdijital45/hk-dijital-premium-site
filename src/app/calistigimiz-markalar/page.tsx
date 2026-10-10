@@ -44,7 +44,7 @@ const BRAND_PRESENTATION: Record<string, { sector: string; tone: string }> = {
   "my cake 45": { sector: "BUTİK PASTA • YEREL İŞLETME • MANİSA", tone: "linear-gradient(135deg, #faf1dc, #f4e2bd)" },
   "acn ilk yardım eğitim merkezi": { sector: "SAĞLIK • EĞİTİM • MANİSA", tone: "linear-gradient(135deg, #dcedfc, #bde1fa)" }
 };
-const DEFAULT_TONE = "linear-gradient(135deg, rgba(124,58,237,.08), rgba(158,230,53,.12))";
+const DEFAULT_TONE = "linear-gradient(135deg, rgba(16, 124, 115,.08), rgba(35, 217, 206,.12))";
 
 function presentationFor(name: string) {
   return BRAND_PRESENTATION[name.trim().toLocaleLowerCase("tr")];
@@ -75,8 +75,8 @@ export default async function BrandsPortfolioPage() {
       <div className="marketing-shell">
         {/* ---------------------------------------------------------- HERO */}
         <section className="relative overflow-hidden border-b" style={{ borderColor: "var(--mk-border)" }}>
-          <div className="marketing-glow" style={{ width: 420, height: 420, top: -160, left: "-8%", background: "rgba(124,58,237,.14)" }} aria-hidden="true" />
-          <div className="marketing-glow" style={{ width: 320, height: 320, top: -80, right: "-6%", background: "rgba(158,230,53,.10)" }} aria-hidden="true" />
+          <div className="marketing-glow" style={{ width: 420, height: 420, top: -160, left: "-8%", background: "rgba(16, 124, 115,.14)" }} aria-hidden="true" />
+          <div className="marketing-glow" style={{ width: 320, height: 320, top: -80, right: "-6%", background: "rgba(35, 217, 206,.10)" }} aria-hidden="true" />
           <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8 lg:py-24">
             <MarketingReveal>
               <MarketingEyebrow>Markalar &amp; İş Birlikleri</MarketingEyebrow>
@@ -105,7 +105,7 @@ export default async function BrandsPortfolioPage() {
                 recreated) on a dark premium tile, with soft brand-color
                 shapes behind it — CSS only, no stock asset. */}
             <MarketingReveal delay={.1} className="relative hidden h-64 lg:block">
-              <span aria-hidden className="absolute right-6 top-2 size-40 rotate-[10deg] rounded-[32px]" style={{ background: "linear-gradient(135deg, var(--mk-violet), var(--mk-indigo))", opacity: .9, boxShadow: "0 30px 60px rgba(79,70,229,.28)" }} />
+              <span aria-hidden className="absolute right-6 top-2 size-40 rotate-[10deg] rounded-[32px]" style={{ background: "linear-gradient(135deg, var(--mk-violet), var(--mk-indigo))", opacity: .9, boxShadow: "0 30px 60px rgba(13, 27, 40,.28)" }} />
               <span aria-hidden className="absolute right-24 top-32 size-28 -rotate-[8deg] rounded-[24px]" style={{ background: `linear-gradient(135deg, ${LIME}, #65a30d)`, opacity: .85, boxShadow: "0 20px 44px rgba(101,163,13,.22)" }} />
               <div className="absolute right-10 top-10 w-40 -rotate-3 rounded-[26px] p-5" style={{ background: "linear-gradient(160deg, #13141f, #1d2032)", boxShadow: "0 24px 48px rgba(15,16,36,.35)" }}>
                 <div className="relative mx-auto aspect-square w-full">
@@ -150,7 +150,7 @@ export default async function BrandsPortfolioPage() {
                               <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
                                 {brand.services.map((service) => (
                                   <li key={service} className="flex items-center gap-2.5">
-                                    <span className="size-[7px] shrink-0 rounded-[2px]" style={{ background: LIME, boxShadow: `0 0 6px rgba(158,230,53,.55)` }} aria-hidden="true" />
+                                    <span className="size-[7px] shrink-0 rounded-[2px]" style={{ background: LIME, boxShadow: `0 0 6px rgba(35, 217, 206,.55)` }} aria-hidden="true" />
                                     <span className="text-[15px] font-semibold leading-6 sm:text-base" style={{ color: "var(--mk-ink)" }}>{service}</span>
                                   </li>
                                 ))}
@@ -209,7 +209,7 @@ export default async function BrandsPortfolioPage() {
                 <Link
                   href="/teklif-al"
                   className="marketing-btn mt-5 inline-flex items-center gap-2"
-                  style={{ background: LIME, color: "#11210a", boxShadow: "0 14px 32px rgba(158,230,53,.25)" }}
+                  style={{ background: LIME, color: "#11210a", boxShadow: "0 14px 32px rgba(35, 217, 206,.25)" }}
                 >
                   Ücretsiz Ön Analiz Al <ArrowRight size={16} aria-hidden="true" />
                 </Link>

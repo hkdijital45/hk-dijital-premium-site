@@ -25,7 +25,7 @@ export function MetaMark(props: SVGProps<SVGSVGElement>) {
       <defs>
         <linearGradient id="meta-grad" x1="8" y1="11" x2="40" y2="37" gradientUnits="userSpaceOnUse">
           <stop stopColor="#0064E1" />
-          <stop offset=".5" stopColor="#7C3AED" />
+          <stop offset=".5" stopColor="#4f46e5" />
           <stop offset="1" stopColor="#EC4899" />
         </linearGradient>
       </defs>

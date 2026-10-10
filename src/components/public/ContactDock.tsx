@@ -43,7 +43,7 @@ export function ContactDock({ whatsappUrl, phoneHref, phoneLabel }: { whatsappUr
           onClick={() => trackMetaCtaClick("Contact Dock Telefon", phoneHref)}
           aria-label={`Telefon: ${phoneLabel}`}
           title={phoneLabel}
-          className="marketing-dock-item grid size-11 place-items-center rounded-full border border-[#7c3aed]/40 bg-white text-[#7c3aed]"
+          className="marketing-dock-item grid size-11 place-items-center rounded-full border border-[#107C73]/40 bg-white text-[#107C73]"
         >
           <Phone size={17} />
         </a>

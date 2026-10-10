@@ -3,7 +3,6 @@ import { resolvePublicWhatsappUrl } from "@/lib/public-contact";
 
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion, MotionConfig, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import {
@@ -26,6 +25,7 @@ import { MarketingBadge, MarketingCard, MarketingEyebrow, MarketingHeading, Mark
 import { GoogleMark, InstagramMark, MetaMark, platformMarks } from "./PlatformIcons";
 import { ServiceVisual } from "./marketing/MarketingVisualSystem";
 import { serviceVisualVariantForKey } from "./marketing/serviceVisualVariant";
+import { AdOperationsPanel } from "./AdOperationsPanel";
 
 /* ---------------------------------------------------------------------
    Real content, pulled directly from Supabase-backed site content — no
@@ -83,9 +83,9 @@ function FaqAccordion() {
         return (
           <div key={question} className="border-b py-1" style={{ borderColor: "var(--mk-border)" }}>
             <h3>
-              <button type="button" id={buttonId} aria-expanded={open} aria-controls={panelId} onClick={() => setOpenIndex(open ? null : index)} className="flex w-full items-center justify-between gap-4 py-4 text-left text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7c3aed]" style={{ color: "var(--mk-ink)" }}>
+              <button type="button" id={buttonId} aria-expanded={open} aria-controls={panelId} onClick={() => setOpenIndex(open ? null : index)} className="flex w-full items-center justify-between gap-4 py-4 text-left text-base font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]" style={{ color: "var(--mk-ink)" }}>
                 {question}
-                <ChevronDown size={18} className="shrink-0 text-[#7c3aed] transition-transform duration-300" style={{ transform: open ? "rotate(180deg)" : undefined }} aria-hidden="true" />
+                <ChevronDown size={18} className="shrink-0 text-[#107C73] transition-transform duration-300" style={{ transform: open ? "rotate(180deg)" : undefined }} aria-hidden="true" />
               </button>
             </h3>
             <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!open} className="pb-4">
@@ -115,12 +115,15 @@ function WhatsappLink({ href, children, trackingLabel }: { href: string; childre
  * scroll-scrubbed a multi-MB video (MacBookEcosystem) — a heavy
  * requestAnimationFrame loop, an always-fetched video/poster pair, and an
  * artificial scroll-hijack-adjacent "fake sticky" transform, all removed.
- * This is now a normal-flow section: the poster frame (the same real
- * asset the old video used to resolve into) renders as a single static
- * `<img>`, and the only motion left is the one-shot mount entrance
- * (MarketingReveal fade/rise + the CSS-only headline mask-reveal/chroma
- * accent in globals.css) — no scroll listeners, no RAF loop, no video
- * fetch at all.
+ * This is now a normal-flow section — the only motion left is the one-shot
+ * mount entrance (MarketingReveal fade/rise + the CSS-only headline
+ * mask-reveal/chroma accent in globals.css) — no scroll listeners, no RAF
+ * loop, no video fetch at all.
+ *
+ * 2026-10 repaint: the device-mockup screenshot (hero-poster.png — a
+ * blurry raster image with its own text baked into the pixels) is replaced
+ * by AdOperationsPanel, a real HTML/CSS/SVG illustrative ad-ops panel —
+ * crisp at any zoom, translatable/selectable text, no invented metrics.
  */
 function Hero({ whatsappUrl }: { whatsappUrl: string | null }) {
   return (
@@ -129,8 +132,8 @@ function Hero({ whatsappUrl }: { whatsappUrl: string | null }) {
         <span style={{ width: 90, height: 90, top: "12%", left: "6%" }} />
         <span style={{ width: 54, height: 54, top: "62%", left: "18%", animationDelay: "-4s" }} />
       </div>
-      <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(124,58,237,.13)" }} aria-hidden="true" />
-      <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(37,99,235,.1)" }} aria-hidden="true" />
+      <div className="marketing-glow" style={{ width: 480, height: 480, top: -200, left: "-10%", background: "rgba(16, 124, 115,.13)" }} aria-hidden="true" />
+      <div className="marketing-glow" style={{ width: 380, height: 380, top: -100, right: "-8%", background: "rgba(16, 124, 115,.1)" }} aria-hidden="true" />
       <div className="relative mx-auto grid w-full max-w-7xl items-center gap-14 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-28">
         <div>
           <MarketingReveal>
@@ -156,15 +159,9 @@ function Hero({ whatsappUrl }: { whatsappUrl: string | null }) {
           </MarketingReveal>
         </div>
         <div className="relative mx-auto w-full max-w-lg py-6">
-          <Image
-            src="/cinematic/hero-poster.png"
-            alt="HK Dijital dijital pazarlama gösterge paneli"
-            className="hero-poster h-full w-full object-contain"
-            width={1300}
-            height={1100}
-            priority
-            sizes="(min-width: 1024px) 32rem, 90vw"
-          />
+          <MarketingReveal delay={0.1}>
+            <AdOperationsPanel />
+          </MarketingReveal>
         </div>
       </div>
     </section>
@@ -214,7 +211,7 @@ function AdsStorySection({
         <div className={`grid items-center gap-16 lg:grid-cols-[1.05fr_1fr] ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
           <MarketingReveal>
             <div className="relative mx-auto max-w-sm lg:max-w-none">
-              <div className="marketing-glow" style={{ width: 260, height: 260, top: -40, left: reverse ? undefined : -40, right: reverse ? -40 : undefined, background: "rgba(124,58,237,.1)" }} aria-hidden="true" />
+              <div className="marketing-glow" style={{ width: 260, height: 260, top: -40, left: reverse ? undefined : -40, right: reverse ? -40 : undefined, background: "rgba(16, 124, 115,.1)" }} aria-hidden="true" />
               {visual && (
                 <div className="ads-story-visual">
                   <div className="ads-story-badge grid h-14 w-14 place-items-center rounded-2xl" style={{ color: "var(--mk-violet)" }}>
@@ -265,7 +262,7 @@ function PhoneMockup() {
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {Array.from({ length: 9 }).map((_, index) => (
-                <div key={index} className="aspect-square rounded-[6px]" style={{ background: [1, 4, 7].includes(index) ? "linear-gradient(135deg, #7c3aed, #db2777)" : "rgba(255,255,255,.08)" }} />
+                <div key={index} className="aspect-square rounded-[6px]" style={{ background: [1, 4, 7].includes(index) ? "linear-gradient(135deg, #107C73, #F5A000)" : "rgba(255,255,255,.08)" }} />
               ))}
             </div>
             <div className="mt-auto rounded-xl p-3" style={{ background: "rgba(255,255,255,.06)" }}>
@@ -307,14 +304,14 @@ function SocialMediaSection({ description }: { description: string }) {
               className="absolute hidden items-center gap-2 rounded-2xl border bg-white px-4 py-3 shadow-[0_18px_46px_rgba(15,16,36,.14)] sm:flex"
               style={{ ...card.pos, borderColor: "var(--mk-border)" }}
             >
-              <card.Icon size={16} className="text-[#7c3aed]" />
+              <card.Icon size={16} className="text-[#107C73]" />
               <span className="whitespace-nowrap text-xs font-black" style={{ color: "var(--mk-ink)" }}>{card.label}</span>
             </motion.div>
           ))}
           <div className="mt-10 grid grid-cols-1 gap-3 sm:hidden">
             {cards.map((card) => (
               <div key={card.label} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-3" style={{ borderColor: "var(--mk-border)" }}>
-                <card.Icon size={16} className="text-[#7c3aed]" />
+                <card.Icon size={16} className="text-[#107C73]" />
                 <span className="text-xs font-black" style={{ color: "var(--mk-ink)" }}>{card.label}</span>
               </div>
             ))}
@@ -462,7 +459,7 @@ function PerformanceSection() {
           {proofMetrics.map(([value, label, text]) => (
             <MarketingReveal key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
               <p className="text-3xl font-black text-white">{value}</p>
-              <p className="mt-2 text-xs font-black uppercase tracking-wide text-[#c4b5fd]">{label}</p>
+              <p className="mt-2 text-xs font-black uppercase tracking-wide text-[#8FE9E2]">{label}</p>
               <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
             </MarketingReveal>
           ))}
@@ -495,7 +492,7 @@ function AiGeoSection() {
                 <p className="text-xs font-bold text-slate-400">&quot;Bölgede güvenilir hizmet sağlayıcı önerir misin?&quot;</p>
                 <p className="mt-2 text-sm leading-6 text-slate-200">Yapay zekâ yanıtında markanızın adı, alternatif adları ve rakip görünürlüğü tespit edilir.</p>
               </div>
-              <div className="mt-3 flex items-center justify-between rounded-xl border border-[#a78bfa]/25 bg-[#7c3aed]/[0.1] p-4">
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-[#8FE9E2]/25 bg-[#107C73]/[0.1] p-4">
                 <span className="text-xs font-bold text-slate-300">Görünürlük Skoru</span>
                 <span className="text-lg font-black text-white">—/100</span>
               </div>
@@ -542,10 +539,10 @@ function ProcessSection() {
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.5 }}
                   className="flex items-center gap-4 rounded-2xl border p-5 transition"
-                  style={{ borderColor: isActive ? "var(--mk-violet)" : "var(--mk-border)", background: isActive ? "rgba(124,58,237,.06)" : "var(--mk-surface)" }}
+                  style={{ borderColor: isActive ? "var(--mk-violet)" : "var(--mk-border)", background: isActive ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
                 >
                   <span className="grid size-11 shrink-0 place-items-center rounded-full border text-sm font-black italic" style={{ borderColor: isActive ? "var(--mk-violet)" : "var(--mk-border-strong)", color: isActive ? "var(--mk-violet)" : "var(--mk-ink-faint)" }}>0{index + 1}</span>
-                  <step.Icon size={20} className={isActive ? "text-[#7c3aed]" : ""} style={{ color: isActive ? undefined : "var(--mk-ink-faint)" }} />
+                  <step.Icon size={20} className={isActive ? "text-[#107C73]" : ""} style={{ color: isActive ? undefined : "var(--mk-ink-faint)" }} />
                   <div>
                     <h3 className="text-base font-black sm:text-lg" style={{ color: "var(--mk-ink)" }}>{step.label}</h3>
                     <p className="mt-1 text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{step.text}</p>
@@ -592,7 +589,7 @@ function PackagesTeaser({ intro }: { intro: string }) {
                 <ul className="mt-5 space-y-2.5">
                   {pkg.features.slice(0, 3).map((feature) => (
                     <li key={feature.label} className="flex gap-2 text-xs leading-5" style={{ color: "var(--mk-ink-soft)" }}>
-                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[#7c3aed]" /> <span><b style={{ color: "var(--mk-ink)" }}>{feature.label}:</b> {feature.value}</span>
+                      <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-[#107C73]" /> <span><b style={{ color: "var(--mk-ink)" }}>{feature.label}:</b> {feature.value}</span>
                     </li>
                   ))}
                 </ul>
@@ -622,7 +619,7 @@ function TrustSection() {
         <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {whyHkPoints.map((point) => (
             <MarketingCard key={point.title} className="p-6">
-              <point.Icon size={22} className="text-[#7c3aed]" />
+              <point.Icon size={22} className="text-[#107C73]" />
               <h3 className="mt-4 text-lg font-black" style={{ color: "var(--mk-ink)" }}>{point.title}</h3>
               <p className="mt-2 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{point.text}</p>
             </MarketingCard>
@@ -649,7 +646,7 @@ function FaqBlogSection() {
             {blogPosts.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`}>
                 <MarketingCard className="p-6">
-                  <p className="text-xs font-black uppercase tracking-wide text-[#7c3aed]">{post.readingTime}</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-[#107C73]">{post.readingTime}</p>
                   <h3 className="mt-3 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{post.title}</h3>
                   <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{post.description}</p>
                 </MarketingCard>
@@ -669,7 +666,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
     <MarketingSection>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <MarketingReveal>
-          <div className="relative overflow-hidden rounded-[28px] px-6 py-16 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #5b21b6, #4338ca 55%, #a21caf)" }}>
+          <div className="relative overflow-hidden rounded-[28px] px-6 py-16 text-center sm:px-16" style={{ background: "linear-gradient(120deg, #07111B, #0D1B28 55%, #107C73)" }}>
             <div className="marketing-bokeh" aria-hidden="true">
               <span style={{ width: 70, height: 70, top: "10%", left: "8%" }} />
               <span style={{ width: 46, height: 46, top: "65%", left: "20%", animationDelay: "-5s" }} />
@@ -680,7 +677,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
             <h2 className="mt-5 text-3xl font-black leading-tight text-white sm:text-5xl">Reklamınızı Büyümeye Çevirin</h2>
             <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-white/85">Satış garantisi vermeyiz — strateji, kurulum, optimizasyon, dönüşüm takibi ve raporlama sürecini uçtan uca yönetiriz.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#4338ca] transition hover:-translate-y-0.5">Ücretsiz Ön Analiz <ArrowRight size={18} /></Link>
+              <Link href="/teklif-al" onClick={() => trackMetaCtaClick("Final CTA Paketini Bul", "/teklif-al")} className="marketing-aurora-btn inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-6 text-sm font-black text-[#107C73] transition hover:-translate-y-0.5">Ücretsiz Ön Analiz <ArrowRight size={18} /></Link>
               {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" onClick={() => trackMetaCtaClick("Final CTA WhatsApp", whatsappUrl)} className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/40 bg-white/10 px-6 text-sm font-black text-white backdrop-blur transition hover:bg-white/20">WhatsApp&apos;tan Görüş <MessageCircle size={18} /></a>}
             </div>
           </div>
@@ -702,7 +699,7 @@ function ContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
         </MarketingReveal>
         <div className="mt-10 grid items-start gap-8 lg:grid-cols-[.9fr_1.1fr]">
           <MarketingCard className="p-7">
-            <MessageCircle className="text-[#7c3aed]" size={30} />
+            <MessageCircle className="text-[#107C73]" size={30} />
             <h3 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>Hızlı başlangıç</h3>
             <p className="mt-4 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>İsterseniz WhatsApp üzerinden doğrudan yazın, isterseniz teklif formunu açıp işletmenizin hedeflerini gönderin.</p>
             <div className="mt-7 flex flex-wrap gap-3">
@@ -710,9 +707,9 @@ function ContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
               <SecondaryLink href="/teklif-al" trackingLabel="Final Teklif Formunu Aç">Teklif Formunu Aç</SecondaryLink>
             </div>
             <div className="mt-7 grid gap-2 border-t pt-6 text-xs" style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-faint)" }}>
-              <span className="flex items-center gap-2"><Wallet size={14} className="text-[#7c3aed]" /> Fiyatlara KDV dahil değildir.</span>
-              <span className="flex items-center gap-2"><Target size={14} className="text-[#7c3aed]" /> Reklam bütçesi hizmet bedelinden ayrıdır.</span>
-              <span className="flex items-center gap-2"><MousePointerClick size={14} className="text-[#7c3aed]" /> Satış garantisi verilmez, süreç ölçülür ve raporlanır.</span>
+              <span className="flex items-center gap-2"><Wallet size={14} className="text-[#107C73]" /> Fiyatlara KDV dahil değildir.</span>
+              <span className="flex items-center gap-2"><Target size={14} className="text-[#107C73]" /> Reklam bütçesi hizmet bedelinden ayrıdır.</span>
+              <span className="flex items-center gap-2"><MousePointerClick size={14} className="text-[#107C73]" /> Satış garantisi verilmez, süreç ölçülür ve raporlanır.</span>
             </div>
           </MarketingCard>
           <ContactForm />

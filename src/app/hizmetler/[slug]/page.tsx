@@ -65,7 +65,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 </div>
                 <h2 className="mt-6 text-2xl font-black" style={{ color: "var(--mk-ink)" }}>Kimler için uygun?</h2>
                 <ul className="mt-5 grid gap-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>
-                  {service.audience.map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-1 shrink-0 text-[#7c3aed]" size={17} />{item}</li>)}
+                  {service.audience.map((item) => <li key={item} className="flex gap-3"><CheckCircle2 className="mt-1 shrink-0 text-[#107C73]" size={17} />{item}</li>)}
                 </ul>
                 <ServiceVisual variant={service.key} className="mt-6" />
                 <Link href="/teklif-al" className="marketing-btn marketing-btn-primary mt-7">Ücretsiz ön görüşme al</Link>
@@ -119,7 +119,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               <MarketingCard className="p-7">
                 <h2 className="text-xl font-black" style={{ color: "var(--mk-ink)" }}>İlgili hizmetler</h2>
                 <div className="mt-4 flex flex-wrap gap-3">
-                  {service.related.map((item) => <Link key={item.href} href={item.href} className="rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#7c3aed] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>{item.label}</Link>)}
+                  {service.related.map((item) => <Link key={item.href} href={item.href} className="rounded-full border px-4 py-2 text-sm font-black transition hover:bg-[#107C73] hover:text-white" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>{item.label}</Link>)}
                 </div>
               </MarketingCard>
               <MarketingReveal>

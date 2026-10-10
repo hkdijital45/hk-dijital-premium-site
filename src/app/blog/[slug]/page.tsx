@@ -88,7 +88,7 @@ export default async function BlogDetailPage({ params }: BlogDetailProps) {
               <span style={{ color: "var(--mk-ink-soft)" }}>{post.category?.name || "Yazı"}</span>
             </nav>
             <MarketingReveal>
-              <header className="mt-8 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border-strong)", background: "linear-gradient(135deg, rgba(124,58,237,.06), rgba(37,99,235,.04))" }}>
+              <header className="mt-8 rounded-[28px] border p-6 sm:p-8" style={{ borderColor: "var(--mk-border-strong)", background: "linear-gradient(135deg, rgba(16, 124, 115,.06), rgba(16, 124, 115,.04))" }}>
                 <p className="marketing-eyebrow">{post.category?.name || "Blog"}</p>
                 <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl" style={{ color: "var(--mk-ink)" }}>{post.title}</h1>
                 <p className="mt-5 max-w-3xl text-lg leading-8" style={{ color: "var(--mk-ink-soft)" }}>{post.excerpt}</p>
@@ -123,7 +123,7 @@ export default async function BlogDetailPage({ params }: BlogDetailProps) {
           <aside className="space-y-5 lg:sticky lg:top-6 lg:self-start">
             {headings.length ? <MarketingCard className="p-5"><h2 className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>İçindekiler</h2><div className="mt-4 grid gap-3 text-sm" style={{ color: "var(--mk-ink-soft)" }}>{headings.map((heading) => <a key={heading.id} href={`#${heading.id}`} className="hover:underline">{heading.text}</a>)}</div></MarketingCard> : null}
             <MarketingCard className="p-5"><h2 className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--mk-pink)" }}>Yazar</h2><p className="mt-3 text-lg font-black" style={{ color: "var(--mk-ink)" }}>{post.author_name}</p><p className="mt-2 text-sm leading-6" style={{ color: "var(--mk-ink-faint)" }}>HK Dijital’de reklam yönetimi, sosyal medya stratejisi ve ölçümleme odaklı dijital pazarlama içerikleri hazırlar.</p></MarketingCard>
-            {related.length ? <MarketingCard className="p-5"><h2 className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>İlgili Yazılar</h2><div className="mt-4 grid gap-3">{related.map((item) => <Link key={item.slug} href={`/blog/${item.slug}`} className="rounded-xl p-3 text-sm font-bold leading-6 transition hover:bg-[#7c3aed]/[0.06]" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>{item.title}</Link>)}</div></MarketingCard> : null}
+            {related.length ? <MarketingCard className="p-5"><h2 className="text-sm font-black uppercase tracking-wide" style={{ color: "var(--mk-violet)" }}>İlgili Yazılar</h2><div className="mt-4 grid gap-3">{related.map((item) => <Link key={item.slug} href={`/blog/${item.slug}`} className="rounded-xl p-3 text-sm font-bold leading-6 transition hover:bg-[#107C73]/[0.06]" style={{ background: "var(--mk-bg-alt)", color: "var(--mk-ink)" }}>{item.title}</Link>)}</div></MarketingCard> : null}
           </aside>
         </article>
       </main>

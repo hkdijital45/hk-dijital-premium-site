@@ -29,7 +29,7 @@ export default async function ServicesPage() {
                 <p className="mt-3 max-w-3xl text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>Hizmet kapsamını, kimler için uygun olduğunu ve çalışma sürecini detaylı inceleyin.</p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   {servicePages.map((service) => (
-                    <Link key={service.slug} href={`/hizmetler/${service.slug}`} className="rounded-full border px-4 py-2 text-sm font-black transition hover:text-white hover:bg-[#7c3aed]" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>
+                    <Link key={service.slug} href={`/hizmetler/${service.slug}`} className="rounded-full border px-4 py-2 text-sm font-black transition hover:text-white hover:bg-[#107C73]" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }}>
                       {service.eyebrow}
                     </Link>
                   ))}
