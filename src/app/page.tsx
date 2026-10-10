@@ -1,7 +1,6 @@
 import { resolvePublicPhoneE164 } from "@/lib/public-contact";
 import type { Metadata } from "next";
-import type { PublicSiteContent } from "@/lib/types";
-import { getSiteContent } from "@/lib/content";
+import { getPublicSiteContent } from "@/lib/content";
 import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
 import { HomepageExperience } from "@/components/public/HomepageExperience";
@@ -15,26 +14,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  // getSiteContent() itself is request-deduped now (see src/lib/content.ts)
-  // — this call and PublicShell's own getSiteContent() call below no
-  // longer mean two real Supabase round-trips per request. A cross-request
-  // cache (unstable_cache) was also tried here, but the site_content +
-  // brand_showcases payload is ~3.4MB — over Next's 2MB data-cache entry
-  // limit — so it silently never cached; removed rather than keep
-  // ineffective code. The real remaining cost is that payload size itself,
-  // which is a separate, larger fix (trimming what getSiteContent actually
-  // needs to return) than this pass had room for.
-  const [rawContent, brands] = await Promise.all([getSiteContent(), getActiveBrandShowcases()]);
-  // CRITICAL (2026-10-11): rawContent carries real leads/users/customer
-  // integrations/ad metrics on the live row (see types.ts's
-  // PublicSiteContent doc comment) — HomepageExperience is "use client",
-  // so only this named, explicit subset may ever be passed to it.
-  const content: PublicSiteContent = {
-    brand: rawContent.brand,
-    socials: rawContent.socials,
-    contact: rawContent.contact,
-    services: rawContent.services
-  };
+  // getPublicSiteContent queries Supabase for only brand/socials/contact/
+  // services (PostgREST JSON-path select — ~30 KB instead of the full
+  // ~3.2 MB site_content row, which also carries real leads/users/customer
+  // data that must never reach HomepageExperience, a "use client"
+  // component — see PublicSiteContent in types.ts). Replaces the earlier
+  // getSiteContent() + manual field-picking; also fixes the
+  // server-response-time bottleneck the unstable_cache attempt couldn't
+  // (that payload was simply too large to cache — this fetches a payload
+  // small enough that caching it is no longer the bottleneck).
+  const [content, brands] = await Promise.all([getPublicSiteContent(), getActiveBrandShowcases()]);
 
   return (
     <PublicShell>

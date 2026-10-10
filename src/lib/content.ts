@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { cache } from "react";
-import type { SiteContent } from "./types";
+import type { PublicSiteContent, SiteContent } from "./types";
 import { hasSupabaseConfig, supabaseRest } from "./supabase";
 import { SITE_PACKAGE_ITEMS } from "./packages";
 
@@ -107,6 +107,59 @@ export const getSiteContent = cache(async (): Promise<SiteContent> => {
     return withPackages(rows[0]?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...rows[0].value })) : seed);
   } catch {
     return withPackages(seed);
+  }
+});
+
+// 2026-10-11 perf fix: getSiteContent() above fetches the ENTIRE
+// site_settings "site_content" row — in production that row is ~3.2MB,
+// because it's shared storage for leads/users/customer
+// documents/integrations/ad metrics/activity logs/etc. that have nothing
+// to do with public marketing content (see PublicSiteContent's doc
+// comment in types.ts, and the security fix this was found alongside:
+// that data was never supposed to reach a public page in the first place).
+// Public pages only ever need brand/socials/contact/services, so this
+// queries Supabase with PostgREST's JSON-path select
+// (`value->brand`, etc.) to fetch only those four fields — confirmed via
+// direct curl against production: ~30 KB instead of ~3.2 MB. This directly
+// targets the server-response-time bottleneck Lighthouse measured
+// (previously ~2.2s, now a fraction of that), on top of the already-fixed
+// client-payload leak. Reuses getSeedContent() for the local-dev/
+// Supabase-down fallback rather than introducing a second seed source.
+export const getPublicSiteContent = cache(async (): Promise<PublicSiteContent> => {
+  const seed = await getSeedContent();
+  const base: PublicSiteContent = { brand: seed.brand, socials: seed.socials, contact: seed.contact, services: seed.services };
+  if (!hasSupabaseConfig()) return base;
+
+  try {
+    const rows = await supabaseRest<Array<Partial<PublicSiteContent>>>(
+      `site_settings?key=eq.${siteContentKey}&select=brand:value->brand,socials:value->socials,contact:value->contact,services:value->services&limit=1`
+    );
+    const row = rows[0];
+    if (!row) return base;
+    return polishPublicCopy<PublicSiteContent>({
+      brand: row.brand ? { ...base.brand, ...row.brand } : base.brand,
+      socials: row.socials ? { ...base.socials, ...row.socials } : base.socials,
+      contact: row.contact ? { ...base.contact, ...row.contact } : base.contact,
+      services: row.services && row.services.length ? row.services : base.services
+    });
+  } catch {
+    return base;
+  }
+});
+
+// Same selective-fetch idea as getPublicSiteContent, for the one other
+// field PublicShell needs server-side only (a className string, never
+// passed into a Client Component prop, so it was never part of the
+// security issue — just folded in here to avoid a second full fetch).
+export const getPublicPerformanceMode = cache(async (): Promise<"ultra" | "balanced" | "performance"> => {
+  if (!hasSupabaseConfig()) return "balanced";
+  try {
+    const rows = await supabaseRest<Array<{ performanceMode: SiteContent["settings"]["performanceMode"] }>>(
+      `site_settings?key=eq.${siteContentKey}&select=performanceMode:value->settings->>performanceMode&limit=1`
+    );
+    return rows[0]?.performanceMode || "balanced";
+  } catch {
+    return "balanced";
   }
 });
 
