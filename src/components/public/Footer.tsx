@@ -59,9 +59,10 @@ export function Footer({ content }: { content: PublicSiteContent }) {
         <div className="relative">
           <h2 className="text-sm font-bold uppercase tracking-[.22em] text-[#8FE9E2]">İletişim</h2>
           <div className="mt-4 space-y-2 text-sm text-slate-300">
-            <p>{content.contact.address}</p>
+            {content.contact.addressVisible !== false && <p>{content.contact.address}</p>}
             <a className="block transition hover:text-white" href={`mailto:${content.contact.email}`}>{content.contact.email}</a>
             {phoneHref && <a className="block transition hover:text-white" href={phoneHref}>{content.contact.phone}</a>}
+            {content.contact.workingHours && <p className="text-slate-400">{content.contact.workingHours}</p>}
           </div>
           <SocialLinks content={content} />
         </div>

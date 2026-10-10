@@ -43,9 +43,15 @@ export default async function Home() {
           name: content.brand.companyName,
           url: SITE_URL,
           description: "Manisa merkezli, Türkiye geneline hizmet veren dijital pazarlama ve reklam danışmanlığı ajansı.",
+          // Full street address is only ever exposed when the admin's
+          // "Adres ve harita web sitesinde gösterilsin" toggle is on —
+          // the city-level locality stays regardless, it's not specific
+          // enough to be the thing that toggle is meant to hide.
           address: {
             "@type": "PostalAddress",
-            addressLocality: "Manisa",
+            streetAddress: content.contact.addressVisible !== false ? content.contact.address || undefined : undefined,
+            addressLocality: content.contact.city || "Manisa",
+            addressRegion: content.contact.district || undefined,
             addressCountry: "TR"
           },
           areaServed: ["Manisa", "Türkiye"],

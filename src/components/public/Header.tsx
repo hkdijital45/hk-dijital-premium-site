@@ -39,7 +39,7 @@ export function Header({ content }: { content: PublicSiteContent }) {
   const router = useRouter();
   const reduced = useReducedMotion();
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
-  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber, undefined, content.contact?.whatsappDefaultMessage);
 
   // Desktop nav "sliding pill" indicator (adapted from
   // docs/animation-reference/17-nav-menu.md): a single shared-layout

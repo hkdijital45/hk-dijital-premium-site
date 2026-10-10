@@ -15,8 +15,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ContactPage() {
   const content = await getSiteContent();
-  const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber);
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber, undefined, content.contact.whatsappDefaultMessage);
   const phoneHref = resolvePublicTelHref(content.contact.phone);
+  const addressVisible = content.contact.addressVisible !== false;
+  const locationLine = [content.contact.district, content.contact.city].filter(Boolean).join(", ");
 
   return (
     <PublicShell>
@@ -30,20 +32,30 @@ export default async function ContactPage() {
               <MarketingCard className="p-6"><Camera className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Instagram&apos;da Takip Edin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={content.socials.instagram}>Instagram Profilimizi Ziyaret Edin</a></MarketingCard>
               <MarketingCard className="p-6"><Mail className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>E-posta Gönderin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`mailto:${content.contact.email}`}>Teklif İçin Mail Gönderin</a></MarketingCard>
               {phoneHref && <MarketingCard className="p-6"><Phone className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Bizi Arayın</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`tel:${content.contact.phone.replace(/\s/g, "")}`}>{content.contact.phone}</a></MarketingCard>}
-              <MarketingCard className="p-6"><MapPin className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Hizmet Alanımız</h2><p className="mt-3 text-sm" style={{ color: "var(--mk-ink-soft)" }}>{content.contact.address}</p></MarketingCard>
+              {addressVisible && (
+                <MarketingCard className="p-6">
+                  <MapPin className="text-[#107C73]" />
+                  <h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Hizmet Alanımız</h2>
+                  <p className="mt-3 text-sm" style={{ color: "var(--mk-ink-soft)" }}>{content.contact.address}</p>
+                  {locationLine && <p className="mt-1 text-sm" style={{ color: "var(--mk-ink-faint)" }}>{locationLine}</p>}
+                  {content.contact.workingHours && <p className="mt-1 text-sm" style={{ color: "var(--mk-ink-faint)" }}>{content.contact.workingHours}</p>}
+                </MarketingCard>
+              )}
             </div>
           </div>
-          <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
-            <MarketingCard className="p-6">
-              {content.contact.mapsEmbedUrl ? (
-                <iframe src={content.contact.mapsEmbedUrl} className="h-80 w-full rounded-xl" loading="lazy" title="HK Dijital Google Maps" />
-              ) : (
-                <div className="grid h-80 place-items-center rounded-xl border border-dashed text-center" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink-faint)" }}>
-                  Konum ve görüşme detayları iletişim talebiniz sonrasında paylaşılır.
-                </div>
-              )}
-            </MarketingCard>
-          </div>
+          {addressVisible && (
+            <div className="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+              <MarketingCard className="p-6">
+                {content.contact.mapsEmbedUrl ? (
+                  <iframe src={content.contact.mapsEmbedUrl} className="h-80 w-full rounded-xl" loading="lazy" title="HK Dijital Google Maps" />
+                ) : (
+                  <div className="grid h-80 place-items-center rounded-xl border border-dashed text-center" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink-faint)" }}>
+                    Konum ve görüşme detayları iletişim talebiniz sonrasında paylaşılır.
+                  </div>
+                )}
+              </MarketingCard>
+            </div>
+          )}
         </MarketingSection>
       </div>
     </PublicShell>

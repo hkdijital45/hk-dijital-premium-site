@@ -17,7 +17,7 @@ export async function PublicShell({ children }: { children: ReactNode }) {
   // component like Header/Footer below — see PublicSiteContent in
   // types.ts for the security reasoning).
   const [content, performanceMode] = await Promise.all([getPublicSiteContent(), getPublicPerformanceMode()]);
-  const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber);
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials.whatsapp, content.contact.whatsappNumber, undefined, content.contact.whatsappDefaultMessage);
   const phoneHref = resolvePublicTelHref(content.contact.phone);
 
   return (

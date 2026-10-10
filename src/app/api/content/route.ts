@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSiteContent, saveSiteContent } from "@/lib/content";
 import { requireModuleAccess } from "@/lib/permissions";
 import type { SiteContent } from "@/lib/types";
+import { validateContactAndSocials } from "@/lib/public-contact-validation";
 
 const sensitiveApiKeys = [
   "geminiApiKey",
@@ -49,6 +50,17 @@ export async function PUT(request: Request) {
   }
 
   const content = (await request.json()) as SiteContent;
+
+  // İletişim ve Sosyal Medya settings — server-side validation mirrors the
+  // admin form's own checks (never trust the client alone: this endpoint
+  // is reachable directly, not only through the form). Rejects dangerous
+  // URL schemes, a non-Google-Maps embed URL, and implausible phone
+  // numbers before anything is ever written.
+  const validationError = validateContactAndSocials(content.contact || {}, content.socials || {});
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
   try {
     const current = await getSiteContent();
     const nextApi = { ...content.settings.api } as SiteContent["settings"]["api"];

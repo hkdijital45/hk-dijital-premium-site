@@ -131,8 +131,13 @@ export type SiteContent = {
   contact: {
     phone: string;
     whatsappNumber: string;
+    whatsappDefaultMessage?: string;
     email: string;
     address: string;
+    city?: string;
+    district?: string;
+    workingHours?: string;
+    addressVisible?: boolean;
     mapsEmbedUrl: string;
   };
   mediaAssets?: Record<string, string>;

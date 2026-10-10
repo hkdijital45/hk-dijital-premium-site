@@ -188,7 +188,7 @@ function FinalCtaSection({ whatsappUrl }: { whatsappUrl: string | null }) {
 /* ------------------------------- Composition -------------------------------- */
 
 export function HomepageExperience({ content }: { content: PublicSiteContent }) {
-  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
+  const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber, undefined, content.contact?.whatsappDefaultMessage);
 
   return (
     <MotionConfig reducedMotion="user">

@@ -27,11 +27,16 @@ export function resolvePublicWhatsappNumber(contactNumber?: string | null, envNu
   return realPhoneDigits(envNumber) ?? realPhoneDigits(contactNumber);
 }
 
-export function resolvePublicWhatsappUrl(socialsUrl?: string | null, contactNumber?: string | null, envNumber: string | undefined = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER): string | null {
+// defaultMessage (from the admin's "WhatsApp varsayılan mesaj" field) is
+// appended as a URL-encoded ?text= param — only onto a wa.me link we build
+// ourselves (envDigits/contactDigits), never onto a raw socials.whatsapp
+// URL, since that may already be a full custom link the admin configured.
+export function resolvePublicWhatsappUrl(socialsUrl?: string | null, contactNumber?: string | null, envNumber: string | undefined = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER, defaultMessage?: string | null): string | null {
+  const text = defaultMessage?.trim() ? `?text=${encodeURIComponent(defaultMessage.trim())}` : "";
   const envDigits = resolvePublicWhatsappNumber(null, envNumber);
-  if (envDigits) return `https://wa.me/${envDigits}`;
+  if (envDigits) return `https://wa.me/${envDigits}${text}`;
   const social = String(socialsUrl ?? "").trim();
   if (social && !social.replace(/\D/g, "").includes(PLACEHOLDER_NUMBER_DIGITS)) return social;
   const contactDigits = resolvePublicWhatsappNumber(contactNumber, undefined);
-  return contactDigits ? `https://wa.me/${contactDigits}` : null;
+  return contactDigits ? `https://wa.me/${contactDigits}${text}` : null;
 }

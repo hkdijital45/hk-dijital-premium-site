@@ -7338,11 +7338,75 @@ function DataManagementSection({ content, setContent, notify }: any) {
   );
 }
 
+// "İletişim ve Sosyal Medya": consolidated here (not a second settings
+// system) — content.contact/.socials already were the one real source
+// Header/Footer/İletişim/ContactDock/JSON-LD all read from; this just
+// completes the admin UI for fields that already existed on the type
+// (phone/whatsapp/email/address/maps) and adds the ones that didn't yet
+// (socials.*, whatsappDefaultMessage, city/district/workingHours,
+// addressVisible). Saved through the existing global save()/PUT
+// /api/content flow (already handles loading state, double-submit
+// prevention, success-only-after-server-confirms, and surfaces a failed
+// save's error — see AdminDashboard's save()) — no second save mechanism.
 function GeneralWebsiteSettings({ content, setContent }: any) {
   const updateSettings = (patch) => setContent({ ...content, settings: { ...content.settings, ...patch } });
   const updateBrand = (patch) => setContent({ ...content, brand: { ...content.brand, ...patch } });
   const updateContact = (patch) => setContent({ ...content, contact: { ...content.contact, ...patch } });
-  return <Panel title="Genel Site Ayarları"><div className="grid gap-4 md:grid-cols-2"><Field label="Site adı" value={content.settings.siteTitle} onChange={(v) => updateSettings({ siteTitle: v })} /><Field label="Alt başlık" value={content.brand.slogan} onChange={(v) => updateBrand({ slogan: v })} /><TextArea label="Meta açıklaması" value={content.settings.siteDescription} onChange={(v) => updateSettings({ siteDescription: v })} /><TextArea label="Footer açıklaması" value={content.brand.footerDescription || content.brand.slogan} onChange={(v) => updateBrand({ footerDescription: v })} /><Field label="Telefon" value={content.contact.phone} onChange={(v) => updateContact({ phone: v })} /><Field label="WhatsApp" value={content.contact.whatsappNumber} onChange={(v) => updateContact({ whatsappNumber: v })} /><Field label="E-posta" value={content.contact.email} onChange={(v) => updateContact({ email: v })} /><Field label="Adres" value={content.contact.address} onChange={(v) => updateContact({ address: v })} /><Field label="Harita embed URL" value={content.contact.mapsEmbedUrl || ""} onChange={(v) => updateContact({ mapsEmbedUrl: v })} /></div></Panel>;
+  const updateSocials = (patch) => setContent({ ...content, socials: { ...content.socials, ...patch } });
+  const socials = content.socials || {};
+  return (
+    <Panel title="Genel Site Ayarları">
+      <div className="grid gap-6">
+        <div>
+          <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--admin-text-muted)]">Genel</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Site adı" value={content.settings.siteTitle} onChange={(v) => updateSettings({ siteTitle: v })} />
+            <Field label="Alt başlık" value={content.brand.slogan} onChange={(v) => updateBrand({ slogan: v })} />
+            <TextArea label="Meta açıklaması" value={content.settings.siteDescription} onChange={(v) => updateSettings({ siteDescription: v })} />
+            <TextArea label="Footer açıklaması" value={content.brand.footerDescription || content.brand.slogan} onChange={(v) => updateBrand({ footerDescription: v })} />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--admin-text-muted)]">İletişim</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Telefon" value={content.contact.phone} onChange={(v) => updateContact({ phone: v })} placeholder="05XX XXX XX XX" />
+            <Field label="WhatsApp numarası" value={content.contact.whatsappNumber} onChange={(v) => updateContact({ whatsappNumber: v })} placeholder="90 5XX XXX XX XX" />
+            <Field label="WhatsApp varsayılan mesaj (opsiyonel)" value={content.contact.whatsappDefaultMessage || ""} onChange={(v) => updateContact({ whatsappDefaultMessage: v })} placeholder="Merhaba, hizmetleriniz hakkında bilgi almak istiyorum." />
+            <Field label="E-posta" value={content.contact.email} onChange={(v) => updateContact({ email: v })} type="email" />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--admin-text-muted)]">Adres ve Konum</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextArea label="Açık adres" value={content.contact.address} onChange={(v) => updateContact({ address: v })} rows={2} />
+            <Field label="Harita embed URL (Google Haritalar)" value={content.contact.mapsEmbedUrl || ""} onChange={(v) => updateContact({ mapsEmbedUrl: v })} placeholder="https://www.google.com/maps/embed?..." />
+            <Field label="İl" value={content.contact.city || ""} onChange={(v) => updateContact({ city: v })} />
+            <Field label="İlçe" value={content.contact.district || ""} onChange={(v) => updateContact({ district: v })} />
+            <Field label="Çalışma saatleri (opsiyonel)" value={content.contact.workingHours || ""} onChange={(v) => updateContact({ workingHours: v })} placeholder="Pazartesi–Cuma 09:00–18:00" />
+            <label className="flex items-center gap-2 rounded-[12px] border border-[var(--admin-border)] p-3 text-sm font-bold text-[var(--admin-text-secondary)]">
+              <input type="checkbox" checked={content.contact.addressVisible !== false} onChange={(event) => updateContact({ addressVisible: event.target.checked })} />
+              Adres ve harita web sitesinde gösterilsin
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-sm font-black uppercase tracking-wide text-[var(--admin-text-muted)]">Sosyal Medya</h3>
+          <p className="mb-3 text-xs text-[var(--admin-text-muted)]">Boş bırakılan bir hesap web sitesinde hiç gösterilmez (ikon veya bağlantı olarak da görünmez).</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Instagram" value={socials.instagram || ""} onChange={(v) => updateSocials({ instagram: v })} placeholder="https://instagram.com/..." />
+            <Field label="Facebook" value={socials.facebook || ""} onChange={(v) => updateSocials({ facebook: v })} placeholder="https://facebook.com/..." />
+            <Field label="LinkedIn" value={socials.linkedin || ""} onChange={(v) => updateSocials({ linkedin: v })} placeholder="https://linkedin.com/company/..." />
+            <Field label="YouTube" value={socials.youtube || ""} onChange={(v) => updateSocials({ youtube: v })} placeholder="https://youtube.com/@..." />
+            <Field label="TikTok" value={socials.tiktok || ""} onChange={(v) => updateSocials({ tiktok: v })} placeholder="https://tiktok.com/@..." />
+            <Field label="X (Twitter)" value={socials.twitter || ""} onChange={(v) => updateSocials({ twitter: v })} placeholder="https://x.com/..." />
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
 }
 
 function LogoManagement({ content, setContent }: any) {
