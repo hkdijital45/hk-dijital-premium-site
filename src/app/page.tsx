@@ -1,5 +1,6 @@
 import { resolvePublicPhoneE164 } from "@/lib/public-contact";
 import type { Metadata } from "next";
+import type { PublicSiteContent } from "@/lib/types";
 import { getSiteContent } from "@/lib/content";
 import { getActiveBrandShowcases } from "@/lib/brand-showcase-public";
 import { pageMetadata, SITE_URL } from "@/lib/metadata";
@@ -23,7 +24,17 @@ export default async function Home() {
   // ineffective code. The real remaining cost is that payload size itself,
   // which is a separate, larger fix (trimming what getSiteContent actually
   // needs to return) than this pass had room for.
-  const [content, brands] = await Promise.all([getSiteContent(), getActiveBrandShowcases()]);
+  const [rawContent, brands] = await Promise.all([getSiteContent(), getActiveBrandShowcases()]);
+  // CRITICAL (2026-10-11): rawContent carries real leads/users/customer
+  // integrations/ad metrics on the live row (see types.ts's
+  // PublicSiteContent doc comment) — HomepageExperience is "use client",
+  // so only this named, explicit subset may ever be passed to it.
+  const content: PublicSiteContent = {
+    brand: rawContent.brand,
+    socials: rawContent.socials,
+    contact: rawContent.contact,
+    services: rawContent.services
+  };
 
   return (
     <PublicShell>

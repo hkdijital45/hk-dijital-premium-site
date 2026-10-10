@@ -201,3 +201,18 @@ export type SiteContent = {
   leads: Lead[];
   media: { id: string; url: string; type: "image" | "video" | "pdf"; name: string }[];
 };
+
+// CRITICAL (2026-10-11): the only fields any public (unauthenticated,
+// client-component) part of the site may ever receive. SiteContent's
+// `site_settings.value` row is shared storage for far more than CMS copy —
+// in production it also carries real leads, user accounts, customer
+// documents/integrations (with encrypted tokens), ad metrics, activity
+// logs, etc. (none of them declared on the SiteContent type above, but
+// present on the real row and passed through untyped object spreads).
+// Passing a raw SiteContent object into a "use client" component boundary
+// serializes ALL of it into the page's RSC payload, visible to anyone who
+// views source — this is exactly how that data was leaking on every public
+// page via PublicShell → Header/Footer. Never widen this type with a
+// spread; only ever construct it by naming each field explicitly (see
+// src/components/public/Shell.tsx, src/app/page.tsx).
+export type PublicSiteContent = Pick<SiteContent, "brand" | "socials" | "contact" | "services">;

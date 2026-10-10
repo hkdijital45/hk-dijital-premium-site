@@ -30,6 +30,15 @@ function withoutApiKeys(content: SiteContent) {
 }
 
 export async function GET() {
+  // CRITICAL FIX (2026-10-11): this had no auth check at all — anyone,
+  // unauthenticated, could GET the entire site_content blob (real leads,
+  // user accounts, customer documents/integrations with encrypted tokens,
+  // ad metrics, etc. — everything saveSiteContent/PUT ever wrote here,
+  // since this table is shared storage for far more than public CMS
+  // copy). PUT already required "site-ayarlari"; GET now matches it.
+  if (!(await requireModuleAccess("site-ayarlari"))) {
+    return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
+  }
   const content = await getSiteContent();
   return NextResponse.json(withoutApiKeys(content));
 }

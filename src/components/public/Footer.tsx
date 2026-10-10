@@ -1,12 +1,12 @@
 import { resolvePublicTelHref } from "@/lib/public-contact";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import type { SiteContent } from "@/lib/types";
+import type { PublicSiteContent } from "@/lib/types";
 import { Logo } from "./Logo";
 import { SocialLinks } from "./SocialLinks";
 import { platformMarks } from "./PlatformIcons";
 
-export function Footer({ content }: { content: SiteContent }) {
+export function Footer({ content }: { content: PublicSiteContent }) {
   const phoneHref = resolvePublicTelHref(content.contact.phone);
   return (
     <footer className="marketing-footer relative border-t border-white/10">

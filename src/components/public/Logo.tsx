@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import type { SiteContent } from "@/lib/types";
+import type { PublicSiteContent } from "@/lib/types";
 
 type LogoVariant = "website" | "login" | "customer" | "footer";
 
@@ -29,7 +29,7 @@ export function Logo({
   /** Public navbar only. */
   large = false
 }: {
-  content: SiteContent;
+  content: PublicSiteContent;
   footer?: boolean;
   compact?: boolean;
   variant?: LogoVariant;

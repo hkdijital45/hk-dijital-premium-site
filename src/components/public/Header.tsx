@@ -7,7 +7,7 @@ import { CalendarCheck, ChevronDown, Menu, MessageCircle, X } from "lucide-react
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import type { SiteContent } from "@/lib/types";
+import type { PublicSiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
 import { Logo } from "./Logo";
 
@@ -30,7 +30,7 @@ const mainNav = [
   ["İletişim", "/iletisim"]
 ];
 
-export function Header({ content }: { content: SiteContent }) {
+export function Header({ content }: { content: PublicSiteContent }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [navHover, setNavHover] = useState<string | null>(null);

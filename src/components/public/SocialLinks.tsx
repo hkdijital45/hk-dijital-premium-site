@@ -1,6 +1,6 @@
 "use client";
 
-import type { SiteContent } from "@/lib/types";
+import type { PublicSiteContent } from "@/lib/types";
 import { socialIcons } from "@/lib/icons";
 import { trackEvent } from "./TrackingPlaceholders";
 
@@ -25,7 +25,7 @@ function isRealProfileUrl(key: string, href: string) {
   }
 }
 
-export function SocialLinks({ content }: { content: SiteContent }) {
+export function SocialLinks({ content }: { content: PublicSiteContent }) {
   return (
     <div className="mt-5 flex flex-wrap gap-2">
       {Object.entries(content.socials).map(([key, href]) => {

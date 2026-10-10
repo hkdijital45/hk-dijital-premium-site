@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import type { SiteContent } from "@/lib/types";
+import type { PublicSiteContent, SiteContent } from "@/lib/types";
 import type { PublicBrandShowcase } from "@/lib/brand-showcase-public";
 import { BrandShowcaseSection } from "./BrandShowcaseSection";
 import { serviceIcons } from "@/lib/icons";
@@ -473,7 +473,7 @@ function FaqAndContactSection({ whatsappUrl }: { whatsappUrl: string | null }) {
 // /hizmetler/*, Manisa/district content → /manisa-dijital-pazarlama, now
 // linked from the footer) or was folded, trimmed, into ValuePropSection /
 // FaqAndContactSection above.
-export function HomepageExperience({ content, brands = [] }: { content: SiteContent; brands?: PublicBrandShowcase[] }) {
+export function HomepageExperience({ content, brands = [] }: { content: PublicSiteContent; brands?: PublicBrandShowcase[] }) {
   const whatsappUrl = resolvePublicWhatsappUrl(content.socials?.whatsapp, content.contact?.whatsappNumber);
   const services = content.services || [];
 
