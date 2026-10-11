@@ -2,8 +2,9 @@
 import { resolvePublicWhatsappUrl } from "@/lib/public-contact";
 
 import Link from "next/link";
-import { ArrowRight, Blocks, BookOpen, ClipboardList, Handshake, MessageCircle, PackageCheck } from "lucide-react";
+import { ArrowRight, Blocks, BookOpen, ClipboardList, Handshake, MessageCircle, Pause, PackageCheck, Play } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { MotionConfig } from "framer-motion";
 import type { PublicSiteContent } from "@/lib/types";
 import { trackMetaCtaClick } from "@/lib/meta-pixel";
@@ -58,7 +59,7 @@ function Hero({ whatsappUrl }: { whatsappUrl: string | null }) {
         <div>
           <MarketingReveal>
             <MarketingEyebrow>Manisa merkezli dijital pazarlama ve reklam ajansı</MarketingEyebrow>
-            <MarketingHeading as="h1" className="hero-headline mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]">
+            <MarketingHeading as="h1" className="hero-headline mt-6 text-4xl sm:text-6xl lg:text-[4.4rem]" ariaLabel="Dijitalde Büyümeyi Şansa Bırakmayın">
               <span className="hero-headline-line"><span className="hero-headline-line-inner">Dijitalde</span></span>
               <span className="hero-headline-line"><span className="hero-headline-line-inner">Büyümeyi <span className="marketing-gradient-text marketing-chroma" data-text="Şansa">Şansa</span></span></span>
               <span className="hero-headline-line"><span className="hero-headline-line-inner">Bırakmayın</span></span>
@@ -97,6 +98,14 @@ function PlatformStrip() {
   // lines up exactly; under prefers-reduced-motion, globals.css freezes
   // the animation and wraps the (now-doubled) row instead, so the
   // duplicate set is hidden there via the nth-child(n+8) rule.
+  //
+  // WCAG 2.2.2 (Pause, Stop, Hide): this loops indefinitely and runs well
+  // past 5s, so prefers-reduced-motion alone isn't a complete fix — a
+  // visible, keyboard-reachable pause control is needed for anyone who
+  // hasn't set that OS preference but still wants to stop the motion.
+  // `animation-play-state` via inline style works alongside the existing
+  // CSS animation without touching it.
+  const [paused, setPaused] = useState(false);
   return (
     <MarketingSection alt className="!py-14 border-y">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8">
@@ -105,7 +114,7 @@ function PlatformStrip() {
         </MarketingReveal>
       </div>
       <div className="marketing-marquee mt-8">
-        <div className="marketing-marquee-track">
+        <div className="marketing-marquee-track" style={{ animationPlayState: paused ? "paused" : "running" }}>
           {[...platformMarks, ...platformMarks].map(({ key, label, Icon }, index) => (
             <div key={`${key}-${index}`} className="flex items-center gap-2 opacity-80 transition hover:opacity-100">
               <Icon className="size-7" />
@@ -113,6 +122,18 @@ function PlatformStrip() {
             </div>
           ))}
         </div>
+      </div>
+      <div className="mt-4 flex justify-center">
+        <button
+          type="button"
+          onClick={() => setPaused((value) => !value)}
+          aria-pressed={paused}
+          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]"
+          style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}
+        >
+          {paused ? <Play size={13} /> : <Pause size={13} />}
+          {paused ? "Kaydırmayı başlat" : "Kaydırmayı duraklat"}
+        </button>
       </div>
     </MarketingSection>
   );

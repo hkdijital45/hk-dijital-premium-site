@@ -35,6 +35,7 @@ export function Header({ content }: { content: PublicSiteContent }) {
   const [scrolled, setScrolled] = useState(false);
   const [navHover, setNavHover] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   const reduced = useReducedMotion();
@@ -107,7 +108,16 @@ export function Header({ content }: { content: PublicSiteContent }) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      // Closing via Escape (a keyboard-only interaction) must return focus
+      // to the trigger button — otherwise focus is left on whatever
+      // element the now-removed menu last had it on, silently landing on
+      // <body> and disorienting a keyboard/screen-reader user. Closing by
+      // clicking a link or an outside click is left alone: focus already
+      // follows the click target naturally there.
+      if (event.key === "Escape") {
+        setOpen(false);
+        mobileMenuTriggerRef.current?.focus();
+      }
     };
     const onPointerDown = (event: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setOpen(false);
@@ -207,7 +217,7 @@ export function Header({ content }: { content: PublicSiteContent }) {
             </Link>
           </div>
 
-          <button className="grid size-11 place-items-center rounded-full border transition lg:hidden" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }} onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
+          <button ref={mobileMenuTriggerRef} className="grid size-11 place-items-center rounded-full border transition lg:hidden" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-ink)" }} onClick={() => setOpen((value) => !value)} aria-label={open ? "Menüyü kapat" : "Menüyü aç"} aria-expanded={open} aria-controls="mobile-public-menu">
             {open ? <X /> : <Menu />}
           </button>
         </div>

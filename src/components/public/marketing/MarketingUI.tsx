@@ -49,7 +49,23 @@ export function MarketingEyebrow({ children }: { children: ReactNode }) {
   return <p className="marketing-eyebrow">{children}</p>;
 }
 
-export function MarketingHeading({ as: Tag = "h2", children, className = "" }: { as?: "h1" | "h2" | "h3"; children: ReactNode; className?: string }) {
+// ariaLabel is for headings whose visible markup includes a decorative
+// effect that duplicates part of the text for assistive tech too (e.g.
+// the homepage hero's chromatic-aberration glitch span, whose ::before/
+// ::after `content: attr(data-text)` pseudo-elements get included in some
+// browsers'/screen readers' accessible-name computation, reading the
+// glitched word two or three times over). When passed, the heading's own
+// accessible name becomes this single clean string and its visible
+// children are hidden from the accessibility tree — the visual markup
+// (including the glitch effect) is completely unchanged.
+export function MarketingHeading({ as: Tag = "h2", children, className = "", ariaLabel }: { as?: "h1" | "h2" | "h3"; children: ReactNode; className?: string; ariaLabel?: string }) {
+  if (ariaLabel) {
+    return (
+      <Tag className={`marketing-heading ${className}`} aria-label={ariaLabel}>
+        <span aria-hidden="true">{children}</span>
+      </Tag>
+    );
+  }
   return <Tag className={`marketing-heading ${className}`}>{children}</Tag>;
 }
 
