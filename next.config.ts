@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   // bundle that as an ordinary JS module, so it must run as a real
   // require() against the installed package instead.
   serverExternalPackages: ["@napi-rs/canvas"],
+  experimental: {
+    // Next 16 no longer auto-renders root app/not-found.tsx for a
+    // genuinely unmatched URL (confirmed by testing a minimal not-found.tsx
+    // in this exact build — it never rendered, Next always fell back to
+    // its bare built-in "Not Found" text) — only global-not-found.tsx,
+    // gated behind this flag, is. not-found.tsx itself is kept for the
+    // (still-supported) notFound()-within-a-matched-segment case.
+    globalNotFound: true
+  },
   async redirects() {
     return [
       { source: "/cozumler", destination: "/hizmetler", permanent: true },
