@@ -61,7 +61,12 @@ export async function PUT(request: Request) {
 
   const unauthorizedKeys = findUnauthorizedTopLevelKeys(rest);
   if (unauthorizedKeys.length > 0) {
-    return NextResponse.json({ error: `Geçersiz alan(lar) gönderildi: ${unauthorizedKeys.join(", ")}` }, { status: 400 });
+    // Full field list goes to the server log for diagnosis only — the
+    // client-facing message stays short and free of internal field names
+    // (a user screen should never have to parse a wall of raw schema
+    // keys to understand "something in this save wasn't allowed here").
+    console.error("PUT /api/content rejected unauthorized top-level keys:", unauthorizedKeys);
+    return NextResponse.json({ error: "Bu ekranın düzenleyemediği bir veri gönderildi. Sayfayı yenileyip tekrar deneyin." }, { status: 400 });
   }
   const content = rest as SiteContent;
 

@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Activity, AlertTriangle, Archive, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Eye, EyeOff, Flame, MapPin, Phone, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, MoreHorizontal, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
+import { SITE_CONTENT_EDITABLE_FROM_ADMIN_UI } from "@/lib/site-content-allowlist";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
 import { WebsiteAnalyticsSummaryCards } from "@/components/admin/WebsiteAnalyticsSummaryCards";
 import { AdminCustomerSelector, CustomerWorkflowLinks, GlobalMetaPixelSettings, MetaPixelSettingsPanel } from "@/components/admin/AdminCustomerOperations";
@@ -703,8 +704,22 @@ export function AdminDashboard({
     setSaveFeedback("saving");
     setStatus("Kaydediliyor...");
     try {
+      // CRITICAL FIX (2026-10-11): `next` (defaulting to the full merged
+      // admin `content` state) also carries real operational collections
+      // — users, companies, campaigns, customerUpdates, leads, etc. —
+      // spread in from /api/admin/center-data (see getAdminPageData).
+      // PUT /api/content is the website-settings endpoint only; sending
+      // the whole merged object there used to trip its own allow-list
+      // ("Geçersiz alan(lar) gönderildi: users, companies, campaigns,
+      // ...") and made EVERY save from the Web Sitesi Yönetimi screen
+      // fail, regardless of what was actually edited. Pick only the
+      // fields this endpoint owns, explicitly and type-safely — never
+      // spread the merged state into this request.
+      const siteContentPayload = Object.fromEntries(
+        SITE_CONTENT_EDITABLE_FROM_ADMIN_UI.map((key) => [key, (next as Record<string, unknown>)[key]])
+      );
       const contentResponse = allowedModules.includes("site-ayarlari")
-        ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...next, _version: contentVersion }) })
+        ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...siteContentPayload, _version: contentVersion }) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
       const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "sistem-test-merkezi", "teklifler", "musteri-bulucu", "haritalar", "site-ayarlari"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
@@ -1230,7 +1245,13 @@ export function AdminDashboard({
           {[...reportAliases, "Rapor Çıktıları"].includes(active) && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {active === "Sayfa İçerikleri" && <Pages {...props} />}
           {active === "Marka Ayarları" && <Brand {...props} />}
-          {active === "Sosyal Medya" && <KeyValue title="Sosyal Medya Yönetimi" object={content.socials} onChange={(object) => setContent({ ...content, socials: object })} />}
+          {/* Previously its own raw KeyValue editor over content.socials — a
+              second, unvalidated place (besides Web Sitesi Yönetimi ->
+              İletişim) that could edit the exact same 6 fields. Reuses
+              GeneralWebsiteSettings so there is exactly one real editing
+              surface for these fields site-wide; this nav entry stays in
+              place for anyone who has it bookmarked/favorited. */}
+          {active === "Sosyal Medya" && <GeneralWebsiteSettings content={content} setContent={setContent} />}
           {active === "Teklif Sihirbazı Ayarları" && <QuoteWizardAdmin {...props} />}
           {["Form Başvuruları", "Teklif Sihirbazı Kayıtları", "Lead Durumları", "Takip Notları", "Lead Workspace"].includes(active) && <Crm {...props} view={active} setActive={setActive} />}
           {active === "Eski Müşteriler" && <CustomersAdmin {...props} />}
@@ -3182,10 +3203,6 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         allowedModules={allowedModules}
       />
   );
-}
-
-function KeyValue({ title, object, onChange }: any) {
-  return <Panel title={title}><div className="grid gap-4 md:grid-cols-2">{Object.entries(object).map(([key, value]) => <Field key={key} label={key} value={value} onChange={(v) => onChange({ ...object, [key]: v })} />)}</div></Panel>;
 }
 
 function companyName(content: any, companyId?: string) {
@@ -7408,8 +7425,8 @@ function GeneralWebsiteSettings({ content, setContent }: any) {
           <p className="mb-3 text-xs text-[var(--admin-text-muted)]">Boş bırakılan bir hesap web sitesinde hiç gösterilmez (ikon veya bağlantı olarak da görünmez).</p>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Instagram" value={socials.instagram || ""} onChange={(v) => updateSocials({ instagram: v })} placeholder="https://instagram.com/..." />
-            <Field label="Facebook" value={socials.facebook || ""} onChange={(v) => updateSocials({ facebook: v })} placeholder="https://facebook.com/..." />
-            <Field label="LinkedIn" value={socials.linkedin || ""} onChange={(v) => updateSocials({ linkedin: v })} placeholder="https://linkedin.com/company/..." />
+            <Field label="Facebook" value={socials.facebook || ""} onChange={(v) => updateSocials({ facebook: v })} placeholder="https://facebook.com/sayfaniz ya da profile.php?id=..." />
+            <Field label="LinkedIn" value={socials.linkedin || ""} onChange={(v) => updateSocials({ linkedin: v })} placeholder="https://linkedin.com/company/... ya da /in/..." />
             <Field label="YouTube" value={socials.youtube || ""} onChange={(v) => updateSocials({ youtube: v })} placeholder="https://youtube.com/@..." />
             <Field label="TikTok" value={socials.tiktok || ""} onChange={(v) => updateSocials({ tiktok: v })} placeholder="https://tiktok.com/@..." />
             <Field label="X (Twitter)" value={socials.twitter || ""} onChange={(v) => updateSocials({ twitter: v })} placeholder="https://x.com/..." />
@@ -7449,7 +7466,19 @@ function AboutAndCertificatesManagement(props: any) {
 function WebsiteManagementCenter(props: any) {
   const [tab, setTab] = useState("Genel Site Ayarları");
   const items = ["Genel Site Ayarları", "Logo Yönetimi", "Görsel Yönetimi", "Sayfa İçerikleri", "Hakkımda + Sertifikalar", "Hizmetler", "Paketler", "İletişim", "Performans"];
-  return <div><HubTabs items={items} active={tab} onChange={setTab} />{tab === "Genel Site Ayarları" && <GeneralWebsiteSettings {...props} />}{tab === "Logo Yönetimi" && <LogoManagement {...props} />}{tab === "Görsel Yönetimi" && <VisualManagement {...props} />}{tab === "Sayfa İçerikleri" && <Pages {...props} />}{tab === "Hakkımda + Sertifikalar" && <AboutAndCertificatesManagement {...props} />}{tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}{tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}{tab === "İletişim" && <div className="grid gap-5"><GeneralWebsiteSettings {...props} /><KeyValue title="Sosyal Medya Yönetimi" object={props.content.socials} onChange={(object) => props.setContent({ ...props.content, socials: object })} /></div>}{tab === "Performans" && <Settings {...props} />}</div>;
+  return <div><HubTabs items={items} active={tab} onChange={setTab} />{tab === "Genel Site Ayarları" && <GeneralWebsiteSettings {...props} />}{tab === "Logo Yönetimi" && <LogoManagement {...props} />}{tab === "Görsel Yönetimi" && <VisualManagement {...props} />}{tab === "Sayfa İçerikleri" && <Pages {...props} />}{tab === "Hakkımda + Sertifikalar" && <AboutAndCertificatesManagement {...props} />}{tab === "Hizmetler" && <Collection title="Hizmet Yönetimi" type="service" items={props.content.services} setItems={(items) => props.setContent({ ...props.content, services: items })} />}{tab === "Paketler" && <Collection title="Paket Yönetimi" type="package" items={props.content.packages} setItems={(items) => props.setContent({ ...props.content, packages: items })} />}{/* "İletişim" tab deliberately renders ONLY GeneralWebsiteSettings — it
+    already has a structured, validated field for every one of
+    content.socials' fixed keys (instagram/facebook/youtube/twitter/
+    linkedin/tiktok) under its own "Sosyal Medya" heading, plus
+    phone/whatsappNumber/whatsappDefaultMessage/email/address/city/
+    district/workingHours/addressVisible/mapsEmbedUrl. A second generic
+    KeyValue editor over the exact same content.socials object used to
+    render here too — same 6 accounts, no validation, raw key names as
+    labels — showing every platform twice on one screen. Removed rather
+    than merged: there is no dynamic/unknown social key this fixed-shape
+    object can ever hold that GeneralWebsiteSettings doesn't already
+    cover. */}
+{tab === "İletişim" && <GeneralWebsiteSettings {...props} />}{tab === "Performans" && <Settings {...props} />}</div>;
 }
 
 function IntegrationsCenter({ content, setContent, notify, selectedCompanyId }: any) {

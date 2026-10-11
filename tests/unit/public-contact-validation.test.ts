@@ -94,6 +94,30 @@ test("validateContactAndSocials: a bare-domain whatsapp link is NOT rejected by 
   assert.equal(validateContactAndSocials({}, { whatsapp: "https://wa.me/" }), null);
 });
 
+// Every real-account URL shape named in the "ACİL DÜZELTME" brief must be
+// accepted, never mistaken for a placeholder — the ?id= query string and
+// the leading @ must both survive untouched (isSafeHttpUrl/
+// isGenericPlatformRootUrl only ever inspect url.pathname, never rewrite
+// or drop url.search).
+test("validateContactAndSocials: accepts every real-account URL shape named in the fix request", () => {
+  assert.equal(validateContactAndSocials({}, { facebook: "https://facebook.com/profile.php?id=100012345678901" }), null);
+  assert.equal(validateContactAndSocials({}, { linkedin: "https://linkedin.com/in/hayrikamali" }), null);
+  assert.equal(validateContactAndSocials({}, { youtube: "https://youtube.com/@hkdijital" }), null);
+  assert.equal(validateContactAndSocials({}, { tiktok: "https://tiktok.com/@hkdijital" }), null);
+  assert.equal(validateContactAndSocials({}, { twitter: "https://x.com/hkdijital" }), null);
+  assert.equal(validateContactAndSocials({}, { twitter: "https://twitter.com/hkdijital" }), null);
+});
+
+test("validateContactAndSocials: a Facebook profile.php URL keeps its ?id= query string intact (not stripped by validation)", () => {
+  const facebook = "https://facebook.com/profile.php?id=100012345678901";
+  assert.equal(validateContactAndSocials({}, { facebook }), null);
+  // isSafeHttpUrl/isGenericPlatformRootUrl must never rewrite the value —
+  // the caller always persists the original string, this just proves the
+  // parsed URL still carries the full query string these checks read.
+  const parsed = new URL(facebook);
+  assert.equal(parsed.search, "?id=100012345678901");
+});
+
 test("validateContactAndSocials: accepts a fully valid payload", () => {
   assert.equal(
     validateContactAndSocials(

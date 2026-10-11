@@ -12,7 +12,7 @@
 // existing customer-campaign-publication.test.ts does for company rows.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findUnauthorizedTopLevelKeys, SITE_CONTENT_TOP_LEVEL_KEYS } from "../../src/lib/site-content-allowlist.ts";
+import { findUnauthorizedTopLevelKeys, SITE_CONTENT_EDITABLE_FROM_ADMIN_UI, SITE_CONTENT_TOP_LEVEL_KEYS } from "../../src/lib/site-content-allowlist.ts";
 
 const hasSupabase = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 const skipReason = "NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not available in this environment — live coverage skipped rather than faked.";
@@ -28,6 +28,59 @@ test("findUnauthorizedTopLevelKeys: rejects an unrecognized top-level field (e.g
 
 test("findUnauthorizedTopLevelKeys: empty payload is clean (no fields to reject)", () => {
   assert.deepEqual(findUnauthorizedTopLevelKeys({}), []);
+});
+
+// Regression for the real "ACİL DÜZELTME" bug: AdminDashboard's single
+// merged `content` React state also carries real operational collections
+// (users, companies, campaigns, customerUpdates, leads, ...) spread in
+// from /api/admin/center-data (getAdminPageData). Every save from the
+// Web Sitesi Yönetimi screen used to send that WHOLE object straight to
+// PUT /api/content, which (correctly) rejected it via the allow-list
+// above — meaning every such save failed with "Geçersiz alan(lar)
+// gönderildi: users, companies, campaigns, ...". This proves the actual
+// fix (AdminDashboard.tsx save(): building the request body by picking
+// only SITE_CONTENT_EDITABLE_FROM_ADMIN_UI keys off `next`) produces a
+// payload the server allow-list accepts, from a realistically "dirty"
+// input shaped exactly like the real admin state.
+test("SITE_CONTENT_EDITABLE_FROM_ADMIN_UI: picking only these keys off a realistic mixed admin-state object leaves zero unauthorized keys", () => {
+  const realisticAdminState = {
+    // real SiteContent fields, same as the server allow-list
+    brand: { companyName: "HK Dijital" },
+    socials: { instagram: "" },
+    contact: { phone: "" },
+    settings: {},
+    seo: {},
+    pages: {},
+    certificates: [],
+    services: [],
+    packages: [],
+    quoteWizard: {},
+    media: [],
+    // operational collections — exactly what getAdminPageData spreads in
+    // from relationalContent, and what tripped the original bug
+    users: [{ id: "u1" }],
+    companies: [{ id: "c1" }],
+    customers: [{ id: "cu1" }],
+    leads: [{ id: "l1" }],
+    campaigns: [{ id: "camp1" }],
+    campaignMetrics: [{ id: "m1" }],
+    customerUpdates: [{ id: "cud1" }],
+    activityLogs: [{ id: "a1" }]
+  };
+  const payload = Object.fromEntries(SITE_CONTENT_EDITABLE_FROM_ADMIN_UI.map((key) => [key, (realisticAdminState as Record<string, unknown>)[key]]));
+  assert.deepEqual(findUnauthorizedTopLevelKeys(payload), []);
+  // leads is excluded even though the server's own allow-list still
+  // permits it as a real SiteContent field — it has its own save path
+  // (upsertItems in /api/admin/center-data) and must never be sent here.
+  assert.ok(!("leads" in payload));
+  assert.ok(!("users" in payload));
+  assert.ok(!("companies" in payload));
+});
+
+test("SITE_CONTENT_EDITABLE_FROM_ADMIN_UI: an actually-unauthorized field is still rejected (the allow-list itself isn't weakened)", () => {
+  const payload = Object.fromEntries(SITE_CONTENT_EDITABLE_FROM_ADMIN_UI.map((key) => [key, {}]));
+  (payload as Record<string, unknown>).users = [{ id: "sneaky" }];
+  assert.deepEqual(findUnauthorizedTopLevelKeys(payload), ["users"]);
 });
 
 async function qaRow(label: string) {

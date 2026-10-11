@@ -25,3 +25,18 @@ export function findUnauthorizedTopLevelKeys(payload: Record<string, unknown>): 
   const allowed = new Set<string>(SITE_CONTENT_TOP_LEVEL_KEYS);
   return Object.keys(payload).filter((key) => !allowed.has(key));
 }
+
+// Client-side counterpart used by AdminDashboard's save() to build the
+// PUT /api/content body: SITE_CONTENT_TOP_LEVEL_KEYS minus "leads". The
+// admin's single merged `content` React state also carries real
+// operational collections (users, companies, campaigns, leads, ...one
+// object per the center-data GET response spread in on top of the site
+// settings, see getAdminPageData) that are not this endpoint's job to
+// touch — leads specifically already has its own real save path
+// (upsertItems in /api/admin/center-data) and is excluded here even
+// though the server-side allow-list above still permits it (it's a real
+// SiteContent field, just not one the website-settings screen should
+// ever be the one sending). AdminDashboard explicitly picks only these
+// fields off `content` before every PUT /api/content call — it must
+// never spread the whole merged state into that request.
+export const SITE_CONTENT_EDITABLE_FROM_ADMIN_UI = SITE_CONTENT_TOP_LEVEL_KEYS.filter((key) => key !== "leads");
