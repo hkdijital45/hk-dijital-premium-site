@@ -148,25 +148,40 @@ export async function getSiteContentVersion(): Promise<string | null> {
 // now a fraction of that), on top of the already-fixed client-payload
 // leak. Reuses getSeedContent() for the local-dev/Supabase-down fallback
 // rather than introducing a second seed source.
+// 2026-10-11 perf fix #2: getPublicSiteContent and getPublicPerformanceMode
+// used to be two separate cache()-wrapped functions, each issuing its own
+// PostgREST request against the SAME site_settings row — on every public
+// page load (Shell.tsx calls both via Promise.all, which parallelizes the
+// requests but still pays two full round trips to Supabase instead of
+// one). An independent live TTFB check (three consecutive homepage
+// requests, ~2.3-2.8s) traced back to exactly this kind of avoidable
+// multi-round-trip waterfall, not only regional network distance — see
+// also getLayoutSiteContent below for the other half of this fix (the
+// root layout's own separate full-row fetch). Combined into one request
+// here; the two public functions are kept so no caller needs to change.
+const getPublicSiteRow = cache(async (): Promise<Partial<PublicSiteContent> & { performanceMode?: SiteContent["settings"]["performanceMode"] }> => {
+  if (!hasSupabaseConfig()) return {};
+  try {
+    const rows = await supabaseRest<Array<Partial<PublicSiteContent> & { performanceMode?: SiteContent["settings"]["performanceMode"] }>>(
+      `site_settings?key=eq.${siteContentKey}&select=brand:value->brand,socials:value->socials,contact:value->contact,performanceMode:value->settings->>performanceMode&limit=1`
+    );
+    return rows[0] ?? {};
+  } catch {
+    return {};
+  }
+});
+
 export const getPublicSiteContent = cache(async (): Promise<PublicSiteContent> => {
   const seed = await getSeedContent();
   const base: PublicSiteContent = { brand: seed.brand, socials: seed.socials, contact: seed.contact };
   if (!hasSupabaseConfig()) return base;
 
-  try {
-    const rows = await supabaseRest<Array<Partial<PublicSiteContent>>>(
-      `site_settings?key=eq.${siteContentKey}&select=brand:value->brand,socials:value->socials,contact:value->contact&limit=1`
-    );
-    const row = rows[0];
-    if (!row) return base;
-    return polishPublicCopy<PublicSiteContent>({
-      brand: row.brand ? { ...base.brand, ...row.brand } : base.brand,
-      socials: row.socials ? { ...base.socials, ...row.socials } : base.socials,
-      contact: row.contact ? { ...base.contact, ...row.contact } : base.contact
-    });
-  } catch {
-    return base;
-  }
+  const row = await getPublicSiteRow();
+  return polishPublicCopy<PublicSiteContent>({
+    brand: row.brand ? { ...base.brand, ...row.brand } : base.brand,
+    socials: row.socials ? { ...base.socials, ...row.socials } : base.socials,
+    contact: row.contact ? { ...base.contact, ...row.contact } : base.contact
+  });
 });
 
 // Same selective-fetch idea as getPublicSiteContent, for the one other
@@ -175,13 +190,30 @@ export const getPublicSiteContent = cache(async (): Promise<PublicSiteContent> =
 // security issue — just folded in here to avoid a second full fetch).
 export const getPublicPerformanceMode = cache(async (): Promise<"ultra" | "balanced" | "performance"> => {
   if (!hasSupabaseConfig()) return "balanced";
+  const row = await getPublicSiteRow();
+  return row.performanceMode || "balanced";
+});
+
+// 2026-10-11 perf fix #2 (other half): the root layout (every single
+// page on the site, not just the homepage) was calling the FULL
+// getSiteContent() — the entire ~3.2MB-shaped site_settings row —
+// purely to read brand.companyName and settings.analyticsIds (3 short
+// strings). Narrowed the same way getPublicSiteContent already was.
+export const getLayoutSiteContent = cache(async (): Promise<{ companyName: string; analyticsIds: SiteContent["settings"]["analyticsIds"] }> => {
+  const seed = await getSeedContent();
+  const fallback = { companyName: seed.brand.companyName, analyticsIds: seed.settings.analyticsIds };
+  if (!hasSupabaseConfig()) return fallback;
   try {
-    const rows = await supabaseRest<Array<{ performanceMode: SiteContent["settings"]["performanceMode"] }>>(
-      `site_settings?key=eq.${siteContentKey}&select=performanceMode:value->settings->>performanceMode&limit=1`
+    const rows = await supabaseRest<Array<{ companyName?: string; analyticsIds?: SiteContent["settings"]["analyticsIds"] }>>(
+      `site_settings?key=eq.${siteContentKey}&select=companyName:value->brand->>companyName,analyticsIds:value->settings->analyticsIds&limit=1`
     );
-    return rows[0]?.performanceMode || "balanced";
+    const row = rows[0];
+    return {
+      companyName: row?.companyName || fallback.companyName,
+      analyticsIds: row?.analyticsIds || fallback.analyticsIds
+    };
   } catch {
-    return "balanced";
+    return fallback;
   }
 });
 
