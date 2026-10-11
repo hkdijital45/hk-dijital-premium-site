@@ -57,8 +57,8 @@ export function MarketingBadge({ children }: { children: ReactNode }) {
   return <span className="marketing-badge">{children}</span>;
 }
 
-export function MarketingCard({ children, className = "", feature = false }: { children: ReactNode; className?: string; feature?: boolean }) {
-  return <div className={`marketing-card ${feature ? "marketing-card-feature" : ""} p-6 ${className}`}>{children}</div>;
+export function MarketingCard({ children, className = "", feature = false, id }: { children: ReactNode; className?: string; feature?: boolean; id?: string }) {
+  return <div id={id} className={`marketing-card ${feature ? "marketing-card-feature" : ""} p-6 ${className}`}>{children}</div>;
 }
 
 export function MarketingCardDark({ children, className = "" }: { children: ReactNode; className?: string }) {

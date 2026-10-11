@@ -7,6 +7,14 @@ type LegalSection = {
   items: string[];
 };
 
+function slugifySectionTitle(title: string) {
+  return title
+    .toLocaleLowerCase("tr")
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s").replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function LegalPage({
   eyebrow,
   title,
@@ -18,6 +26,8 @@ export function LegalPage({
   description: string;
   sections: LegalSection[];
 }) {
+  const tocEntries = sections.map((section) => ({ id: slugifySectionTitle(section.title), title: section.title }));
+
   return (
     <PublicShell>
       <div className="marketing-shell">
@@ -31,13 +41,27 @@ export function LegalPage({
               <span className="rounded-full border px-3 py-2" style={{ borderColor: "var(--mk-border)", background: "var(--mk-bg-alt)" }}>Domain: https://www.hkdijital.com.tr</span>
               <a className="rounded-full border px-3 py-2" style={{ borderColor: "var(--mk-border-strong)", color: "var(--mk-violet)" }} href="mailto:hayrikamali@icloud.com">hayrikamali@icloud.com</a>
             </div>
+            {tocEntries.length > 1 && (
+              <nav aria-label="Sayfa içi bölümler" className="mt-8 flex flex-wrap gap-2">
+                {tocEntries.map((entry) => (
+                  <a
+                    key={entry.id}
+                    href={`#${entry.id}`}
+                    className="rounded-full border px-3.5 py-2 text-xs font-bold transition hover:border-[color:var(--mk-violet)]"
+                    style={{ borderColor: "var(--mk-border)", color: "var(--mk-ink-soft)" }}
+                  >
+                    {entry.title}
+                  </a>
+                ))}
+              </nav>
+            )}
           </div>
         </section>
 
         <section className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-5xl gap-5">
             {sections.map((section) => (
-              <MarketingCard key={section.title} className="p-7">
+              <MarketingCard key={section.title} id={slugifySectionTitle(section.title)} className="scroll-mt-28 p-7">
                 <h2 className="text-2xl font-black" style={{ color: "var(--mk-ink)" }}>{section.title}</h2>
                 <ul className="mt-5 grid gap-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>
                   {section.items.map((item) => (
