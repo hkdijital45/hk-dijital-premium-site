@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { redirect } from "next/navigation";
-import { getSiteContent } from "@/lib/content";
+import { getSiteContent, getSiteContentVersion } from "@/lib/content";
 import { getSession, isAdminAuthenticated } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 import { getAllowedModules } from "@/lib/permissions";
@@ -10,6 +10,7 @@ export async function getAdminPageData() {
   const authenticated = await isAdminAuthenticated();
   const session = await getSession();
   const content = await getSiteContent();
+  const contentVersion = await getSiteContentVersion();
   const allowedModules = getAllowedModules(session);
 
   if (!authenticated) {
@@ -138,6 +139,7 @@ export async function getAdminPageData() {
 
   return {
     initialContent: { ...safeContent, ...relationalContent },
+    initialContentVersion: contentVersion,
     supabaseConfigured: hasSupabaseConfig(),
     systemStatus: {
       supabase: hasSupabaseConfig(),

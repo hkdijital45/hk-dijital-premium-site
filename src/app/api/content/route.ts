@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSiteContent, saveSiteContent } from "@/lib/content";
+import { getSiteContent, getSiteContentVersion, saveSiteContentIfUnchanged } from "@/lib/content";
 import { requireModuleAccess } from "@/lib/permissions";
 import type { SiteContent } from "@/lib/types";
 import { validateContactAndSocials } from "@/lib/public-contact-validation";
+import { findUnauthorizedTopLevelKeys } from "@/lib/site-content-allowlist";
 
 const sensitiveApiKeys = [
   "geminiApiKey",
@@ -41,7 +42,8 @@ export async function GET() {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
   const content = await getSiteContent();
-  return NextResponse.json(withoutApiKeys(content));
+  const version = await getSiteContentVersion();
+  return NextResponse.json({ ...withoutApiKeys(content), _version: version });
 }
 
 export async function PUT(request: Request) {
@@ -49,7 +51,19 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
-  const content = (await request.json()) as SiteContent;
+  // _version round-trips the site_settings row's updated_at the client's
+  // copy of content was last read at (see getAdminPageData/_version on
+  // GET above) — stripped out before the rest of this body is treated as
+  // SiteContent. See saveSiteContentIfUnchanged for why this matters: two
+  // admin tabs/sessions editing different parts of the same JSONB row at
+  // the same time must not be able to silently overwrite each other.
+  const { _version: clientVersion, ...rest } = (await request.json()) as SiteContent & { _version?: string | null };
+
+  const unauthorizedKeys = findUnauthorizedTopLevelKeys(rest);
+  if (unauthorizedKeys.length > 0) {
+    return NextResponse.json({ error: `Geçersiz alan(lar) gönderildi: ${unauthorizedKeys.join(", ")}` }, { status: 400 });
+  }
+  const content = rest as SiteContent;
 
   // İletişim ve Sosyal Medya settings — server-side validation mirrors the
   // admin form's own checks (never trust the client alone: this endpoint
@@ -76,8 +90,15 @@ export async function PUT(request: Request) {
         api: nextApi
       }
     };
-    await saveSiteContent(next);
-    return NextResponse.json({ ok: true, content: withoutApiKeys(next) });
+    const expectedVersion = clientVersion ?? (await getSiteContentVersion());
+    const result = await saveSiteContentIfUnchanged(next, expectedVersion);
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: "Ayarlar bu sırada başka bir oturumda güncellendi. Sayfayı yenileyip tekrar deneyin." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ ok: true, content: withoutApiKeys(next), _version: result.version });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Kaydedilemedi. Supabase bağlantısını ve ortam değişkenlerini kontrol edin." },

@@ -76,6 +76,23 @@ export async function getSeedContent(): Promise<SiteContent> {
   return normalizeAiDefaults(polishPublicCopy(JSON.parse(data) as SiteContent));
 }
 
+// Request-scoped (cache()) fetch of the raw site_settings row, including
+// updated_at — the one place that column is read, so getSiteContent() and
+// the optimistic-concurrency helpers below never issue two separate
+// queries for the same row within a request.
+const getSiteContentRow = cache(async (): Promise<{ value: SiteContent | null; updatedAt: string | null }> => {
+  if (!hasSupabaseConfig()) return { value: null, updatedAt: null };
+  try {
+    const rows = await supabaseRest<Array<{ value: SiteContent; updated_at: string }>>(
+      `site_settings?key=eq.${siteContentKey}&select=value,updated_at&limit=1`
+    );
+    const row = rows[0];
+    return { value: row?.value ?? null, updatedAt: row?.updated_at ?? null };
+  } catch {
+    return { value: null, updatedAt: null };
+  }
+});
+
 // React's request-scoped cache — dedupes what used to be a real, repeated
 // Supabase round-trip: every public page calls this once directly AND once
 // again via PublicShell (Header/Footer need it too), so a single request
@@ -100,15 +117,18 @@ export const getSiteContent = cache(async (): Promise<SiteContent> => {
   });
   if (!hasSupabaseConfig()) return withPackages(seed);
 
-  try {
-    const rows = await supabaseRest<Array<{ value: SiteContent }>>(
-      `site_settings?key=eq.${siteContentKey}&select=value&limit=1`
-    );
-    return withPackages(rows[0]?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...rows[0].value })) : seed);
-  } catch {
-    return withPackages(seed);
-  }
+  const row = await getSiteContentRow();
+  return withPackages(row.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...row.value })) : seed);
 });
+
+// The site_settings row's updated_at, used as an optimistic-concurrency
+// token (see saveSiteContentIfUnchanged) — exposed to admin callers so a
+// save can be rejected instead of silently overwriting a newer save that
+// happened in between this request's read and its write.
+export async function getSiteContentVersion(): Promise<string | null> {
+  const row = await getSiteContentRow();
+  return row.updatedAt;
+}
 
 // 2026-10-11 perf fix: getSiteContent() above fetches the ENTIRE
 // site_settings "site_content" row — in production that row is ~3.2MB,
@@ -209,6 +229,91 @@ export async function saveSiteContent(content: SiteContent) {
 
   await fs.writeFile(contentPath, `${JSON.stringify(content, null, 2)}\n`, "utf8");
   return content;
+}
+
+// Data-integrity fix (2026-10-11): site_settings.value is the one real
+// JSONB store for brand/socials/contact/settings/seo/pages/certificates/
+// services/packages/quoteWizard/media — plain saveSiteContent() replaces
+// that whole column, so two admins (or two tabs) editing DIFFERENT parts
+// of it concurrently could silently clobber each other: whichever request
+// lands last wins, discarding the other's legitimate save with no error.
+//
+// This performs the same write as a single, atomic, conditionally-filtered
+// PostgREST PATCH — "update the row only if its updated_at still matches
+// what I read before I started editing". If someone else saved in between,
+// the filter matches zero rows, PostgREST returns an empty array (not an
+// error), and this returns {ok:false} instead of overwriting the newer
+// data. The caller must re-fetch and ask for a retry — never silently
+// merge or force the write.
+//
+// expectedVersion is null for a brand-new row (nothing to conflict with
+// yet) or in local dev without Supabase — both fall back to the existing
+// insert-if-missing / file-write behavior via saveSiteContent.
+export async function saveSiteContentIfUnchanged(
+  content: SiteContent,
+  expectedVersion: string | null
+): Promise<{ ok: true; version: string | null } | { ok: false }> {
+  if (!hasSupabaseConfig() || expectedVersion == null) {
+    // No prior row to conflict against (brand-new DB / local dev without
+    // Supabase) — saveSiteContent's own insert-if-missing path sets
+    // updated_at implicitly via the DB default, but that value is never
+    // echoed back here, so the version this returns is only used to seed
+    // the very next OCC attempt, not treated as DB-verified.
+    await saveSiteContent(content);
+    return { ok: true, version: hasSupabaseConfig() ? new Date().toISOString() : null };
+  }
+
+  const nextVersion = new Date().toISOString();
+  const patched = await supabaseRest<Array<{ updated_at: string }>>(
+    `site_settings?key=eq.${siteContentKey}&updated_at=eq.${encodeURIComponent(expectedVersion)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ value: content, updated_at: nextVersion })
+    }
+  ).catch(() => [] as Array<{ updated_at: string }>);
+
+  if (Array.isArray(patched) && patched.length > 0) return { ok: true, version: patched[0].updated_at };
+  return { ok: false };
+}
+
+// For narrow, server-computed patches (AI settings/status, media uploads)
+// where there is no human in the loop to ask "please retry" — reads the
+// current content fresh, applies mutate, and retries the OCC save a few
+// times if another write lands in the same instant. Never loops forever:
+// after the last attempt it writes unconditionally via saveSiteContent
+// rather than dropping the change (these are small, additive patches, not
+// full-form saves, so the residual race window this leaves is the same
+// one that already existed everywhere before this fix — strictly better,
+// never worse).
+export async function mutateSiteContent(mutate: (current: SiteContent) => SiteContent, attempts = 3): Promise<SiteContent> {
+  const seed = await getSeedContent();
+  // Deliberately bypasses getSiteContentRow's request-scoped cache() on
+  // every attempt — a retry loop that re-read the same memoized value on
+  // each pass would never see the conflicting write it's retrying against.
+  const readFresh = async (): Promise<{ content: SiteContent; version: string | null }> => {
+    if (!hasSupabaseConfig()) return { content: seed, version: null };
+    try {
+      const rows = await supabaseRest<Array<{ value: SiteContent; updated_at: string }>>(
+        `site_settings?key=eq.${siteContentKey}&select=value,updated_at&limit=1`
+      );
+      const row = rows[0];
+      return { content: row?.value ? normalizeAiDefaults(polishPublicCopy({ ...seed, ...row.value })) : seed, version: row?.updated_at ?? null };
+    } catch {
+      return { content: seed, version: null };
+    }
+  };
+
+  let last: { content: SiteContent; version: string | null } | null = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    last = await readFresh();
+    const next = mutate(last.content);
+    const result = await saveSiteContentIfUnchanged(next, last.version);
+    if (result.ok) return next;
+  }
+  const next = mutate((last ?? (await readFresh())).content);
+  await saveSiteContent(next);
+  return next;
 }
 
 export function getPackageById(content: SiteContent, id: string) {

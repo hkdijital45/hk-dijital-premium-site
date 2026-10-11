@@ -511,6 +511,7 @@ function FavoritesModal({
 
 export function AdminDashboard({
   initialContent,
+  initialContentVersion = null,
   supabaseConfigured = false,
   currentSession,
   allowedModules = [],
@@ -520,6 +521,7 @@ export function AdminDashboard({
   initialAccountingTab = ""
 }: {
   initialContent: SiteContent;
+  initialContentVersion?: string | null;
   supabaseConfigured?: boolean;
   currentSession?: any;
   allowedModules?: string[];
@@ -529,6 +531,13 @@ export function AdminDashboard({
   initialAccountingTab?: string;
 }) {
   const [content, setContent] = useState(initialContent as any);
+  // Optimistic-concurrency token for PUT /api/content — see
+  // saveSiteContentIfUnchanged in src/lib/content.ts. Kept in sync with
+  // the server's site_settings.updated_at after every successful save so
+  // a second stale save attempt (this tab left open while another admin
+  // saved elsewhere) is rejected with a clear "reload and retry" error
+  // instead of silently overwriting that other change.
+  const [contentVersion, setContentVersion] = useState<string | null>(initialContentVersion);
   const [active, setActive] = useState(initialActive);
   const [preAuditInitialTab, setPreAuditInitialTab] = useState("");
   const [preAuditInitialLeadId, setPreAuditInitialLeadId] = useState("");
@@ -695,13 +704,15 @@ export function AdminDashboard({
     setStatus("Kaydediliyor...");
     try {
       const contentResponse = allowedModules.includes("site-ayarlari")
-        ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
+        ? await fetch("/api/content", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...next, _version: contentVersion }) })
         : new Response(JSON.stringify({ ok: true }), { status: 200 });
       const centerWritableModules = ["musteriler", "leads", "crm", "kampanyalar", "gorevler", "belgeler", "tahsilat", "karlilik", "rakip-analizi", "sosyal-medya-plani", "aylik-raporlar", "sektor-sistemleri", "sistem-loglari", "sistem-test-merkezi", "teklifler", "musteri-bulucu", "haritalar", "site-ayarlari"];
       const centerResponse = supabaseConfigured && centerWritableModules.some((module) => allowedModules.includes(module))
         ? await fetch("/api/admin/center-data", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) })
         : contentResponse;
       if (contentResponse.ok && centerResponse.ok) {
+        const contentData = await contentResponse.json().catch(() => ({}));
+        if (contentData && typeof contentData._version !== "undefined") setContentVersion(contentData._version);
         if (supabaseConfigured) {
           const latest = await fetch("/api/admin/center-data");
           const latestData = await latest.json().catch(() => ({}));

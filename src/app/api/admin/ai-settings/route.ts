@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSiteContent, saveSiteContent } from "@/lib/content";
+import { getSiteContent, mutateSiteContent } from "@/lib/content";
 import { normalizeUnifiedAiProvider, unifiedAiPriorityKeys } from "@/lib/ai-provider-options";
 import { requireModuleAccess } from "@/lib/permissions";
 
@@ -36,8 +36,7 @@ export async function POST(request: Request) {
     demoMode: activeProvider === "demo"
   };
 
-  const next = { ...content, settings: { ...content.settings, api: nextApi } };
-  await saveSiteContent(next);
+  await mutateSiteContent((current) => ({ ...current, settings: { ...current.settings, api: nextApi } }));
   return NextResponse.json({
     ok: true,
     message: "AI sağlayıcı ayarları kaydedildi.",

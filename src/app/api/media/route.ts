@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { getSiteContent, saveSiteContent } from "@/lib/content";
+import { mutateSiteContent } from "@/lib/content";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { hasSupabaseConfig, supabaseRest, uploadToSupabaseStorage } from "@/lib/supabase";
 
@@ -75,15 +75,13 @@ export async function POST(request: Request) {
     await fs.writeFile(path.join(uploadDir, safeName), fileBuffer);
   }
 
-  const content = await getSiteContent();
   const media = {
     id: safeName,
     url,
     type: file.type === "application/pdf" ? ("pdf" as const) : file.type.startsWith("video") ? ("video" as const) : ("image" as const),
     name: file.name || `media.${extension}`
   };
-  content.media.unshift(media);
-  await saveSiteContent(content);
+  await mutateSiteContent((current) => ({ ...current, media: [media, ...current.media] }));
   if (hasSupabaseConfig()) {
     await supabaseRest("media_files", {
       method: "POST",

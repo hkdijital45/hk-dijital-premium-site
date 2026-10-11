@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSiteContent, saveSiteContent } from "@/lib/content";
+import { getSiteContent, mutateSiteContent } from "@/lib/content";
 import { requireModuleAccess } from "@/lib/permissions";
 import { hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
 
@@ -65,30 +65,26 @@ export async function POST() {
     item.responseTimeMs = responseTimeMs;
   });
 
-  const next = {
-    ...content,
-    settings: {
-      ...content.settings,
-      api: {
-        ...api,
-        activeProvider: api.activeProvider || "groq",
-        active_ai_provider: api.active_ai_provider || "groq",
-        active_ai_model: api.active_ai_model || api.model || "llama-3.3-70b-versatile",
-        ai_mode: api.ai_mode || "live",
-        ai_status_last_test_at: new Date().toISOString(),
-        ai_status: results
-      }
-    }
+  const nextApiPatch = {
+    activeProvider: api.activeProvider || "groq",
+    active_ai_provider: api.active_ai_provider || "groq",
+    active_ai_model: api.active_ai_model || api.model || "llama-3.3-70b-versatile",
+    ai_mode: api.ai_mode || "live",
+    ai_status_last_test_at: new Date().toISOString(),
+    ai_status: results
   };
 
-  await saveSiteContent(next).catch(() => null);
+  await mutateSiteContent((current) => ({
+    ...current,
+    settings: { ...current.settings, api: { ...current.settings.api, ...nextApiPatch } }
+  })).catch(() => null);
   return NextResponse.json({
     ok: true,
     results,
-    activeProvider: next.settings.api.active_ai_provider,
-    activeModel: next.settings.api.active_ai_model,
-    mode: next.settings.api.ai_mode === "demo" ? "Demo" : next.settings.api.ai_mode === "local" ? "Yerel" : "Canlı",
-    lastTestTime: next.settings.api.ai_status_last_test_at,
+    activeProvider: nextApiPatch.active_ai_provider,
+    activeModel: nextApiPatch.active_ai_model,
+    mode: nextApiPatch.ai_mode === "demo" ? "Demo" : nextApiPatch.ai_mode === "local" ? "Yerel" : "Canlı",
+    lastTestTime: nextApiPatch.ai_status_last_test_at,
     responseTimeMs
   });
 }
