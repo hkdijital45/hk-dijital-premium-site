@@ -1,4 +1,4 @@
-import { resolvePublicTelHref, resolvePublicWhatsappUrl } from "@/lib/public-contact";
+import { isRealProfileUrl, resolvePublicTelHref, resolvePublicWhatsappUrl } from "@/lib/public-contact";
 import type { Metadata } from "next";
 import { Camera, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { getSiteContent } from "@/lib/content";
@@ -19,6 +19,10 @@ export default async function ContactPage() {
   const phoneHref = resolvePublicTelHref(content.contact.phone);
   const addressVisible = content.contact.addressVisible !== false;
   const locationLine = [content.contact.district, content.contact.city].filter(Boolean).join(", ");
+  // Hides the card instead of linking to Instagram's own homepage when
+  // the field is still just the bare platform domain (never filled in
+  // with a real account) — same check Footer/SocialLinks already apply.
+  const hasRealInstagram = Boolean(content.socials.instagram) && isRealProfileUrl("instagram", content.socials.instagram);
 
   return (
     <PublicShell>
@@ -29,7 +33,7 @@ export default async function ContactPage() {
             <MarketingReveal><ContactForm /></MarketingReveal>
             <div className="grid gap-4">
               {whatsappUrl && <MarketingCard className="p-6"><MessageCircle className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>WhatsApp ile Hızlı İletişim</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={whatsappUrl}>WhatsApp&apos;tan Yazın</a></MarketingCard>}
-              <MarketingCard className="p-6"><Camera className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Instagram&apos;da Takip Edin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={content.socials.instagram}>Instagram Profilimizi Ziyaret Edin</a></MarketingCard>
+              {hasRealInstagram && <MarketingCard className="p-6"><Camera className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Instagram&apos;da Takip Edin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={content.socials.instagram} target="_blank" rel="noreferrer">Instagram Profilimizi Ziyaret Edin</a></MarketingCard>}
               <MarketingCard className="p-6"><Mail className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>E-posta Gönderin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`mailto:${content.contact.email}`}>Teklif İçin Mail Gönderin</a></MarketingCard>
               {phoneHref && <MarketingCard className="p-6"><Phone className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Bizi Arayın</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`tel:${content.contact.phone.replace(/\s/g, "")}`}>{content.contact.phone}</a></MarketingCard>}
               {addressVisible && (

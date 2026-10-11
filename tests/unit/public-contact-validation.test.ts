@@ -77,6 +77,23 @@ test("validateContactAndSocials: rejects a dangerous social URL scheme", () => {
   assert.match(validateContactAndSocials({}, { instagram: "javascript:alert(1)" }) ?? "", /instagram/);
 });
 
+test("validateContactAndSocials: rejects a bare platform-domain URL (no real account path) — the exact live bug this fixes", () => {
+  assert.match(validateContactAndSocials({}, { instagram: "https://instagram.com/" }) ?? "", /instagram/);
+  assert.match(validateContactAndSocials({}, { instagram: "https://instagram.com" }) ?? "", /instagram/);
+  assert.match(validateContactAndSocials({}, { youtube: "https://youtube.com/" }) ?? "", /youtube/);
+});
+
+test("validateContactAndSocials: accepts a real profile/channel path for every platform shape", () => {
+  assert.equal(validateContactAndSocials({}, { instagram: "https://instagram.com/hkdijital" }), null);
+  assert.equal(validateContactAndSocials({}, { youtube: "https://youtube.com/@hkdijital" }), null);
+  assert.equal(validateContactAndSocials({}, { youtube: "https://youtube.com/channel/UC12345" }), null);
+  assert.equal(validateContactAndSocials({}, { linkedin: "https://linkedin.com/company/hkdijital" }), null);
+});
+
+test("validateContactAndSocials: a bare-domain whatsapp link is NOT rejected by the platform-root check (whatsappNumber validates the real channel instead)", () => {
+  assert.equal(validateContactAndSocials({}, { whatsapp: "https://wa.me/" }), null);
+});
+
 test("validateContactAndSocials: accepts a fully valid payload", () => {
   assert.equal(
     validateContactAndSocials(

@@ -48,6 +48,26 @@ export function isPlausiblePhoneDigits(value: string): boolean {
   return digits.length >= 7 && digits.length <= 15;
 }
 
+// A social URL that's just the platform's bare domain root (e.g.
+// "https://instagram.com/", no username/channel path) isn't a real
+// business account — displayed as-is it reads as "follow us on
+// Instagram" pointing at Instagram's own homepage. Same check as
+// isRealProfileUrl in public-contact.ts (kept duplicated rather than
+// imported, to preserve this file's zero-imports/pure-function
+// testability — see the file header). Any real profile/channel path
+// (instagram.com/handle, youtube.com/@handle, youtube.com/channel/UC...,
+// linkedin.com/company/..., etc.) still passes; only a genuinely empty
+// path is rejected.
+function isGenericPlatformRootUrl(href: string): boolean {
+  try {
+    const url = new URL(href);
+    const path = url.pathname.replace(/\/+$/, "");
+    return !path || path === "" || ["/hk", "/profile"].includes(path.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export const SOCIAL_URL_FIELDS = ["instagram", "facebook", "youtube", "twitter", "linkedin", "tiktok"] as const;
 
 export type ContactSettingsInput = {
@@ -78,8 +98,12 @@ export function validateContactAndSocials(contact: ContactSettingsInput, socials
   }
   for (const key of [...SOCIAL_URL_FIELDS, "whatsapp"] as const) {
     const value = socials[key];
-    if (value && !isSafeHttpUrl(value)) {
+    if (!value) continue;
+    if (!isSafeHttpUrl(value)) {
       return `${key} bağlantısı geçerli bir http(s) adresi olmalı.`;
+    }
+    if (key !== "whatsapp" && isGenericPlatformRootUrl(value)) {
+      return `${key} bağlantısı yalnızca platformun ana sayfası — gerçek hesap adresini girin ya da alanı boş bırakın.`;
     }
   }
   return null;

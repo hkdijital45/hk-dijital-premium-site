@@ -2,6 +2,7 @@
 
 import type { PublicSiteContent } from "@/lib/types";
 import { socialIcons } from "@/lib/icons";
+import { isRealProfileUrl } from "@/lib/public-contact";
 import { trackEvent } from "./TrackingPlaceholders";
 
 const labels: Record<string, string> = {
@@ -13,17 +14,6 @@ const labels: Record<string, string> = {
   whatsapp: "WhatsApp",
   tiktok: "TikTok"
 };
-
-function isRealProfileUrl(key: string, href: string) {
-  try {
-    const url = new URL(href);
-    const path = url.pathname.replace(/\/+$/, "");
-    if (!path || path === "") return key === "whatsapp";
-    return path !== "/" && !["/hk", "/profile"].includes(path.toLowerCase());
-  } catch {
-    return false;
-  }
-}
 
 export function SocialLinks({ content }: { content: PublicSiteContent }) {
   return (
