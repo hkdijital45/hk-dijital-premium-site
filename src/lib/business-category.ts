@@ -45,7 +45,7 @@ export const businessCards = [
 // or any existing id — selecting one of these records that real sector
 // name, not "Diğer" or free text.
 export const extraBusinessCards = [
-  { id: "hair-salon", label: "Kuaför & Berber", emoji: "💈", hint: "Randevu, yerel keşif ve düzenli müşteri iletişimi" },
+  { id: "hair-salon", label: "Kuaför", emoji: "💈", hint: "Randevu, yerel keşif ve düzenli müşteri iletişimi" },
   { id: "beauty-care", label: "Güzellik & Kişisel Bakım", emoji: "💅", hint: "Hizmet tanıtımı, randevu ve marka görünürlüğü" },
   { id: "fitness", label: "Spor & Fitness", emoji: "🏋️", hint: "Üyelik, ders ve yerel topluluk" },
   { id: "hotel", label: "Otel & Konaklama", emoji: "🛎️", hint: "Tesis tanıtımı, rezervasyon ve sezonluk görünürlük" },
@@ -66,6 +66,18 @@ const ALL_BUSINESS_CARDS = [...businessCards, ...extraBusinessCards];
 function businessCardLabel(id?: string) {
   return ALL_BUSINESS_CARDS.find((item) => item.id === id)?.label || id || "-";
 }
+
+// 2026-10-11: superseded the earlier "Diğer sektörleri göster" collapsible
+// toggle per explicit user decision — every sector (original 8 minus
+// "Diğer" + all 14 extra) now renders directly, with "Diğer" moved to the
+// very end of this single combined list instead of sitting 8th. Ids are
+// untouched (existing recorded leads keep resolving correctly); this only
+// reorders what the wizard renders.
+export const orderedBusinessCards = [
+  ...businessCards.filter((item) => item.id !== OTHER_BUSINESS_TYPE_ID),
+  ...extraBusinessCards,
+  ...businessCards.filter((item) => item.id === OTHER_BUSINESS_TYPE_ID)
+];
 
 export function normalizeCustomCategory(value: string) {
   return value.trim().replace(/\s+/g, " ").slice(0, MAX_BUSINESS_CATEGORY_LENGTH);

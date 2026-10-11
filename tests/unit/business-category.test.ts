@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { businessCards, extraBusinessCards, isGenericBusinessCategory, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, resolveBusinessCategory, resolvedBusinessCategoryOrFallback, sanitizeBusinessCategory } from "../../src/lib/business-category.ts";
+import { businessCards, extraBusinessCards, orderedBusinessCards, isGenericBusinessCategory, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, resolveBusinessCategory, resolvedBusinessCategoryOrFallback, sanitizeBusinessCategory } from "../../src/lib/business-category.ts";
 
 test("normalizeCustomCategory: trims and collapses internal whitespace", () => {
   assert.equal(normalizeCustomCategory("  Oto   Servis  "), "Oto Servis");
@@ -73,4 +73,23 @@ test("resolveBusinessCategory: resolves every extra sector id to its real label,
 test("resolveBusinessCategory: an unknown/garbage id never crashes and never silently becomes 'Diğer'", () => {
   assert.equal(resolveBusinessCategory("not-a-real-id", ""), "not-a-real-id");
   assert.equal(resolveBusinessCategory(undefined, ""), "-");
+});
+
+// 2026-10-11: superseded the "diğer sektörleri göster" toggle per an
+// explicit user decision — every sector now renders directly in the
+// wizard, in a single combined, correctly-ordered list with "Diğer" last.
+test("orderedBusinessCards: every original (minus 'Diğer') + every extra sector, 'Diğer' last, no duplicates", () => {
+  assert.equal(orderedBusinessCards.length, 7 + 14 + 1);
+  assert.equal(orderedBusinessCards[orderedBusinessCards.length - 1].id, OTHER_BUSINESS_TYPE_ID);
+  assert.equal(orderedBusinessCards[orderedBusinessCards.length - 1].label, "Diğer");
+  assert.equal(orderedBusinessCards.filter((c) => c.id === OTHER_BUSINESS_TYPE_ID).length, 1);
+  const ids = orderedBusinessCards.map((c) => c.id);
+  assert.equal(new Set(ids).size, ids.length, "no duplicate ids in the combined ordered list");
+});
+
+test("hair-salon sector: id unchanged, label renamed from 'Kuaför & Berber' to 'Kuaför'", () => {
+  const hairSalon = extraBusinessCards.find((c) => c.id === "hair-salon");
+  assert.ok(hairSalon, "hair-salon id must still exist (existing recorded leads reference it)");
+  assert.equal(hairSalon?.label, "Kuaför");
+  assert.equal(resolveBusinessCategory("hair-salon", ""), "Kuaför");
 });

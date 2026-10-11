@@ -1,12 +1,12 @@
 "use client";
 
-import { Fragment, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
+import { Fragment, useEffect, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, MessageCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, MessageCircle } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { CONTENT_NEED_OPTIONS, SOCIAL_STATUS_OPTIONS, URGENCY_OPTIONS, packageChoiceLabel } from "@/lib/packages";
-import { businessCards, extraBusinessCards, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, MAX_BUSINESS_CATEGORY_LENGTH, resolveBusinessCategory } from "@/lib/business-category";
+import { orderedBusinessCards, isValidCustomCategory, normalizeCustomCategory, OTHER_BUSINESS_TYPE_ID, MAX_BUSINESS_CATEGORY_LENGTH, resolveBusinessCategory } from "@/lib/business-category";
 import { PLATFORM_OPTIONS, isAllPlatformsSelected, platformSelectionLabel, toggleAllPlatforms, togglePlatform, type PlatformKey } from "@/lib/platform-selection";
 import { trackEvent } from "./TrackingPlaceholders";
 import { resolvePublicWhatsappNumber } from "@/lib/public-contact";
@@ -50,7 +50,6 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>({});
   const [customBusinessType, setCustomBusinessType] = useState("");
-  const [showMoreSectors, setShowMoreSectors] = useState(false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformKey[]>([]);
   const [platformError, setPlatformError] = useState("");
   const [form, setForm] = useState<Answers>({});
@@ -184,21 +183,19 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
               <motion.div className="h-full rounded-full" style={{ background: "linear-gradient(90deg, var(--mk-violet), var(--mk-blue), var(--mk-pink))" }} animate={{ width: `${progress}%` }} transition={{ duration: 0.35 }} />
             </div>
           </div>
+          {/* Visually-hidden: screen-reader-only announcement of the step
+              change, since the visible "Aşama N / 7" counter above and the
+              stepper pills are not themselves an aria-live region. */}
+          <p aria-live="polite" className="sr-only">{`Adım ${step + 1} / ${steps.length}: ${steps[step]}`}</p>
 
           <div className="mt-10 min-h-[430px]">
             <AnimatePresence mode="wait">
               {step === 0 && (
                 <StepPanel key="business">
-                  <Options title="İşletme Türünüz" text="Sektörünüzü seçin; ön analiziniz buna göre hazırlanır." options={businessCards} selectedId={answers.businessType} onSelect={(value) => select("businessType", value)} />
+                  <Options title="İşletme Türünüz" text="Sektörünüzü seçin; ön analiziniz buna göre hazırlanır." options={orderedBusinessCards} selectedId={answers.businessType} onSelect={(value) => select("businessType", value)} compact />
                   {answers.businessType === OTHER_BUSINESS_TYPE_ID && (
                     <CustomBusinessTypeField value={customBusinessType} onChange={setCustomBusinessType} onContinue={confirmCustomBusinessType} />
                   )}
-                  <MoreSectors
-                    expanded={showMoreSectors}
-                    onToggle={() => setShowMoreSectors((v) => !v)}
-                    selectedId={answers.businessType}
-                    onSelect={(value) => select("businessType", value)}
-                  />
                 </StepPanel>
               )}
               {step === 1 && <StepPanel key="goal"><Options title="Ana Hedefiniz" text="Reklam çalışmasının ana odağını seçin. Her hedef farklı bir kampanya kurgusu gerektirir." options={goalCards} onSelect={(value) => select("goal", value)} /></StepPanel>}
@@ -235,22 +232,40 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   );
 }
 
+// Each step is a fresh StepPanel instance (distinct `key` per step in the
+// parent, see step===N blocks above), so focusing on mount here moves
+// keyboard/screen-reader focus to the new step's content every time the
+// wizard advances or goes back — previously focus silently stayed on the
+// now-stale "İleri"/"Geri" button the user had just pressed, with no
+// indication a new step had loaded. tabIndex={-1} makes a plain <div>
+// programmatically focusable without adding it to the normal Tab order.
 function StepPanel({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+  }, []);
   return (
-    <motion.div initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -12, scale: 0.985 }} transition={{ duration: 0.28, ease: "easeOut" }}>
+    <motion.div ref={ref} tabIndex={-1} className="outline-none" initial={{ opacity: 0, y: 18, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -12, scale: 0.985 }} transition={{ duration: 0.28, ease: "easeOut" }}>
       {children}
     </motion.div>
   );
 }
 
-function Options({ title, text, options, onSelect, selectedId }: { title: string; text: string; options: { id: string; label: string; emoji?: string; hint?: string }[]; onSelect: (value: string) => void; selectedId?: string }) {
+// `compact` is used for the business-type step (22 sectors, must all be
+// directly visible per an explicit decision that superseded the earlier
+// "show more sectors" toggle — see orderedBusinessCards in
+// business-category.ts) — smaller icon/padding and more columns so the
+// full list stays reasonably scannable without shrinking text to the
+// point of being unreadable. Plain page scroll handles the rest; no
+// nested scroll container.
+function Options({ title, text, options, onSelect, selectedId, compact = false }: { title: string; text: string; options: { id: string; label: string; emoji?: string; hint?: string }[]; onSelect: (value: string) => void; selectedId?: string; compact?: boolean }) {
   return (
     <div>
       <div className="max-w-3xl">
         <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>{title}</h2>
         <p className="mt-3 text-base leading-7" style={{ color: "var(--mk-ink-soft)" }}>{text}</p>
       </div>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`mt-8 grid gap-4 ${compact ? "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {options.map((option) => {
           const isSelected = selectedId === option.id;
           return (
@@ -260,72 +275,25 @@ function Options({ title, text, options, onSelect, selectedId }: { title: string
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelect(option.id)}
               aria-pressed={isSelected}
-              className="group min-h-40 rounded-2xl border p-5 text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition"
+              className={`group rounded-2xl border text-left shadow-[0_10px_30px_rgba(15,16,36,.06)] transition ${compact ? "flex min-h-[4.5rem] items-center gap-3 p-3.5" : "min-h-40 p-5"}`}
               style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
             >
-              <span className="grid size-14 place-items-center rounded-xl text-3xl" style={{ background: "var(--mk-bg-alt)" }}>{option.emoji || "✨"}</span>
-              <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
-              <span className="mt-2 block text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{option.hint}</span>
+              <span className={compact ? "grid size-9 shrink-0 place-items-center rounded-lg text-lg" : "grid size-14 place-items-center rounded-xl text-3xl"} style={{ background: "var(--mk-bg-alt)" }}>{option.emoji || "✨"}</span>
+              {compact ? (
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
+                  <span className="block truncate text-xs leading-5" style={{ color: "var(--mk-ink-faint)" }}>{option.hint}</span>
+                </span>
+              ) : (
+                <>
+                  <span className="mt-5 block text-xl font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
+                  <span className="mt-2 block text-sm leading-6" style={{ color: "var(--mk-ink-soft)" }}>{option.hint}</span>
+                </>
+              )}
             </motion.button>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// 2026-10-11: 14 additional sectors behind a collapsible toggle — kept
-// deliberately distinct from the "Diğer" card above (which opens a
-// free-text field), since these are real predefined sectors with their
-// own stable ids, not a custom/unstructured answer. Collapsing this
-// panel never clears the selection (answers.businessType lives in the
-// parent wizard's state, untouched by this component unmounting its
-// grid) — if a sector from this list is selected, its name stays visible
-// in the summary chip below the toggle so it's never silently lost.
-function MoreSectors({ expanded, onToggle, selectedId, onSelect }: { expanded: boolean; onToggle: () => void; selectedId?: string; onSelect: (value: string) => void }) {
-  const selectedExtra = extraBusinessCards.find((item) => item.id === selectedId);
-  const panelId = "more-sectors-panel";
-  return (
-    <div className="mt-6 border-t pt-6" style={{ borderColor: "var(--mk-border)" }}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        className="inline-flex items-center gap-2 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-[#107C73]"
-        style={{ color: "var(--mk-violet)" }}
-      >
-        {expanded ? "Diğer sektörleri gizle" : "Diğer sektörleri göster"}
-        <ChevronDown size={16} className="transition-transform duration-200" style={{ transform: expanded ? "rotate(180deg)" : undefined }} aria-hidden="true" />
-      </button>
-      {!expanded && selectedExtra && (
-        <p className="mt-3 text-sm font-bold" style={{ color: "var(--mk-ink-soft)" }}>
-          Seçili sektör: <span style={{ color: "var(--mk-ink)" }}>{selectedExtra.emoji} {selectedExtra.label}</span>
-        </p>
-      )}
-      {expanded && (
-        <div id={panelId} className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {extraBusinessCards.map((option) => {
-            const isSelected = selectedId === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => onSelect(option.id)}
-                aria-pressed={isSelected}
-                className="flex items-center gap-3 rounded-xl border p-3.5 text-left transition"
-                style={{ borderColor: isSelected ? "var(--mk-violet)" : "var(--mk-border)", background: isSelected ? "rgba(16, 124, 115,.06)" : "var(--mk-surface)" }}
-              >
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg text-lg" style={{ background: "var(--mk-bg-alt)" }}>{option.emoji}</span>
-                <span>
-                  <span className="block text-sm font-black" style={{ color: "var(--mk-ink)" }}>{option.label}</span>
-                  <span className="block text-xs leading-5" style={{ color: "var(--mk-ink-faint)" }}>{option.hint}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
