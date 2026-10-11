@@ -108,6 +108,9 @@ export default async function ServicesPage() {
                     </div>
                   ))}
                 </div>
+                <p className="mt-6 text-sm leading-7 text-slate-400">
+                  Bu süreç, <Link href="/hk-intelligence" className="font-bold text-[#23D9CE] hover:underline">HK Intelligence</Link> adlı yapay zekâ destekli müşteri takip ve dijital analiz sistemimizle desteklenir.
+                </p>
               </section>
             </MarketingReveal>
             <MarketingReveal>

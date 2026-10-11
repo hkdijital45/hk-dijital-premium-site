@@ -44,6 +44,7 @@ export function Footer({ content }: { content: PublicSiteContent }) {
             <Link className="transition hover:text-white" href="/hakkimda">Hakkımızda</Link>
             <Link className="transition hover:text-white" href="/paketler">Paketler</Link>
             <Link className="transition hover:text-white" href="/manisa-dijital-pazarlama">Manisa Dijital Pazarlama</Link>
+            <Link className="transition hover:text-white" href="/hk-intelligence">HK Intelligence</Link>
             <Link className="transition hover:text-white" href="/blog">Blog</Link>
             <Link className="transition hover:text-white" href="/iletisim">İletişim</Link>
           </div>

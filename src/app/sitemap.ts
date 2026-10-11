@@ -11,6 +11,7 @@ const staticRoutes = [
   "/blog",
   "/iletisim",
   "/teklif-al",
+  "/hk-intelligence",
   "/manisa-dijital-pazarlama",
   "/calistigimiz-markalar",
   "/gizlilik-politikasi",
