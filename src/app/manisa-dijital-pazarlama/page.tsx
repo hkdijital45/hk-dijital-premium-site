@@ -53,7 +53,7 @@ export default function ManisaDigitalMarketingPage() {
         <MarketingSection>
           <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:px-8">
             <MarketingReveal>
-              <MarketingCard feature className="p-8">
+              <MarketingCard feature className="p-6 sm:p-8">
                 <h2 className="text-3xl font-black" style={{ color: "var(--mk-ink)" }}>Manisa’daki işletmeler için dijital pazarlama neden önemli?</h2>
                 <p className="mt-4 text-base leading-8" style={{ color: "var(--mk-ink-soft)" }}>Yerel rekabet yalnız tabela, konum veya tavsiye ile sınırlı değil. Kullanıcılar Instagram’da keşfediyor, Google’da arıyor, yorumlara bakıyor ve çoğu zaman WhatsApp veya form üzerinden ilk teması kuruyor. Bu yüzden reklam, sosyal medya ve takip altyapısı birlikte planlanmalıdır.</p>
               </MarketingCard>
@@ -66,7 +66,7 @@ export default function ManisaDigitalMarketingPage() {
                     <Link href={service.href}>
                       <MarketingCard className="p-6">
                         <Icon className="text-[#107C73]" size={28} />
-                        <h2 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{service.title}</h2>
+                        <h3 className="mt-5 text-xl font-black" style={{ color: "var(--mk-ink)" }}>{service.title}</h3>
                         <p className="mt-3 text-sm leading-7" style={{ color: "var(--mk-ink-soft)" }}>{service.text}</p>
                       </MarketingCard>
                     </Link>
