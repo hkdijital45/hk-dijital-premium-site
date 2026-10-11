@@ -2,17 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import "./globals.css";
 
-// Testing showed root app/not-found.tsx is NOT rendered for a genuinely
-// unmatched URL in this Next.js build (confirmed with a minimal
-// not-found.tsx that never appeared either) — only global-not-found.tsx,
-// gated behind experimental.globalNotFound in next.config.ts, is. Per the
-// framework's own file-convention docs, this file bypasses the normal
-// root layout entirely and must be a full, self-contained HTML document
-// (own <html>/<body>, own global style import) — PublicShell/Header/
-// Footer assume they're nested inside the real root layout, so they
-// can't be reused here; this intentionally stays light (no client JS,
-// no extra font) per the same docs' own performance guidance for this
-// page.
+// Handles any genuinely unmatched MULTI-segment URL (confirmed working:
+// /foo/bar-unmatched returns this page). A single-segment unmatched URL
+// (e.g. /bar-unmatched) instead matches the [indexnowKey] dynamic route —
+// see its route.ts, which returns a raw-HTML twin of this exact page
+// (branded-not-found-html.ts) since a Route Handler can't render a React
+// Server Component. Per the framework's own file-convention docs, this
+// file bypasses the normal root layout entirely and must be a full,
+// self-contained HTML document (own <html>/<body>, own global style
+// import) — PublicShell/Header/Footer assume they're nested inside the
+// real root layout, so they can't be reused here; this intentionally
+// stays light (no client JS, no extra font) per the same docs' own
+// performance guidance for this page.
 export const metadata = {
   title: "Sayfa Bulunamadı",
   description: "Aradığınız sayfa bulunamadı."
