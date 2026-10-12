@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Activity, AlertTriangle, BarChart3, Brain, CheckCircle, ClipboardCheck, Clock, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy, UserSearch, Wallet } from "lucide-react";
+import { Activity, AlertTriangle, AtSign, BarChart3, Brain, CheckCircle, ClipboardCheck, Clock, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy, UserSearch, Wallet } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -15,6 +15,8 @@ import { AdCreativeReportPanel } from "@/components/admin/AdCreativeReportPanel"
 import { AdEvaluationPanel } from "@/components/admin/AdEvaluationPanel";
 import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactKpiStrip";
 import { CandidateEvaluationBrowser } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
+import { InstagramProfileAuditPanel } from "@/components/admin/customer-profile/InstagramProfileAuditPanel";
+import { ManualEvaluationSection } from "@/components/admin/manual-evaluations/ManualEvaluationSection";
 
 const ranges = [
   ["today", "Bugün"],
@@ -129,7 +131,7 @@ function sectionTitle(title: string, description: string, icon?: ReactNode) {
 export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
   const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
   const [companyId, setCompanyId] = useState(companies[0]?.id || "");
-  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation" | "candidate-evaluation">("doctor");
+  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation" | "candidate-evaluation" | "instagram">("doctor");
   const [range, setRange] = useState("last_30d");
   const [platform, setPlatform] = useState("all");
   const [campaignType, setCampaignType] = useState("Tümü");
@@ -330,7 +332,8 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         ["ai-strategy", "Claude Reklam Stratejisi", Sparkles],
         ["creative", "Reklam Kreatif Raporu", ImageIcon],
         ["evaluation", "Reklam Değerlendirme", ClipboardCheck],
-        ["candidate-evaluation", "Aday Değerlendirmeleri", UserSearch]
+        ["candidate-evaluation", "Aday Değerlendirmeleri", UserSearch],
+        ["instagram", "Instagram Değerlendirme", AtSign]
       ] as const).map(([key, label, TabIcon]) => {
         const active = activeTab === key;
         return (
@@ -347,15 +350,44 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
       })}
     </div>
 
-    {activeTab === "ai-strategy" && <AdsStrategyPanel companyId={companyId} companies={companies} />}
-    {activeTab === "creative" && <AdCreativeReportPanel companyId={companyId} companies={companies} />}
-    {activeTab === "evaluation" && <AdEvaluationPanel companyId={companyId} />}
+    {activeTab === "ai-strategy" && (
+      <div className="grid gap-4">
+        <AdsStrategyPanel companyId={companyId} companies={companies} />
+        <ManualEvaluationSection module="ads-strategy" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+      </div>
+    )}
+    {activeTab === "creative" && (
+      <div className="grid gap-4">
+        <AdCreativeReportPanel companyId={companyId} companies={companies} />
+        <ManualEvaluationSection module="ad-creative" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+      </div>
+    )}
+    {activeTab === "evaluation" && (
+      <div className="grid gap-4">
+        <AdEvaluationPanel companyId={companyId} />
+        <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+      </div>
+    )}
     {activeTab === "candidate-evaluation" && (
       <div className="grid gap-4">
         <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
           Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir; yukarıdaki müşteri seçiminden bağımsız çalışır.
         </div>
         <CandidateEvaluationBrowser allCompanies={content.companies || []} />
+        <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+      </div>
+    )}
+    {activeTab === "instagram" && (
+      <div className="grid gap-4">
+        <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
+          <strong>Mod A — Bağlı Hesap:</strong> yukarıdan mevcut bir müşteri seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B/C — Halka Açık Profil / Manuel Değerlendirme:</strong> müşteri olmayan bir aday için veya bağlı veri yoksa, aşağıdaki &quot;+ Manuel Değerlendirme&quot;yi kullanın — ekran görüntüsü/gözlemlerinizi girin, otomatik tarama yapılmaz.
+        </div>
+        {selectedCompany ? (
+          <InstagramProfileAuditPanel company={{ id: selectedCompany.id, name: selectedCompany.name }} />
+        ) : (
+          <AdminEmptyState title="Bağlı hesap analizi için yukarıdan bir müşteri seçin (opsiyonel) — yoksa doğrudan manuel değerlendirme oluşturabilirsiniz." />
+        )}
+        <ManualEvaluationSection module="instagram" companyId={selectedCompany?.id || null} targetLabel={selectedCompany?.name} />
       </div>
     )}
 
@@ -675,6 +707,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         </div>
       </div>
     )}
+    <ManualEvaluationSection module="ad-doctor" companyId={companyId || null} targetLabel={selectedCompany?.name} />
     </div>
     </AdminWorkspace>
   );
