@@ -522,7 +522,7 @@ const REAL_ASSETS = {
 test("REGRESSION — digital_presence.sourceMatrix (array of homogeneous objects nested inside an object field) becomes its own table, never a bullet dump", () => {
   const report = structuredReport({ digital_presence: { assets: { instagram: "https://www.instagram.com/x/" }, sourceMatrix: REAL_SOURCE_MATRIX } });
   const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
-  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Matrisi");
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Doğrulama Tablosu");
   assert.ok(tableSection?.table, "sourceMatrix must produce its own table section");
   assert.ok(tableSection!.table!.headers.some((h) => h === "Durum"));
   assert.ok(tableSection!.table!.headers.some((h) => h === "Kaynak"));
@@ -586,7 +586,7 @@ test("REGRESSION — wrapText character-splits a single token wider than the col
 test("REGRESSION — ✓/⚠ status symbols (confirmed missing from the embedded Geist font) are stripped before drawing, same as the existing emoji fix, with status still conveyed via color + verbatim text", () => {
   const report = structuredReport({ digital_presence: { sourceMatrix: REAL_SOURCE_MATRIX } });
   const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
-  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Matrisi");
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Doğrulama Tablosu");
   const durumIndex = tableSection!.table!.headers.indexOf("Durum");
   assert.ok(durumIndex >= 0);
   // The DocumentTable payload itself still carries the real "✓ Doğrulandı"
@@ -595,4 +595,99 @@ test("REGRESSION — ✓/⚠ status symbols (confirmed missing from the embedded
   // these glyphs) renders it as-is for parity with this same source data.
   const firstRow = tableSection!.table!.rows[0];
   assert.match(String(firstRow[durumIndex]), /Doğrulandı/);
+});
+
+// ---------------------------------------------------------------------
+// Regression tests for the "GLOBAL REPORT SYSTEM — ULTIMATE FINAL HARD
+// COMPLETION" localization requirement: every nested object key the
+// brief named (Brand Search, Query, Findings, Readiness, Customer
+// Statement, Verified At, Checked At, Open Point, Not Included,
+// Alternatives, Customer Budget, Audience, Creative Angles, Website
+// Visibility) must render as its Turkish label, never the raw English
+// field name — inspected on the actual generated DocumentPayload/PDF/
+// DOCX content, not just the terminology dictionary's source code.
+function collectAllText(payload: ReturnType<typeof buildPreAuditDocumentPayload>): string {
+  const parts: string[] = [payload.title, payload.executiveSummary, ...(payload.metaLines || [])];
+  for (const section of payload.sections) {
+    parts.push(section.title);
+    if (section.text) parts.push(section.text);
+    if (section.items) parts.push(...section.items);
+    if (section.table) {
+      parts.push(...section.table.headers);
+      for (const row of section.table.rows) {
+        for (const cell of row) parts.push(typeof cell === "string" ? cell : cell.label);
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+test("LOCALIZATION REGRESSION — nested English field keys from google_analysis/meta_ads_analysis/recommended_package render as Turkish labels, never the raw English key", () => {
+  const report = structuredReport({
+    report_type: "INTERNAL_REPORT", // recommended_package is firewalled out of CLIENT_REPORT entirely (A8) — this test exercises its labels too
+    google_analysis: {
+      brandSearch: "İşletme adıyla yapılan aramada GBP paneli ve Instagram görünüyor.",
+      query: "manisa beyaz eşya servisi",
+      findings: ["Rakip sponsorlu reklamla üstte görünüyor."],
+      websiteVisibility: "Resmi web sitesi bulunamadı.",
+      checkedAt: "12.10.2026"
+    },
+    meta_ads_analysis: {
+      readiness: "Kısmen hazır",
+      customerStatement: "Müşteri reklam hesabı olduğunu belirtti.",
+      audience: "Manisa merkez ve yakın çevre",
+      creativeAngles: ["Arıza anında hızlı çözüm mesajı"],
+      existingCreatives: ["10.10.2026 tarihli tamir videosu"]
+    },
+    recommended_package: {
+      openPoint: "Müşterinin belirttiği bütçe tutarı formda yok",
+      notIncluded: "Yerel SEO kurulumu paket kapsamında değil",
+      alternatives: [{ when: "Google'a açıksa", scope: "Kombin paket" }],
+      customerBudget: "Bilinmiyor"
+    }
+  });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const allText = collectAllText(payload);
+
+  const expectedTurkish = [
+    "Marka Adıyla Arama Sonuçları", "Arama Sorgusu", "Bulgular", "Web Sitesi Görünürlüğü", "İnceleme Tarihi",
+    "Hazırlık Durumu", "Müşteri Beyanı", "Hedef Kitle", "Reklam İçerik Yaklaşımları", "Mevcut Reklam İçerikleri",
+    "Netleştirilmesi Gereken Konu", "Hizmet Kapsamına Dahil Değil", "Alternatifler",
+    "Hangi Durumda Önerilir?", "Hizmet Kapsamı", "Müşterinin Reklam Bütçesi"
+  ];
+  for (const term of expectedTurkish) {
+    assert.ok(allText.includes(term), `expected Turkish label "${term}" to appear in the generated document`);
+  }
+
+  // The raw English field names must never leak through as presentation
+  // labels — checked as whole-word matches so a coincidental Turkish
+  // substring (e.g. "query" never occurring, but being careful anyway)
+  // can't produce a false positive.
+  const forbiddenEnglish = [
+    "brandSearch", "websiteVisibility", "checkedAt", "customerStatement", "creativeAngles",
+    "existingCreatives", "openPoint", "notIncluded", "customerBudget",
+    "Brand Search", "Website Visibility", "Checked At", "Customer Statement", "Creative Angles",
+    "Existing Creatives", "Open Point", "Not Included", "Customer Budget", "Readiness"
+  ];
+  for (const term of forbiddenEnglish) {
+    assert.ok(!allText.includes(term), `raw/untranslated English label "${term}" must never appear in the generated document`);
+  }
+});
+
+test("LOCALIZATION REGRESSION — PDF and DOCX binaries themselves contain the Turkish labels (not just the intermediate payload object)", async () => {
+  const report = structuredReport({
+    google_analysis: { brandSearch: "Marka araması incelendi.", query: "test sorgusu", findings: ["Bir bulgu."] }
+  });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+
+  const pdf = await generatePdfBuffer(payload);
+  const loaded = await PDFDocument.load(pdf);
+  assert.ok(loaded.getPageCount() >= 1);
+
+  const docx = await generateDocxBuffer(payload);
+  const xml = await extractDocxText(docx);
+  assert.match(xml, /Marka Adıyla Arama Sonuçları/);
+  assert.match(xml, /Arama Sorgusu/);
+  assert.match(xml, /Bulgular/);
+  assert.doesNotMatch(xml, /brandSearch/);
 });

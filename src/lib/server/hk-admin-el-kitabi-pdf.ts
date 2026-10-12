@@ -1,22 +1,20 @@
 import "server-only";
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { getHandbookPlainSections, getHandbookMeta, readHandbookScreenshot, FIGURE_CHAPTER_MAP, listHandbookScreenshotFiles } from "./hk-admin-el-kitabi";
+import { GEIST_FONT_PATH, HK_GOLD, HK_INK, HK_MUTED } from "./document-generator";
 
 // Dedicated generator (not the shared generatePdfBuffer in
 // document-generator.ts) because the handbook needs two things that
 // generic report PDF doesn't: a real page-numbered table of contents and
 // embedded screenshots — reimplementing here keeps every other live PDF
-// export (Agent Hub reports, etc.) untouched and low-risk.
+// export (Agent Hub reports, etc.) untouched and low-risk. Font and brand
+// colors are still the ONE shared set (imported above, not redefined)
+// so this stays visually identical to the rest of the corporate document
+// system even though its page layout is its own.
 
-const GEIST_FONT_PATH = join(process.cwd(), "src", "assets", "fonts", "Geist-Regular.ttf");
-
-const HK_GOLD = rgb(0.749, 0.639, 0.243);
-const HK_INK = rgb(0.106, 0.114, 0.133);
-const HK_MUTED = rgb(0.373, 0.4, 0.447);
 const HK_INK_ON_DARK = rgb(0.96, 0.96, 0.97);
 
 const PAGE_W = 595.28; // A4

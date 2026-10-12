@@ -51,18 +51,18 @@ export function toDocumentPayload(report: ProfessionalReportPayload): DocumentPa
 // document use case) — verified to carry real glyphs for every Turkish
 // character (ç Ç ğ Ğ ı I i İ ö Ö ş Ş ü Ü), unlike pdf-lib's built-in
 // StandardFonts (WinAnsi-only, silently mangles Turkish characters).
-const GEIST_FONT_PATH = join(process.cwd(), "src", "assets", "fonts", "Geist-Regular.ttf");
+export const GEIST_FONT_PATH = join(process.cwd(), "src", "assets", "fonts", "Geist-Regular.ttf");
 
 // The one real, official HK Dijital logo asset in the repo (also used for
 // the public site header/favicon source) — never regenerated, redrawn, or
 // AI-produced; embedded as-is, aspect ratio preserved.
-const LOGO_PATH = join(process.cwd(), "public", "branding", "hk-dijital-logo.png");
+export const LOGO_PATH = join(process.cwd(), "public", "branding", "hk-dijital-logo.png");
 
-const HK_GOLD = rgb(0.749, 0.639, 0.243); // matches --hk-gold in globals.css
-const HK_INK = rgb(0.106, 0.114, 0.133); // matches --hk-text-primary (dark ink on light document pages)
-const HK_MUTED = rgb(0.373, 0.4, 0.447);
+export const HK_GOLD = rgb(0.749, 0.639, 0.243); // matches --hk-gold in globals.css
+export const HK_INK = rgb(0.106, 0.114, 0.133); // matches --hk-text-primary (dark ink on light document pages)
+export const HK_MUTED = rgb(0.373, 0.4, 0.447);
 const HK_DANGER = rgb(0.706, 0.204, 0.204);
-const HK_BORDER = rgb(0.902, 0.894, 0.863);
+export const HK_BORDER = rgb(0.902, 0.894, 0.863);
 const STATUS_GREEN = rgb(0.086, 0.541, 0.282);
 const STATUS_AMBER = rgb(0.706, 0.482, 0.047);
 const STATUS_RED = rgb(0.706, 0.204, 0.204);

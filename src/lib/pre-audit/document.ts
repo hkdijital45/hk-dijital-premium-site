@@ -70,11 +70,70 @@ function prettifyKey(key: string): string {
     location: "Konum", service: "Hizmet",
     gerekce: "Gerekçe", firsat: "Fırsat", kosul: "Koşul", siniflandirma: "Sınıflandırma",
     uyari: "Uyarı", butcesi: "Bütçesi", erisilebilirlik: "Erişilebilirlik",
-    assets: "Bağlantılar", sourcematrix: "Kaynak Matrisi", "source matrix": "Kaynak Matrisi",
-    channels: "Kanallar", identityverification: "Kimlik Doğrulama", "identity verification": "Kimlik Doğrulama",
-    inconsistencies: "Tutarsızlıklar", evidence: "Kanıt", durum: "Durum", sonuc: "Sonuç",
+    // "assets" is deliberately "Bağlantılar" (Links), not the dictionary's
+    // generic "Dijital Varlıklar" — in this specific usage it is always a
+    // sub-table titled "{parent section} — {this label}" where the parent
+    // section is ITSELF "Dijital Varlıklar" (digital_presence); using the
+    // same term twice would read as "Dijital Varlıklar — Dijital
+    // Varlıklar". "Bağlantılar" is the accurate, non-redundant label for
+    // what this sub-table actually contains (a list of platform links).
+    assets: "Bağlantılar", sourcematrix: "Kaynak Doğrulama Tablosu", "source matrix": "Kaynak Doğrulama Tablosu",
+    channels: "Kanallar", identityverification: "İşletme Kimlik Doğrulaması", "identity verification": "İşletme Kimlik Doğrulaması",
+    identity: "Kimlik Doğrulama", consistency: "Tutarlılık",
+    inconsistencies: "Tutarsızlıklar", evidence: "Kanıtlar", durum: "Durum", sonuc: "Sonuç",
     kanal: "Kanal", kaynak: "Kaynak", tarih: "Tarih", url: "Bağlantı",
-    googlebusinessprofile: "Google İşletme Profili", "google business profile": "Google İşletme Profili"
+    googlebusinessprofile: "Google İşletme Profili", "google business profile": "Google İşletme Profili",
+    // Section 3/4 terminology dictionary — every untranslated English
+    // field label the brief named explicitly, plus the technical terms
+    // from section 4 (Turkish term first, original abbreviation kept
+    // only where it adds real value, e.g. "(CTR)").
+    sources: "Kaynaklar",
+    brandsearch: "Marka Adıyla Arama Sonuçları", "brand search": "Marka Adıyla Arama Sonuçları",
+    query: "Arama Sorgusu", findings: "Bulgular", recommendation: "Öneri", recommendations: "Öneriler",
+    when: "Hangi Durumda Önerilir?", why: "Gerekçe", scope: "Hizmet Kapsamı", readiness: "Hazırlık Durumu",
+    readinessgates: "Reklama Başlamadan Önceki Koşullar", "readiness gates": "Reklama Başlamadan Önceki Koşullar",
+    customerstatement: "Müşteri Beyanı", "customer statement": "Müşteri Beyanı",
+    risk: "Risk", risks: "Riskler", priority: "Öncelik", impact: "Etki",
+    opportunity: "Fırsat", opportunities: "Fırsatlar", strengths: "Güçlü Yönler", weaknesses: "Zayıf Yönler",
+    threats: "Tehditler", competitors: "Rakipler", competitor: "Rakip",
+    verifiedat: "Doğrulama Tarihi", "verified at": "Doğrulama Tarihi",
+    checkedat: "İnceleme Tarihi", "checked at": "İnceleme Tarihi",
+    openpoint: "Netleştirilmesi Gereken Konu", "open point": "Netleştirilmesi Gereken Konu",
+    notincluded: "Hizmet Kapsamına Dahil Değil", "not included": "Hizmet Kapsamına Dahil Değil",
+    alternatives: "Alternatifler", alternative: "Alternatif",
+    customerbudget: "Müşterinin Reklam Bütçesi", "customer budget": "Müşterinin Reklam Bütçesi",
+    audience: "Hedef Kitle", creativeangles: "Reklam İçerik Yaklaşımları", "creative angles": "Reklam İçerik Yaklaşımları",
+    existingcreatives: "Mevcut Reklam İçerikleri", "existing creatives": "Mevcut Reklam İçerikleri",
+    websitevisibility: "Web Sitesi Görünürlüğü", "website visibility": "Web Sitesi Görünürlüğü",
+    localmarket: "Yerel Pazar", "local market": "Yerel Pazar",
+    differentiation: "Rakiplerden Ayrışma", seasonality: "Mevsimsellik", segments: "Hedef Kitle Segmentleri",
+    segment: "Segment", behavior: "Davranış", fark: "Fark", veri: "Veri", firma: "Firma",
+    marketanalysis: "Pazar Analizi", "market analysis": "Pazar Analizi",
+    competitoranalysis: "Rakip Analizi", "competitor analysis": "Rakip Analizi",
+    digitalpresence: "Dijital Varlıklar", "digital presence": "Dijital Varlıklar",
+    observations: "Gözlemler", development: "Geliştirilmesi Gereken Alanlar", suggestion: "Öneri",
+    current: "Mevcut Durum", result: "Sonuç", results: "Sonuçlar",
+    businessad: "İşletmenin Reklamı", "business ad": "İşletmenin Reklamı",
+    competitorad: "Rakip Reklamı", "competitor ad": "Rakip Reklamı",
+    creative: "Reklam Görseli veya Videosu",
+    toverify: "Doğrulanması Gerekenler", "to verify": "Doğrulanması Gerekenler",
+    verified: "Doğrulandı", unverified: "Doğrulanmadı", unknown: "Bilinmiyor", likely: "Muhtemel",
+    confidence: "Güven Düzeyi", high: "Yüksek", medium: "Orta", low: "Düşük",
+    primary: "Birincil Öneri", secondary: "İkinci Aşama", internal: "Dahili Kullanım", client: "Müşteri",
+    executivesummary: "Yönetici Özeti", "executive summary": "Yönetici Özeti",
+    actionplan: "Eylem Planı", "action plan": "Eylem Planı", nextsteps: "Sonraki Adımlar", "next steps": "Sonraki Adımlar",
+    keyissues: "Temel Sorunlar", "key issues": "Temel Sorunlar", keyfindings: "Önemli Bulgular", "key findings": "Önemli Bulgular",
+    businessoverview: "İşletmenin Genel Durumu", "business overview": "İşletmenin Genel Durumu",
+    performance: "Performans", conversion: "Dönüşüm", engagement: "Etkileşim", reach: "Erişim", impressions: "Gösterim",
+    frequency: "Gösterim Sıklığı",
+    costperresult: "Sonuç Başına Maliyet", "cost per result": "Sonuç Başına Maliyet",
+    costperclick: "Tıklama Başına Maliyet (CPC)", "cost per click": "Tıklama Başına Maliyet (CPC)",
+    clickthroughrate: "Tıklama Oranı (CTR)", "click through rate": "Tıklama Oranı (CTR)",
+    returnonadspend: "Reklam Harcamasının Getirisi (ROAS)", "return on ad spend": "Reklam Harcamasının Getirisi (ROAS)",
+    takeaway: "Genel Değerlendirme", comparison: "Karşılaştırma", note: "Not", market: "Pazar",
+    structure: "Yapı", principle: "İlke", audit: "Denetim", interpretation: "Yorum",
+    recommended: "Önerilen", howtoimplement: "Nasıl Uygulanır", "how to implement": "Nasıl Uygulanır",
+    expectedbenefit: "Beklenen Fayda", "expected benefit": "Beklenen Fayda"
   };
   // Plain (non-locale) lowercasing for the dictionary lookup only — the
   // dictionary keys above are plain ASCII English, and Turkish-locale
