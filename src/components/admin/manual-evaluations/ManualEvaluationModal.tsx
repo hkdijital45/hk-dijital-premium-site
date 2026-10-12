@@ -18,14 +18,19 @@ type Props = {
   leadId?: string | null;
   targetLabel?: string;
   existing?: ManualEvaluationRecord | null;
+  /** Read-only-source prefill (e.g. a selected CRM lead's known fields) for
+   * a brand-new evaluation only — never applied when reopening an
+   * `existing` saved one, and never overwrites a field the user already
+   * typed (it only seeds the initial state). */
+  prefillData?: Record<string, unknown>;
   onClose: () => void;
   onSaved: (evaluation: ManualEvaluationRecord) => void;
 };
 
-export function ManualEvaluationModal({ module, companyId, leadId, targetLabel, existing, onClose, onSaved }: Props) {
+export function ManualEvaluationModal({ module, companyId, leadId, targetLabel, existing, prefillData, onClose, onSaved }: Props) {
   const groups = MODULE_FIELD_GROUPS[module];
   const [title, setTitle] = useState(existing?.title || "");
-  const [data, setData] = useState<Record<string, unknown>>(existing?.data || {});
+  const [data, setData] = useState<Record<string, unknown>>(existing?.data || prefillData || {});
   const [notes, setNotes] = useState(existing?.notes || "");
   const [claudeText, setClaudeText] = useState("");
   const [showClaudeImport, setShowClaudeImport] = useState(false);
@@ -97,16 +102,23 @@ export function ManualEvaluationModal({ module, companyId, leadId, targetLabel, 
   }
 
   async function copyPrompt() {
-    const fieldSummary = groups
-      .flatMap((g) => g.fields.map((f) => [f.label, data[f.key]] as const))
-      .filter(([, v]) => v !== undefined && v !== null && v !== "")
-      .map(([label, v]) => `${label}: ${v}`)
-      .join("\n");
+    const allFields = groups.flatMap((g) => g.fields.map((f) => [f.label, data[f.key]] as const));
+    const filledFields = allFields.filter(([, v]) => v !== undefined && v !== null && v !== "");
+    const missingFields = allFields.filter(([, v]) => v === undefined || v === null || v === "").map(([label]) => label);
+    const fieldSummary = filledFields.map(([label, v]) => `${label}: ${v}`).join("\n");
+    const sourceLine = companyId
+      ? "Hedef türü: Mevcut müşteri (gerçek müşteri kaydı)."
+      : leadId
+        ? "Hedef türü: Kayıtlı CRM lead (henüz müşteri değil — lead'i otomatik müşteriye dönüştürme)."
+        : "Hedef türü: Bağımsız manuel değerlendirme (müşteri veya lead kaydı yok).";
     const text = [
       `${MODULE_LABELS[module]} için aşağıdaki manuel girilen verilere dayanarak profesyonel, Türkçe, doğrudan uygulanabilir bir değerlendirme hazırla.`,
-      targetLabel ? `İşletme/Hesap: ${targetLabel}` : "",
-      "Veriler:",
+      targetLabel ? `İşletme/Hesap: ${targetLabel}` : "İşletme/Hesap: belirtilmedi",
+      sourceLine,
+      "Veri kaynağı: Bu ekrana elle girilen veriler (API'den otomatik çekilmedi).",
+      "Mevcut veriler:",
       fieldSummary || "(henüz veri girilmedi)",
+      missingFields.length ? `Eksik/girilmemiş alanlar (bunları uydurma, 'veri yok' olarak işaretle): ${missingFields.join(", ")}` : "",
       "Yalnızca verilen gerçek verilere dayan, eksik veriyi uydurma. Sonucu JSON veya net başlıklı Türkçe metin olarak döndür; sonucu buraya yapıştıracağım."
     ].filter(Boolean).join("\n\n");
     try {

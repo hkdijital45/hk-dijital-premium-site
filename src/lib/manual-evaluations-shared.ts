@@ -358,6 +358,15 @@ export function calculateDerivedMetrics(module: ManualEvaluationModule, data: Re
 
 export const MANUAL_EVALUATIONS_TABLE = "manual_evaluations";
 
+// A registered lead and an existing customer must never both be attributed
+// to the same evaluation row — mirrors manual_evaluations'
+// manual_evaluations_not_both_owner DB constraint, checked here too so a
+// bad request is rejected with a clear message before ever reaching
+// Supabase (defense in depth, not a replacement for the DB constraint).
+export function hasExclusiveEntityOwnership(companyId?: string | null, leadId?: string | null): boolean {
+  return !(companyId && leadId);
+}
+
 export type ManualEvaluationRecord = {
   id: string;
   module: ManualEvaluationModule;

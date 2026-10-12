@@ -11,7 +11,7 @@ import { MODULE_LABELS, type ManualEvaluationModule, type ManualEvaluationRecord
 // Drop-in "+ Manuel Değerlendirme" button + history list for a single
 // Reklam Doktoru Pro tab. Self-contained (fetches its own history), so
 // wiring a new module into a tab is a one-line addition.
-export function ManualEvaluationSection({ module, companyId, leadId, targetLabel }: { module: ManualEvaluationModule; companyId?: string | null; leadId?: string | null; targetLabel?: string }) {
+export function ManualEvaluationSection({ module, companyId, leadId, targetLabel, prefillData }: { module: ManualEvaluationModule; companyId?: string | null; leadId?: string | null; targetLabel?: string; prefillData?: Record<string, unknown> }) {
   const [history, setHistory] = useState<ManualEvaluationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<ManualEvaluationRecord | "new" | null>(null);
@@ -66,6 +66,7 @@ export function ManualEvaluationSection({ module, companyId, leadId, targetLabel
           leadId={leadId}
           targetLabel={targetLabel}
           existing={open === "new" ? null : open}
+          prefillData={open === "new" ? prefillData : undefined}
           onClose={() => setOpen(null)}
           onSaved={() => { load(); }}
         />

@@ -542,6 +542,7 @@ export function AdminDashboard({
   const [active, setActive] = useState(initialActive);
   const [preAuditInitialTab, setPreAuditInitialTab] = useState("");
   const [preAuditInitialLeadId, setPreAuditInitialLeadId] = useState("");
+  const [adInsightsInitialLeadId, setAdInsightsInitialLeadId] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("idle");
@@ -805,7 +806,7 @@ export function AdminDashboard({
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, ...items.map((item) => item.id)])] });
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId };
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
@@ -1207,7 +1208,7 @@ export function AdminDashboard({
           {["Teklif Motoru", "Teklif Hazırlama", "Teklif Oluştur", "WhatsApp Teklifi"].includes(active) && <ProposalEngine {...props} setActive={setActive} />}
           {active === "Raporlar" && <ReportsHub {...props} selectedCompanyId={selectedCompanyId} />}
           {["Web Site Analitiği", "Web Analitiği", "Web Analitiği Bağlantıları", "GTM Bağlantıları"].includes(active) && <WebsiteAnalyticsCenter />}
-          {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} /></>}
+          {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} initialLeadId={adInsightsInitialLeadId || undefined} /></>}
           {active === "Gelen Talepler" && <ContactRequestsInbox notify={notify} onRowsChange={(rows) => setContent((current) => ({ ...current, contactForms: rows }))} />}
           {active === "Markalar" && <BrandShowcaseCenter notify={notify} />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
@@ -5632,7 +5633,7 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
   );
 }
 
-function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab, setPreAuditInitialLeadId }: any) {
+function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId }: any) {
   const [viewMode, setViewMode] = useState<"liste" | "kanban">("liste");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -5916,7 +5917,7 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
           );
         })}
       </div>}
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} setPreAuditInitialLeadId={setPreAuditInitialLeadId} onConverted={(data) => {
+      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setAdInsightsInitialLeadId={setAdInsightsInitialLeadId} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -6443,7 +6444,7 @@ const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; follow
   "Kazanıldı": { status: "Kazanıldı", nextAction: "Müşteriye dönüştür", followUpDays: null }
 };
 
-function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, onConverted }: any) {
+function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, onConverted }: any) {
   const [prepOpen, setPrepOpen] = useState(false);
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
@@ -6629,6 +6630,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
         <button onClick={downloadLeadPdfAudit} className="hk-button hk-button-warning"><Download size={15} /> PDF Audit Oluştur</button>
         <button onClick={() => setPrepOpen(true)} className="hk-button hk-button-ai">Ön İnceleme Yap</button>
+        <button onClick={() => { setAdInsightsInitialLeadId?.(lead.id); setActive?.("Reklam Doktoru Pro"); }} className="hk-button hk-button-ai"><AtSign size={15} /> Instagram Değerlendir</button>
         {whatsappUrl && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="hk-button" style={{ background: "#25D366", color: "#062611" }}>Hızlı WhatsApp</a>}
         {!deleted && !rejected && <button onClick={() => setConfirmAction("reject")} className="hk-button hk-button-warning">Reddet</button>}
         {!deleted && <button onClick={() => setConfirmAction("delete")} className="hk-button hk-button-danger">Sil</button>}

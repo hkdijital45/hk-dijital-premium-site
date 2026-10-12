@@ -4,6 +4,7 @@ import { supabaseRest } from "@/lib/supabase";
 import {
   calculateDerivedMetrics,
   validateManualEvaluationInput,
+  hasExclusiveEntityOwnership,
   ManualEvaluationValidationError,
   MANUAL_EVALUATIONS_TABLE,
   type ManualEvaluationModule,
@@ -66,7 +67,7 @@ export type CreateManualEvaluationInput = {
 };
 
 export async function createManualEvaluation(input: CreateManualEvaluationInput): Promise<ManualEvaluationRecord> {
-  if (input.companyId && input.leadId) throw new ManualEvaluationValidationError("Bir değerlendirme aynı anda hem müşteriye hem adaya bağlanamaz.");
+  if (!hasExclusiveEntityOwnership(input.companyId, input.leadId)) throw new ManualEvaluationValidationError("Bir değerlendirme aynı anda hem müşteriye hem adaya bağlanamaz.");
   const validationError = validateManualEvaluationInput(input.module, input.data);
   if (validationError) throw new ManualEvaluationValidationError(validationError);
 

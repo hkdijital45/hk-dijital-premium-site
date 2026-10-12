@@ -128,10 +128,21 @@ function sectionTitle(title: string, description: string, icon?: ReactNode) {
   return <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-lg font-black text-[var(--admin-text-primary)]">{title}</h3><p className="mt-1 text-sm leading-6 text-[var(--admin-text-muted)]">{description}</p></div>{icon}</div>;
 }
 
-export function AdInsightsCenter({ content, notify }: { content: any; notify?: (message: string, type?: string) => void }) {
+export function AdInsightsCenter({ content, notify, initialLeadId }: { content: any; notify?: (message: string, type?: string) => void; initialLeadId?: string }) {
   const companies = useMemo(() => filterSelectableCustomers(content.companies || []), [content.companies]);
-  const [companyId, setCompanyId] = useState(companies[0]?.id || "");
-  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation" | "candidate-evaluation" | "instagram">("doctor");
+  const leads = useMemo(() => content.leads || [], [content.leads]);
+  // Değerlendirme Hedefi: Reklam Doktoru Pro's six tabs all key off ONE of
+  // these three target states — a real existing customer (companyId), a
+  // registered CRM lead (leadId, never converted or faked into a
+  // customer), or an independent manual evaluation with neither. Only one
+  // of companyId/leadId is ever non-empty at a time (enforced by
+  // setTargetMode below), matching manual_evaluations' own
+  // "not both owner" constraint.
+  const [targetMode, setTargetMode] = useState<"customer" | "lead" | "manual">(initialLeadId ? "lead" : "customer");
+  const [companyId, setCompanyId] = useState(initialLeadId ? "" : companies[0]?.id || "");
+  const [leadId, setLeadId] = useState(initialLeadId || "");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"doctor" | "ai-strategy" | "creative" | "evaluation" | "candidate-evaluation" | "instagram">(initialLeadId ? "instagram" : "doctor");
   const [range, setRange] = useState("last_30d");
   const [platform, setPlatform] = useState("all");
   const [campaignType, setCampaignType] = useState("Tümü");
@@ -144,6 +155,29 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
   const [completedActions, setCompletedActions] = useState<Record<string, boolean>>({});
   const [selectedDiagnosisIndex, setSelectedDiagnosisIndex] = useState<number | null>(null);
   const selectedCompany = companies.find((company: any) => company.id === companyId);
+  const selectedLead = leads.find((lead: any) => lead.id === leadId);
+  const leadNotFound = Boolean(initialLeadId && targetMode === "lead" && !selectedLead && leads.length > 0);
+  const filteredLeads = useMemo(() => {
+    const query = leadSearch.trim().toLocaleLowerCase("tr");
+    if (!query) return leads.slice(0, 50);
+    return leads.filter((lead: any) =>
+      [lead.company, lead.name, lead.business_type, lead.businessType, lead.city, lead.sector]
+        .filter(Boolean)
+        .some((value: string) => String(value).toLocaleLowerCase("tr").includes(query))
+    ).slice(0, 50);
+  }, [leads, leadSearch]);
+  const targetLabel = targetMode === "customer" ? selectedCompany?.name : targetMode === "lead" ? (selectedLead?.company || selectedLead?.name) : undefined;
+
+  function selectMode(mode: "customer" | "lead" | "manual") {
+    setTargetMode(mode);
+    // Clearing the other entity's id on every mode switch is what keeps
+    // every tab's existing "!companyId -> müşteri seçin" empty-state logic
+    // correct for lead/manual modes with zero changes to those tabs, and
+    // prevents a stale evaluation from ever being attributed to the wrong
+    // business when switching between customer and lead.
+    if (mode !== "customer") setCompanyId("");
+    if (mode !== "lead") setLeadId("");
+  }
   const metrics = data?.metrics || {};
   const diagnoses = data?.diagnoses || [];
   const prescription = data?.prescription || {};
@@ -313,17 +347,85 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         </div>
       }
     >
-    {/* Persistent, cross-tab context: every panel (doctor rule-engine,
-        Claude strategy, creative report, evaluation) scopes itself to this
-        same companyId. */}
-    <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[14px] border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
-      <label className="flex items-center gap-2 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>
-        Müşteri
-        <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-bold text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">
-          <option value="">Müşteri seç</option>
-          {companies.map((company: any) => <option key={company.id} value={company.id}>{company.name || company.company_name}</option>)}
-        </select>
-      </label>
+    {/* Değerlendirme Hedefi — persistent, cross-tab context: every panel
+        (doctor rule-engine, Claude strategy, creative report, evaluation,
+        Instagram) scopes itself to the same companyId/leadId pair. */}
+    <div className="mb-4 rounded-[14px] border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>Değerlendirme Hedefi</span>
+        <div className="flex gap-1 rounded-full border p-1" style={{ borderColor: "var(--admin-border)" }} role="tablist" aria-label="Değerlendirme hedefi">
+          {([["customer", "Müşteri"], ["lead", "Kayıtlı Lead"], ["manual", "Bağımsız"]] as const).map(([mode, label]) => (
+            <button
+              key={mode}
+              type="button"
+              role="tab"
+              aria-selected={targetMode === mode}
+              onClick={() => selectMode(mode)}
+              className="rounded-full px-3 py-1.5 text-xs font-black transition"
+              style={targetMode === mode ? { background: "#0891b2", color: "#fff" } : { color: "var(--admin-text-secondary)" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {targetMode === "customer" && (
+          <label className="flex items-center gap-2 text-xs font-black" style={{ color: "var(--admin-text-secondary)" }}>
+            <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="min-h-10 rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-bold text-[var(--admin-text-primary)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600">
+              <option value="">Müşteri seç</option>
+              {companies.map((company: any) => <option key={company.id} value={company.id}>{company.name || company.company_name}</option>)}
+            </select>
+          </label>
+        )}
+
+        {targetMode === "manual" && (
+          <span className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Müşteri veya lead seçmeden, her sekmedeki &quot;+ Manuel Değerlendirme&quot; ile bağımsız bir değerlendirme oluşturabilirsiniz.</span>
+        )}
+      </div>
+
+      {targetMode === "lead" && (
+        <div className="mt-3">
+          {!selectedLead ? (
+            <div className="grid gap-2">
+              <input
+                value={leadSearch}
+                onChange={(event) => setLeadSearch(event.target.value)}
+                placeholder="İşletme adı, sektör veya şehir ara..."
+                className="min-h-10 w-full max-w-sm rounded-[10px] border border-[var(--admin-border)] bg-[var(--admin-surface)] px-3 text-sm font-bold text-[var(--admin-text-primary)]"
+                aria-label="Lead ara"
+              />
+              {leadNotFound && <p className="text-xs font-bold text-[#dc2626]">Bu lead artık bulunamadı veya erişiminiz yok — listeden tekrar seçin.</p>}
+              <div className="grid max-h-56 gap-1 overflow-y-auto rounded-[10px] border p-1" style={{ borderColor: "var(--admin-border)" }}>
+                {filteredLeads.length === 0 && <p className="p-3 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{leads.length === 0 ? "Kayıtlı lead bulunamadı." : "Eşleşen lead yok."}</p>}
+                {filteredLeads.map((lead: any) => (
+                  <button
+                    key={lead.id}
+                    type="button"
+                    onClick={() => setLeadId(lead.id)}
+                    className="flex flex-col items-start rounded-[8px] px-3 py-2 text-left text-sm font-bold hover:bg-[var(--admin-surface-soft)]"
+                  >
+                    <span>{lead.company || lead.name || "İsimsiz lead"}</span>
+                    <span className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+                      {[lead.business_type || lead.businessType, lead.city, lead.status].filter(Boolean).join(" · ") || "Bilgi yok"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+              <div>
+                <p className="text-sm font-black">{selectedLead.company || selectedLead.name}</p>
+                <p className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+                  {[selectedLead.business_type || selectedLead.businessType, selectedLead.city, selectedLead.status].filter(Boolean).join(" · ") || "Bilgi yok"}
+                  {selectedLead.instagram ? ` · Instagram: ${selectedLead.instagram}` : " · Bu lead için Instagram hesabı kayıtlı değil."}
+                </p>
+              </div>
+              <button type="button" onClick={() => setLeadId("")} className="rounded-full border px-3 py-1.5 text-xs font-black" style={{ borderColor: "var(--admin-border)" }}>Değiştir</button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
 
     <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
@@ -353,19 +455,19 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
     {activeTab === "ai-strategy" && (
       <div className="grid gap-4">
         <AdsStrategyPanel companyId={companyId} companies={companies} />
-        <ManualEvaluationSection module="ads-strategy" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+        <ManualEvaluationSection module="ads-strategy" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "creative" && (
       <div className="grid gap-4">
         <AdCreativeReportPanel companyId={companyId} companies={companies} />
-        <ManualEvaluationSection module="ad-creative" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+        <ManualEvaluationSection module="ad-creative" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "evaluation" && (
       <div className="grid gap-4">
         <AdEvaluationPanel companyId={companyId} />
-        <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+        <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "candidate-evaluation" && (
@@ -374,20 +476,44 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
           Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir; yukarıdaki müşteri seçiminden bağımsız çalışır.
         </div>
         <CandidateEvaluationBrowser allCompanies={content.companies || []} />
-        <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+        <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "instagram" && (
       <div className="grid gap-4">
         <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-          <strong>Mod A — Bağlı Hesap:</strong> yukarıdan mevcut bir müşteri seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B/C — Halka Açık Profil / Manuel Değerlendirme:</strong> müşteri olmayan bir aday için veya bağlı veri yoksa, aşağıdaki &quot;+ Manuel Değerlendirme&quot;yi kullanın — ekran görüntüsü/gözlemlerinizi girin, otomatik tarama yapılmaz.
+          <strong>Mod A — Bağlı Hesap:</strong> yukarıda &quot;Müşteri&quot; hedefini seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B/C — Kayıtlı Lead / Bağımsız Manuel:</strong> &quot;Kayıtlı Lead&quot; veya &quot;Bağımsız&quot; hedefinde, aşağıdaki &quot;+ Manuel Değerlendirme&quot;yi kullanın — ekran görüntüsü/gözlemlerinizi girin, otomatik tarama yapılmaz.
         </div>
-        {selectedCompany ? (
-          <InstagramProfileAuditPanel company={{ id: selectedCompany.id, name: selectedCompany.name }} />
-        ) : (
-          <AdminEmptyState title="Bağlı hesap analizi için yukarıdan bir müşteri seçin (opsiyonel) — yoksa doğrudan manuel değerlendirme oluşturabilirsiniz." />
+        {targetMode === "customer" && (
+          selectedCompany ? (
+            <InstagramProfileAuditPanel company={{ id: selectedCompany.id, name: selectedCompany.name }} />
+          ) : (
+            <AdminEmptyState title="Bağlı hesap analizi için yukarıda bir müşteri seçin." />
+          )
         )}
-        <ManualEvaluationSection module="instagram" companyId={selectedCompany?.id || null} targetLabel={selectedCompany?.name} />
+        {targetMode === "lead" && !selectedLead && <AdminEmptyState title="Instagram değerlendirmesi için yukarıdan bir lead seçin." />}
+        {targetMode === "lead" && selectedLead && !selectedLead.instagram && (
+          <div className="rounded-[10px] border p-3 text-sm font-bold" style={{ borderColor: "#fde68a", background: "#fffbeb", color: "#92400e" }}>
+            Bu lead için Instagram hesabı kayıtlı değil. Aşağıdaki manuel değerlendirmede kullanıcı adını/URL&apos;yi elle girebilirsiniz.
+          </div>
+        )}
+        <ManualEvaluationSection
+          module="instagram"
+          companyId={targetMode === "customer" ? selectedCompany?.id || null : null}
+          leadId={targetMode === "lead" ? selectedLead?.id || null : null}
+          targetLabel={targetLabel}
+          prefillData={
+            targetMode === "lead" && selectedLead
+              ? {
+                  businessName: selectedLead.company || selectedLead.name || "",
+                  instagramUsername: selectedLead.instagram || "",
+                  sector: selectedLead.business_type || selectedLead.businessType || "",
+                  city: selectedLead.city || "",
+                  website: selectedLead.website || ""
+                }
+              : undefined
+          }
+        />
       </div>
     )}
 
@@ -707,7 +833,7 @@ export function AdInsightsCenter({ content, notify }: { content: any; notify?: (
         </div>
       </div>
     )}
-    <ManualEvaluationSection module="ad-doctor" companyId={companyId || null} targetLabel={selectedCompany?.name} />
+    <ManualEvaluationSection module="ad-doctor" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
     </div>
     </AdminWorkspace>
   );

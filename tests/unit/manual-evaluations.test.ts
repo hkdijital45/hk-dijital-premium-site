@@ -5,15 +5,16 @@ import {
   calculateAdDoctorMetrics,
   calculateInstagramMetrics,
   calculateDerivedMetrics,
+  hasExclusiveEntityOwnership,
   MODULE_FIELD_GROUPS,
   MANUAL_EVALUATION_MODULES
 } from "../../src/lib/manual-evaluations-shared.ts";
 
 test("MODULE_FIELD_GROUPS: every module in MANUAL_EVALUATION_MODULES has a non-empty field-group config", () => {
-  for (const module of MANUAL_EVALUATION_MODULES) {
-    const groups = MODULE_FIELD_GROUPS[module];
-    assert.ok(groups.length > 0, `${module} should have at least one field group`);
-    assert.ok(groups.every((g) => g.fields.length > 0), `${module}'s groups should all have fields`);
+  for (const evaluationModule of MANUAL_EVALUATION_MODULES) {
+    const groups = MODULE_FIELD_GROUPS[evaluationModule];
+    assert.ok(groups.length > 0, `${evaluationModule} should have at least one field group`);
+    assert.ok(groups.every((g) => g.fields.length > 0), `${evaluationModule}'s groups should all have fields`);
   }
 });
 
@@ -91,4 +92,26 @@ test("calculateDerivedMetrics: routes to the correct formula set per module, emp
   assert.ok("ctr" in calculateDerivedMetrics("ad-doctor", { spend: 10, impressions: 100, clicks: 5 }));
   assert.ok("engagementRateByReach" in calculateDerivedMetrics("instagram", { accountsReached: 100, totalInteractions: 10 }));
   assert.deepEqual(calculateDerivedMetrics("candidate-evaluation", { spend: 10 }), {});
+});
+
+// Lead/Customer/Manual entity-selection integration (Reklam Doktoru Pro's
+// shared "Değerlendirme Hedefi" selector in AdInsightsCenter.tsx) — the
+// one invariant every one of the three modes depends on: a saved
+// evaluation is never attributed to both a customer AND a lead at once.
+// Mirrors manual_evaluations' own manual_evaluations_not_both_owner DB
+// constraint and createManualEvaluation's runtime check.
+test("hasExclusiveEntityOwnership: customer-only, lead-only and independent-manual (neither) are all valid", () => {
+  assert.equal(hasExclusiveEntityOwnership("company-1", null), true);
+  assert.equal(hasExclusiveEntityOwnership(null, "lead-1"), true);
+  assert.equal(hasExclusiveEntityOwnership(null, null), true);
+  assert.equal(hasExclusiveEntityOwnership(undefined, undefined), true);
+});
+
+test("hasExclusiveEntityOwnership: rejects a company AND a lead attributed to the same evaluation", () => {
+  assert.equal(hasExclusiveEntityOwnership("company-1", "lead-1"), false);
+});
+
+test("hasExclusiveEntityOwnership: an empty-string id behaves like 'absent', not like a real id", () => {
+  assert.equal(hasExclusiveEntityOwnership("", "lead-1"), true);
+  assert.equal(hasExclusiveEntityOwnership("company-1", ""), true);
 });
