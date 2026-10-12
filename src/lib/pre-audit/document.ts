@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PreAuditReport } from "@/lib/pre-audit/types";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
-import type { DocumentPayload, DocumentSection, DocumentTable } from "@/lib/server/document-generator";
+import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell } from "@/lib/server/document-generator";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
 import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
 
@@ -69,7 +69,12 @@ function prettifyKey(key: string): string {
     hours: "Çalışma Saatleri", address: "Adres", category: "Kategori", status: "Durum",
     location: "Konum", service: "Hizmet",
     gerekce: "Gerekçe", firsat: "Fırsat", kosul: "Koşul", siniflandirma: "Sınıflandırma",
-    uyari: "Uyarı", butcesi: "Bütçesi", erisilebilirlik: "Erişilebilirlik"
+    uyari: "Uyarı", butcesi: "Bütçesi", erisilebilirlik: "Erişilebilirlik",
+    assets: "Bağlantılar", sourcematrix: "Kaynak Matrisi", "source matrix": "Kaynak Matrisi",
+    channels: "Kanallar", identityverification: "Kimlik Doğrulama", "identity verification": "Kimlik Doğrulama",
+    inconsistencies: "Tutarsızlıklar", evidence: "Kanıt", durum: "Durum", sonuc: "Sonuç",
+    kanal: "Kanal", kaynak: "Kaynak", tarih: "Tarih", url: "Bağlantı",
+    googlebusinessprofile: "Google İşletme Profili", "google business profile": "Google İşletme Profili"
   };
   // Plain (non-locale) lowercasing for the dictionary lookup only — the
   // dictionary keys above are plain ASCII English, and Turkish-locale
@@ -194,12 +199,35 @@ function swotToSection(value: unknown, isInternal: boolean): DocumentSection | n
   return { title: "SWOT", table };
 }
 
+// Matches a leading http(s) URL with no embedded whitespace, optionally
+// followed by a trailing human note (e.g. "https://...esya (muhtemel)" ->
+// url="https://...esya", note="(muhtemel)"). Source data occasionally
+// carries exactly this shape (a confidence caveat appended after the raw
+// link) — the note must never be silently dropped, and the URL must
+// never be truncated to make room for it.
+const URL_WITH_NOTE_PATTERN = /^(https?:\/\/\S+?)(?:\s+(.*))?$/;
+
+function parseUrlString(value: string): { url: string; note: string } | null {
+  const match = value.trim().match(URL_WITH_NOTE_PATTERN);
+  if (!match) return null;
+  return { url: match[1], note: match[2] || "" };
+}
+
 /** A single leaf cell in an object-array TABLE: unlike a full section body,
- * a table cell must stay a single (wrapped) string — so a nested
- * object/array inside a cell is flattened via renderValueLines and
- * joined, never JSON.stringify()'d. */
-function cellValue(value: unknown): string {
+ * a table cell must stay a single (wrapped) string or real link — so a
+ * nested object/array inside a cell is flattened via renderValueLines and
+ * joined, never JSON.stringify()'d. A bare URL string becomes a real
+ * clickable DocumentLink (short visible label, full href preserved) —
+ * root-cause fix for the old "truncated/broken raw URL in a narrow table
+ * cell" bug: the full URL was always there, it just had no way to be
+ * displayed short without a dedicated link concept. */
+function cellValue(value: unknown): DocumentCell {
   if (isEmptyValue(value)) return "—";
+  if (typeof value === "string") {
+    const parsed = parseUrlString(value);
+    if (parsed) return { label: parsed.note ? `Bağlantıyı Aç (${parsed.note})` : "Bağlantıyı Aç", url: parsed.url };
+    return formatPrimitiveForDisplay(value);
+  }
   if (isPlainObject(value) || Array.isArray(value)) {
     const lines = renderValueLines(value);
     return lines.length ? lines.join("; ") : "—";
@@ -207,10 +235,83 @@ function cellValue(value: unknown): string {
   return formatPrimitiveForDisplay(value);
 }
 
-function valueToSection(title: string, value: unknown): DocumentSection | null {
-  if (isEmptyValue(value)) return null;
+/** Shared by both a top-level array-of-objects field (e.g. competitor_
+ * analysis, sources) and a nested one discovered inside a plain object
+ * (e.g. digital_presence.sourceMatrix / .channels) — same homogeneous-
+ * table detection and rendering either way, so a field's position in the
+ * JSON never decides whether it gets a real table or a bullet dump. */
+function arrayOfObjectsToTable(rows: Array<Record<string, unknown>>): DocumentTable {
+  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6);
+  return {
+    headers: headers.map(prettifyKey),
+    rows: rows.map((row) => headers.map((key) => cellValue(row[key])))
+  };
+}
 
-  if (typeof value === "string") return { title, text: textValue(value) };
+/** True when a flat object's values are mostly/entirely URL-bearing
+ * strings (e.g. digital_presence.assets: {instagram, facebook, tiktok,
+ * googleBusinessProfile, ...}) — the "Assets:" bullet-dump bug the
+ * supplied example reports showed: a platform name followed by a raw,
+ * unshortened, often very long URL (Google Maps place links in
+ * particular run to 100+ characters) drawn as plain wrapped body text. */
+function isLinkBearingObject(value: Record<string, unknown>): boolean {
+  const nonEmptyValues = Object.values(value).filter((v) => !isEmptyValue(v));
+  if (!nonEmptyValues.length) return false;
+  const urlCount = nonEmptyValues.filter((v) => typeof v === "string" && parseUrlString(v)).length;
+  return urlCount > 0 && urlCount >= nonEmptyValues.length / 2;
+}
+
+function linkBearingObjectToTable(obj: Record<string, unknown>): DocumentTable {
+  const entries = Object.entries(obj).filter(([, v]) => !isEmptyValue(v));
+  return {
+    headers: ["Platform", "Bağlantı"],
+    rows: entries.map(([key, v]) => [prettifyKey(key), cellValue(v)])
+  };
+}
+
+/** A plain object (e.g. digital_presence) often carries BOTH ordinary
+ * scalar/text fields AND one or more nested fields that deserve their own
+ * table (a homogeneous array-of-objects, or a link-bearing flat map) —
+ * root-cause fix for the "Source Matrix"/"Assets"/"Channels" bullet-dump
+ * bug: those nested fields were being flattened through the same
+ * recursive bullet renderer as everything else, with no path to becoming
+ * a table unless they happened to be the section's OWN top-level value
+ * (valueToSection's array branch already handled that case correctly —
+ * this handles the same shapes one level deeper). Returns the base
+ * section (remaining scalar fields, if any) followed by one section per
+ * extracted sub-table — never both the extracted table AND a duplicate
+ * bullet rendering of the same field. */
+function objectToSections(title: string, obj: Record<string, unknown>): DocumentSection[] {
+  const remaining: Record<string, unknown> = {};
+  const extracted: DocumentSection[] = [];
+
+  for (const [key, entryValue] of Object.entries(obj)) {
+    if (isEmptyValue(entryValue)) continue;
+    if (Array.isArray(entryValue)) {
+      const rows = entryValue.filter((item): item is Record<string, unknown> => isPlainObject(item));
+      const nonEmptyCount = entryValue.filter((item) => !isEmptyValue(item)).length;
+      if (rows.length && rows.length === nonEmptyCount) {
+        extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: arrayOfObjectsToTable(rows) });
+        continue;
+      }
+    } else if (isPlainObject(entryValue) && isLinkBearingObject(entryValue)) {
+      extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: linkBearingObjectToTable(entryValue) });
+      continue;
+    }
+    remaining[key] = entryValue;
+  }
+
+  const baseItems = renderValueLines(remaining);
+  const sections: DocumentSection[] = [];
+  if (baseItems.length) sections.push({ title, items: baseItems });
+  sections.push(...extracted);
+  return sections;
+}
+
+function valueToSection(title: string, value: unknown): DocumentSection[] {
+  if (isEmptyValue(value)) return [];
+
+  if (typeof value === "string") return [{ title, text: textValue(value) }];
 
   if (Array.isArray(value)) {
     const objectCount = value.filter((item) => isPlainObject(item)).length;
@@ -219,7 +320,7 @@ function valueToSection(title: string, value: unknown): DocumentSection | null {
       // list; formatPrimitiveForDisplay applies Turkish number/boolean
       // formatting instead of a naive String().
       const items = renderValueLines(value);
-      return items.length ? { title, items } : null;
+      return items.length ? [{ title, items }] : [];
     }
     if (objectCount === value.filter((item) => !isEmptyValue(item)).length) {
       // Every non-empty entry is an object with a broadly similar shape
@@ -228,27 +329,19 @@ function valueToSection(title: string, value: unknown): DocumentSection | null {
       // doesn't have; never JSON.stringify()'s a nested cell (root cause
       // of "Competitors: [object Object], [object Object]").
       const rows = value.filter((item): item is Record<string, unknown> => isPlainObject(item));
-      const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6);
-      const table: DocumentTable = {
-        headers: headers.map(prettifyKey),
-        rows: rows.map((row) => headers.map((key) => cellValue(row[key])))
-      };
-      return { title, table };
+      return [{ title, table: arrayOfObjectsToTable(rows) }];
     }
     // A genuinely mixed array (some objects, some plain strings/numbers) —
     // no single schema to tabulate. Falls back to the same recursive
     // bullet renderer, which (unlike the old code) never silently drops
     // the non-object entries.
     const items = renderValueLines(value);
-    return items.length ? { title, items } : null;
+    return items.length ? [{ title, items }] : [];
   }
 
-  if (isPlainObject(value)) {
-    const items = renderValueLines(value);
-    return items.length ? { title, items } : null;
-  }
+  if (isPlainObject(value)) return objectToSections(title, value);
 
-  return { title, text: textValue(String(value)) };
+  return [{ title, text: textValue(String(value)) }];
 }
 
 // A8 — CLIENT DATA FIREWALL. Even though these three fields are part of
@@ -286,8 +379,7 @@ function buildClientSections(report: PreAuditReport, isInternal: boolean): Docum
     if (!isInternal && CLIENT_FIREWALL_KEYS.has(key)) continue; // structurally unreachable for CLIENT_REPORT
     const label = byKey.get(key);
     if (!label) continue;
-    const section = valueToSection(label, (report as unknown as Record<string, unknown>)[key]);
-    if (section) sections.push(section);
+    sections.push(...valueToSection(label, (report as unknown as Record<string, unknown>)[key]));
   }
   // SWOT is not one of PRE_AUDIT_SECTION_LABELS (report.swot is a separate
   // column) — same placement as PreAuditCenter.tsx's ReportDetail, which
@@ -308,8 +400,7 @@ function buildClientSections(report: PreAuditReport, isInternal: boolean): Docum
 function buildInternalOnlySections(report: PreAuditReport): DocumentSection[] {
   const sections: DocumentSection[] = [];
   for (const [key, label] of PRE_AUDIT_INTERNAL_SECTION_LABELS) {
-    const section = valueToSection(label, (report as unknown as Record<string, unknown>)[key]);
-    if (section) sections.push(section);
+    sections.push(...valueToSection(label, (report as unknown as Record<string, unknown>)[key]));
   }
   return sections;
 }

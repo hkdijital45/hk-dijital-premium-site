@@ -2,11 +2,14 @@ import "server-only";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PDFDocument, rgb } from "pdf-lib";
+import { PDFDocument, rgb, PDFName, PDFArray, PDFString } from "pdf-lib";
+import type { PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
-import { Document, Packer, Paragraph, HeadingLevel, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType } from "docx";
+import { Document, Packer, Paragraph, HeadingLevel, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType, ExternalHyperlink, VerticalAlign } from "docx";
 import PptxGenJS from "pptxgenjs";
 import type { ProfessionalReportPayload } from "@/lib/report-export";
+import { isDocumentLink, cellLabel } from "@/lib/document-model";
+import type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload } from "@/lib/document-model";
 
 // Canonical document generation service — the single place every real
 // Word/PDF/PowerPoint export in the app goes through, so there is one
@@ -20,40 +23,15 @@ import type { ProfessionalReportPayload } from "@/lib/report-export";
 // print-ready-HTML generator (report-export.ts's buildPrintableHtmlReport)
 // rather than defining a parallel one — one report payload contract for
 // every export format (HTML-for-print, DOCX, PDF, PPTX) in the app.
-export type DocumentTable = { headers: string[]; rows: string[][] };
-export type DocumentSection = {
-  title: string; items?: string[]; text?: string; table?: DocumentTable;
-  // Optional, PDF-only, backward-compatible rendering hints — every
-  // existing caller omits these and renders exactly as before. Added for
-  // content-heavy multi-record documents (e.g. İçerik Takip's plan
-  // export) that need a real field/label hierarchy — a smaller field-
-  // label title (titleSize), extra whitespace before a new record
-  // (spacingBefore), and enough reserved space that a record's own
-  // heading is never left orphaned alone at the bottom of a page
-  // (minSpaceBefore forces an early page break instead).
-  titleSize?: number;
-  spacingBefore?: number;
-  minSpaceBefore?: number;
-};
-export type DocumentPayload = {
-  title: string;
-  customerName: string;
-  period: string;
-  executiveSummary: string;
-  sections: DocumentSection[];
-  footerNote?: string;
-  // Optional letterhead extensions — every existing caller omits these and
-  // renders exactly as before (backward compatible, opt-in only).
-  /** Embeds the real public/branding/hk-dijital-logo.png at the top of the
-   * document. Never generated/redrawn — the actual asset, embedded as-is. */
-  logo?: boolean;
-  /** e.g. "DAHİLİ KULLANIM" — renders a visible-but-professional marker
-   * near the top. Only ever set for HK Dijital-internal documents. */
-  confidentialLabel?: string;
-  /** Replaces the default "{customerName} · {period}" line with one line
-   * per entry (e.g. ["Firma: X", "Rapor Tarihi: Y", "Hazırlayan: HK Dijital"]). */
-  metaLines?: string[];
-};
+//
+// The report/table/link TYPES (and the two pure cell helpers) live in
+// client-safe src/lib/document-model.ts, not here — this file is
+// "server-only" (real fs/pdf-lib/docx work), so anything a client
+// component needs to read (e.g. AdEvaluationPanel's on-screen table
+// viewer) must never be defined in it. Re-exported below so every
+// existing `from "@/lib/server/document-generator"` import of these
+// types keeps working unchanged.
+export type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload };
 
 export function toDocumentPayload(report: ProfessionalReportPayload): DocumentPayload {
   return {
@@ -90,6 +68,29 @@ const STATUS_AMBER = rgb(0.706, 0.482, 0.047);
 const STATUS_RED = rgb(0.706, 0.204, 0.204);
 const STATUS_GRAY = rgb(0.455, 0.467, 0.49);
 const STATUS_BLUE = rgb(0.102, 0.412, 0.706);
+const HK_LINK = rgb(0.102, 0.412, 0.706);
+
+// Real clickable PDF link — a URI-action Annotation dict registered
+// directly in the page's Annots array. pdf-lib has no built-in helper for
+// this (no addLink() on PDFPage); this is the documented low-level
+// recipe. The full `url` is embedded in the annotation's /A /URI entry
+// untouched — never the shortened label text that's actually drawn.
+function addLinkAnnotation(page: PDFPage, url: string, rect: [number, number, number, number]) {
+  const context = page.doc.context;
+  const annotationRef = context.register(
+    context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: rect,
+      Border: [0, 0, 0],
+      A: context.obj({ Type: "Action", S: "URI", URI: PDFString.of(url) })
+    })
+  );
+  const existing = page.node.lookup(PDFName.of("Annots"));
+  const annots = existing instanceof PDFArray ? existing : context.obj([]);
+  annots.push(annotationRef);
+  page.node.set(PDFName.of("Annots"), annots);
+}
 
 // Reklam Değerlendirme's controlled status vocabulary (🟢 İyi / 🟡 İzle /
 // 🔴 Aksiyon Gerekebilir / ⚪ Referans Yok / 🔵 Veri Yetersiz) rendered as
@@ -103,12 +104,22 @@ const STATUS_BLUE = rgb(0.102, 0.412, 0.706);
 // already fixed elsewhere in this app for the dotless "ı"), which
 // silently skipped these two patterns entirely; a trailing \b alone is
 // sufficient and safe here.
+// Pre-audit/candidate-evaluation source-matrix vocabulary (Doğrulandı/
+// Muhtemel/Kontrol edildi/Bulunamadı/Doğrulanamadı) — a second, independent
+// status vocabulary from Reklam Değerlendirme's own, both recognized by
+// the same Durum-column accent so neither report family needs its own
+// color logic.
 function statusColorFor(cellText: string): ReturnType<typeof rgb> | null {
   if (/Aksiyon Gerekebilir/i.test(cellText)) return STATUS_RED;
   if (/Veri Yetersiz/i.test(cellText)) return STATUS_BLUE;
   if (/Referans Yok/i.test(cellText)) return STATUS_GRAY;
   if (/İzle\b/i.test(cellText)) return STATUS_AMBER;
   if (/İyi\b/i.test(cellText)) return STATUS_GREEN;
+  if (/Doğrulandı/i.test(cellText)) return STATUS_GREEN;
+  if (/Kontrol edildi/i.test(cellText)) return STATUS_GREEN;
+  if (/Muhtemel/i.test(cellText)) return STATUS_AMBER;
+  if (/Doğrulanamadı/i.test(cellText)) return STATUS_GRAY;
+  if (/Bulunamadı/i.test(cellText)) return STATUS_GRAY;
   return null;
 }
 
@@ -118,6 +129,11 @@ function statusColorHexFor(cellText: string): string | null {
   if (/Referans Yok/i.test(cellText)) return "74778A";
   if (/İzle\b/i.test(cellText)) return "B47A0C";
   if (/İyi\b/i.test(cellText)) return "168A48";
+  if (/Doğrulandı/i.test(cellText)) return "168A48";
+  if (/Kontrol edildi/i.test(cellText)) return "168A48";
+  if (/Muhtemel/i.test(cellText)) return "B47A0C";
+  if (/Doğrulanamadı/i.test(cellText)) return "74778A";
+  if (/Bulunamadı/i.test(cellText)) return "74778A";
   return null;
 }
 
@@ -133,8 +149,36 @@ function isStatusColumnHeader(header: string): boolean {
 // alongside the cell (see drawRow/buildDocxTable) is the color signal;
 // the status WORD itself (never removed) remains the always-present
 // text signal — color is never the only indicator of meaning.
+// Confirmed via direct glyph-coverage check of Geist-Regular.ttf: ✓ (U+2713)
+// and ⚠ (U+26A0) have NO glyph either (same notdef-box issue as the emoji
+// above) — a PDF text layer can still contain these characters (copy/paste
+// extraction reads the encoded codepoints, not the rendered pixels), which
+// is why this looked fine in extracted text while the actual glyph was
+// broken on the page. "—" (U+2014) IS present in the font and renders fine.
 function stripStatusEmoji(cellText: string): string {
-  return cellText.replace(/^[\s]*[🟢🟡🔴⚪🔵]+[\s]*/u, "").trim();
+  return cellText.replace(/^[\s]*[🟢🟡🔴⚪🔵✓⚠]+[\s]*/u, "").trim();
+}
+
+// Root cause of the long-standing "truncated/overflowing URL" bug: this
+// only ever split on whitespace. A URL has no spaces, so a single token
+// wider than the column/page simply never wrapped — pdf-lib draws text
+// with no clipping, so it silently ran past the margin or into the next
+// table cell. charSplit below is the fallback for exactly that one token
+// (a normal word never reaches it, since real words are never this wide).
+function charSplit(word: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+  for (const ch of word) {
+    const candidate = current + ch;
+    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
+      lines.push(current);
+      current = ch;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }
 
 function wrapText(text: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
@@ -146,6 +190,13 @@ function wrapText(text: string, font: import("pdf-lib").PDFFont, size: number, m
     if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
       lines.push(current);
       current = word;
+    } else if (font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      // The word ALONE (no preceding content) is already wider than the
+      // column — a long unbroken token (URL, long slug). Split it at the
+      // character level instead of drawing it past the boundary.
+      const pieces = charSplit(word, font, size, maxWidth);
+      lines.push(...pieces.slice(0, -1));
+      current = pieces[pieces.length - 1] || "";
     } else {
       current = candidate;
     }
@@ -210,25 +261,37 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
   function drawTable(table: DocumentTable, size = 9.5) {
     const columnWidth = contentWidth / table.headers.length;
     const statusColumnIndex = table.headers.findIndex(isStatusColumnHeader);
-    function rowHeight(cells: string[]) {
-      return Math.max(...cells.map((cell) => wrapText(cell, font, size, columnWidth - 10).length), 1) * (size + 4) + 6;
+    function rowHeight(cells: DocumentCell[]) {
+      return Math.max(...cells.map((cell) => wrapText(cellLabel(cell), font, size, columnWidth - 10).length), 1) * (size + 4) + 6;
     }
-    function drawRow(cells: string[], bold: boolean) {
+    function drawRow(cells: DocumentCell[], bold: boolean) {
       const height = rowHeight(cells);
       newPageIfNeeded(height + 4);
       const top = y;
       cells.forEach((cell, i) => {
+        const link = isDocumentLink(cell) ? cell : null;
+        const cellText = cellLabel(cell);
         // Status accent (section 17): colored dot + colored text, status
         // text itself is always kept verbatim regardless — color is
         // never the only signal of meaning.
-        const statusColor = !bold && i === statusColumnIndex ? statusColorFor(cell) : null;
-        const textColor = statusColor || (bold ? HK_INK : HK_MUTED);
+        const statusColor = !bold && !link && i === statusColumnIndex ? statusColorFor(cellText) : null;
+        const textColor = link ? HK_LINK : statusColor || (bold ? HK_INK : HK_MUTED);
         const textX = margin + i * columnWidth + (statusColor ? 12 : 4);
         if (statusColor) page.drawCircle({ x: margin + i * columnWidth + 5, y: top - size / 2 + 1, size: 3, color: statusColor });
-        const displayCell = statusColor ? stripStatusEmoji(cell) : cell;
-        const cellLines = wrapText(displayCell, font, size, columnWidth - (statusColor ? 18 : 10));
+        const displayCell = statusColor ? stripStatusEmoji(cellText) : cellText;
+        const cellWidth = columnWidth - (statusColor ? 18 : 10);
+        const cellLines = wrapText(displayCell, font, size, cellWidth);
         cellLines.forEach((line, li) => {
-          page.drawText(line, { x: textX, y: top - li * (size + 4), size, font, color: textColor });
+          const lineY = top - li * (size + 4);
+          page.drawText(line, { x: textX, y: lineY, size, font, color: textColor });
+          if (link) {
+            // Underline (the visible "this is a link" affordance) + the
+            // actual clickable Rect, sized to the real drawn text — never
+            // the full column width, so the clickable/visible areas match.
+            const lineWidth = font.widthOfTextAtSize(line, size);
+            page.drawLine({ start: { x: textX, y: lineY - 1.5 }, end: { x: textX + lineWidth, y: lineY - 1.5 }, thickness: 0.6, color: HK_LINK });
+            addLinkAnnotation(page, link.url, [textX, lineY - 2, textX + lineWidth, lineY + size]);
+          }
         });
       });
       y = top - height;
@@ -240,33 +303,43 @@ export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffe
     y -= 6;
   }
 
-  // Cover block
-  page.drawRectangle({ x: 0, y: pageHeight - 8, width: pageWidth, height: 8, color: HK_GOLD });
-  y -= 6;
+  // Premium corporate letterhead — one charcoal band spanning the full
+  // page width, logo and dynamic report title living ON it (the band IS
+  // the design; never an isolated black rectangle floating behind an
+  // otherwise-white logo). A thin gold accent line separates it from the
+  // white document body below.
+  const HEADER_HEIGHT = 60;
+  page.drawRectangle({ x: 0, y: pageHeight - HEADER_HEIGHT, width: pageWidth, height: HEADER_HEIGHT, color: HK_INK });
+  page.drawRectangle({ x: 0, y: pageHeight - HEADER_HEIGHT - 3, width: pageWidth, height: 3, color: HK_GOLD });
 
   if (payload.logo) {
     try {
       const logoBytes = readFileSync(LOGO_PATH);
       const logoImage = await pdf.embedPng(logoBytes);
-      const logoSize = 40;
-      page.drawImage(logoImage, { x: margin, y: y - logoSize, width: logoSize, height: logoSize });
-      // Gap must clear the title heading's ascender (drawHeading draws at
-      // 22pt, whose glyphs extend ~16-18pt above the y baseline) or the
-      // logo's bottom edge visually collides with the title text.
-      y -= logoSize + 26;
+      const logoSize = 36;
+      page.drawImage(logoImage, { x: margin, y: pageHeight - HEADER_HEIGHT / 2 - logoSize / 2, width: logoSize, height: logoSize });
     } catch {
-      // Logo asset missing — document still renders correctly without it.
+      // Logo asset missing — letterhead band still renders without it.
     }
   }
+
+  // "HK Dijital — Ön İnceleme Raporu" -> "HK DİJİTAL | ÖN İNCELEME RAPORU"
+  // — one dynamic band title reflecting the actual report type, never a
+  // hardcoded generic label.
+  const bandTitle = `HK DİJİTAL  |  ${payload.title.replace(/^HK Dijital\s*[—-]\s*/i, "").toLocaleUpperCase("tr")}`;
+  const bandTitleSize = 12;
+  const bandTitleWidth = font.widthOfTextAtSize(bandTitle, bandTitleSize);
+  const bandTitleX = Math.max(margin + 52, pageWidth - margin - bandTitleWidth);
+  page.drawText(bandTitle, { x: bandTitleX, y: pageHeight - HEADER_HEIGHT / 2 - bandTitleSize / 2 + 2, size: bandTitleSize, font, color: rgb(1, 1, 1) });
+
+  y = pageHeight - HEADER_HEIGHT - 28;
 
   if (payload.confidentialLabel) {
     page.drawText(payload.confidentialLabel.toLocaleUpperCase("tr"), { x: margin, y, size: 10, font, color: HK_DANGER });
     y -= 18;
   }
 
-  drawHeading(payload.title, 22);
-  page.drawText("HK DİJİTAL", { x: margin, y, size: 10, font, color: HK_GOLD });
-  y -= 18;
+  drawHeading(payload.title, 20);
   if (payload.metaLines?.length) {
     for (const line of payload.metaLines) drawParagraph(line, 11, HK_MUTED);
   } else {
@@ -317,6 +390,15 @@ function buildDocxTable(table: DocumentTable): Table {
   });
   const bodyRows = table.rows.map((row) => new TableRow({
     children: row.map((cell, i) => {
+      if (isDocumentLink(cell)) {
+        // Real DOCX hyperlink relationship (ExternalHyperlink) — the full
+        // `url` is the actual link target; `label` is the only visible
+        // text, same split as the PDF renderer above.
+        return new TableCell({
+          width: { size: columnWidth, type: WidthType.PERCENTAGE },
+          children: [new Paragraph({ children: [new ExternalHyperlink({ link: cell.url, children: [new TextRun({ text: cell.label, style: "Hyperlink" })] })] })]
+        });
+      }
       // Status accent (section 17) — colored text, status text itself
       // always kept verbatim; never color alone.
       const statusHex = i === statusColumnIndex ? statusColorHexFor(cell) : null;
@@ -332,18 +414,35 @@ function buildDocxTable(table: DocumentTable): Table {
 export async function generateDocxBuffer(payload: DocumentPayload): Promise<Buffer> {
   const children: Array<Paragraph | Table> = [];
 
+  // Premium corporate letterhead — same charcoal-band-with-logo design as
+  // the PDF renderer (via a shaded table row, docx's only way to fill a
+  // cell's background), not a separate, drifting Word-only look.
+  const HEADER_FILL = "1B1D22";
+  const headerCells: TableCell[] = [];
+  let logoEmbedded = false;
   if (payload.logo) {
     try {
       const logoBytes = readFileSync(LOGO_PATH);
-      children.push(new Paragraph({
-        alignment: AlignmentType.LEFT,
-        spacing: { after: 120 },
-        children: [new ImageRun({ data: logoBytes, transformation: { width: 64, height: 64 }, type: "png" })]
+      headerCells.push(new TableCell({
+        width: { size: 20, type: WidthType.PERCENTAGE },
+        shading: { fill: HEADER_FILL },
+        verticalAlign: VerticalAlign.CENTER,
+        children: [new Paragraph({ children: [new ImageRun({ data: logoBytes, transformation: { width: 44, height: 44 }, type: "png" })] })]
       }));
+      logoEmbedded = true;
     } catch {
-      // Logo asset missing — document still renders correctly without it.
+      // Logo asset missing — letterhead band still renders without it.
     }
   }
+  const bandTitle = `HK DİJİTAL  |  ${payload.title.replace(/^HK Dijital\s*[—-]\s*/i, "").toLocaleUpperCase("tr")}`;
+  headerCells.push(new TableCell({
+    width: { size: logoEmbedded ? 80 : 100, type: WidthType.PERCENTAGE },
+    shading: { fill: HEADER_FILL },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: bandTitle, bold: true, color: "FFFFFF", size: 24 })] })]
+  }));
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: headerCells })] }));
+  children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
   if (payload.confidentialLabel) {
     children.push(new Paragraph({
@@ -352,7 +451,6 @@ export async function generateDocxBuffer(payload: DocumentPayload): Promise<Buff
     }));
   }
 
-  children.push(new Paragraph({ text: "HK DİJİTAL", spacing: { after: 80 } }));
   children.push(new Paragraph({ text: payload.title, heading: HeadingLevel.TITLE, spacing: { after: 120 } }));
 
   if (payload.metaLines?.length) {

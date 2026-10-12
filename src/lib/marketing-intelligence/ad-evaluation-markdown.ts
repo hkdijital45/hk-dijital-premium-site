@@ -7,7 +7,8 @@
 // exact same functions, so the on-screen report and the downloaded document
 // are always built from one parser, never two that can drift apart.
 import { formatReportTimestamp } from "@/lib/report-timestamp";
-import type { DocumentTable } from "@/lib/server/document-generator";
+import { cellLabel } from "@/lib/document-model";
+import type { DocumentTable } from "@/lib/document-model";
 
 export type { DocumentTable };
 export type ContentBlock = { text?: string; table?: DocumentTable };
@@ -85,7 +86,7 @@ export function parseMarkdownBlocks(content: string): ContentBlock[] {
 
 function fixReportTimestampRow(table: DocumentTable, createdAt: string | null | undefined): DocumentTable {
   const rows = table.rows.map((row) => {
-    if ((row[0] || "").trim().toLocaleLowerCase("tr") !== "rapor tarihi ve saati") return row;
+    if (cellLabel(row[0] ?? "").trim().toLocaleLowerCase("tr") !== "rapor tarihi ve saati") return row;
     const next = [...row];
     next[1] = formatReportTimestamp(createdAt);
     return next;
@@ -104,7 +105,11 @@ function normalizeLegacyMetricsTable(table: DocumentTable): { table: DocumentTab
   const headers = ["Metrik", "Değer", "Açıklama", table.headers[3] || "Referans / Hedef", table.headers[4] || "Durum"];
   const rows = table.rows.map((row) => row.slice(0, 5));
   const footnotes = table.rows
-    .map((row) => (row[0] || "").trim() && (row[5] || "").trim() ? `${row[0].trim()}: ${row[5].trim()}` : null)
+    .map((row) => {
+      const label = cellLabel(row[0] ?? "").trim();
+      const note = cellLabel(row[5] ?? "").trim();
+      return label && note ? `${label}: ${note}` : null;
+    })
     .filter((n): n is string => Boolean(n));
   return { table: { headers, rows }, footnotes };
 }

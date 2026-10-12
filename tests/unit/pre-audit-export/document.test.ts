@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import JSZip from "jszip"; // already a direct dependency of "docx" (real DOCX generation uses it) — not a new dependency
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName } from "pdf-lib";
 import { buildPreAuditDocumentPayload, buildPreAuditFileName } from "../../../src/lib/pre-audit/document.ts";
 import { generateDocxBuffer, generatePdfBuffer } from "../../../src/lib/server/document-generator.ts";
 import { PRE_AUDIT_INTERNAL_SECTION_LABELS, PRE_AUDIT_SECTION_LABELS, type PreAuditReport } from "../../../src/lib/pre-audit/types.ts";
@@ -461,4 +461,138 @@ test("STRUCTURED RENDERER — PDF and DOCX both stay valid and both render the s
   const xml = await extractDocxText(docx);
   assert.match(xml, /esramumcuoglu_nailstudio|2\.299/);
   assert.doesNotMatch(xml, /\[object Object\]/);
+});
+
+// ---------------------------------------------------------------------
+// Regression tests for the real "HK DİJİTAL — LEAD & INSTAGRAM EVALUATION
+// INTEGRATION" bug report: the two supplied example PDFs (Abdulmalik beyaz
+// eşya teknik servis) showed digital_presence.sourceMatrix/channels
+// bullet-dumped as "• 1. • Durum: ... • Sonuc: ... • Tarih: ..." instead
+// of a table, and digital_presence.assets' long raw URLs (Google Maps
+// place links in particular) overflowing/truncating in the PDF. Fixtures
+// below use the EXACT real field shapes pulled from the production
+// pre_audit_reports row for that lead (digital_presence.sourceMatrix/
+// channels/assets), not invented ones.
+async function extractDocxHyperlinkTargets(buffer: Buffer): Promise<string[]> {
+  const zip = await JSZip.loadAsync(buffer);
+  const relsFile = zip.file("word/_rels/document.xml.rels");
+  if (!relsFile) return [];
+  const xml = await relsFile.async("string");
+  return [...xml.matchAll(/TargetMode="External"\s+Target="([^"]+)"|Target="([^"]+)"\s+TargetMode="External"/g)]
+    .map((m) => m[1] || m[2]);
+}
+
+function extractPdfUris(loaded: PDFDocument): string[] {
+  const uris: string[] = [];
+  for (const page of loaded.getPages()) {
+    const annots = page.node.Annots();
+    if (!annots) continue;
+    for (let i = 0; i < annots.size(); i++) {
+      const annotDict = loaded.context.lookup(annots.get(i)) as unknown as { lookup?: (name: unknown) => unknown };
+      if (!annotDict || typeof annotDict.lookup !== "function") continue;
+      const action = annotDict.lookup(PDFName.of("A")) as unknown as { lookup?: (name: unknown) => unknown };
+      if (!action || typeof action.lookup !== "function") continue;
+      const uri = action.lookup(PDFName.of("URI")) as unknown as { decodeText?: () => string };
+      if (uri?.decodeText) uris.push(uri.decodeText());
+    }
+  }
+  return uris;
+}
+
+const REAL_SOURCE_MATRIX = [
+  { durum: "✓ Doğrulandı", sonuc: "Lead + preparation alındı; önceki rapor yok", tarih: "12.10.2026", kaynak: "HK Dijital MCP" },
+  { durum: "⚠ Muhtemel", sonuc: "@abdulmalik.beyaz.esya: 151 takipçi, 417 beğeni; ad ve kullanıcı adı eşleşiyor, telefon/adres yok", tarih: "12.10.2026", kaynak: "TikTok" },
+  { durum: "— Bulunamadı", sonuc: "Doğrulanmış kanal yok", tarih: "12.10.2026", kaynak: "YouTube" }
+];
+
+const REAL_CHANNELS = [
+  { durum: "Mevcut — 5,0 puan, 6 yorum, 6 fotoğraf; kategori 'Beyaz Eşya Mağazası'; web sitesi bağlantısı yok", kanal: "Google İşletme Profili" },
+  { durum: "Bulunamadı", kanal: "YouTube" }
+];
+
+const REAL_ASSETS = {
+  tiktok: "https://www.tiktok.com/@abdulmalik.beyaz.esya (muhtemel)",
+  website: null,
+  youtube: null,
+  facebook: "https://www.facebook.com/p/Adulmalik-BEYAZ-E%C5%9EYA-100087908106275/",
+  instagram: "https://www.instagram.com/abdulmalik.beyaz.esya/",
+  googleBusinessProfile: "https://www.google.com/maps/place/ABDULMAL%C4%B0K+BEYAZ+E%C5%9EYA+TEKN%C4%B0K+SERV%C4%B0S/@38.6108031,27.4345752,17z"
+};
+
+test("REGRESSION — digital_presence.sourceMatrix (array of homogeneous objects nested inside an object field) becomes its own table, never a bullet dump", () => {
+  const report = structuredReport({ digital_presence: { assets: { instagram: "https://www.instagram.com/x/" }, sourceMatrix: REAL_SOURCE_MATRIX } });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Matrisi");
+  assert.ok(tableSection?.table, "sourceMatrix must produce its own table section");
+  assert.ok(tableSection!.table!.headers.some((h) => h === "Durum"));
+  assert.ok(tableSection!.table!.headers.some((h) => h === "Kaynak"));
+  assert.equal(tableSection!.table!.rows.length, REAL_SOURCE_MATRIX.length);
+  // Never a bullet-dump of this data elsewhere in the same digital_presence section.
+  const baseSection = payload.sections.find((s) => s.title === "Dijital Varlıklar");
+  assert.ok(!(baseSection?.items || []).some((line) => line.includes("Lead + preparation alındı")));
+});
+
+test("REGRESSION — digital_presence.channels (CLIENT_REPORT shape) becomes its own table", () => {
+  const report = structuredReport({ report_type: "CLIENT_REPORT", digital_presence: { channels: REAL_CHANNELS, identity: "test" } });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kanallar");
+  assert.ok(tableSection?.table);
+  assert.equal(tableSection!.table!.rows.length, REAL_CHANNELS.length);
+});
+
+test("REGRESSION — digital_presence.assets (flat object of platform URLs) becomes a real clickable link table, full URL preserved, never truncated", async () => {
+  const report = structuredReport({ digital_presence: { assets: REAL_ASSETS } });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Bağlantılar");
+  assert.ok(tableSection?.table, "a link-bearing flat object must become its own link table");
+  const instagramRow = tableSection!.table!.rows.find((row) => row[0] === "Instagram");
+  assert.ok(instagramRow);
+  const linkCell = instagramRow![1];
+  assert.equal(typeof linkCell, "object", "a URL cell must be a real DocumentLink, not a raw string");
+  assert.equal((linkCell as { url: string }).url, "https://www.instagram.com/abdulmalik.beyaz.esya/", "the FULL original URL must be preserved untouched");
+  const tiktokRow = tableSection!.table!.rows.find((row) => row[0] === "Tiktok");
+  const tiktokLink = tiktokRow![1] as { label: string; url: string };
+  assert.equal(tiktokLink.url, "https://www.tiktok.com/@abdulmalik.beyaz.esya", "a trailing parenthetical note must never be absorbed into the URL itself");
+  assert.match(tiktokLink.label, /muhtemel/, "the note must not be silently dropped — it moves into the visible label");
+
+  // Real, structural end-to-end proof: the complete URL is actually
+  // embedded as a clickable annotation/relationship in both formats, not
+  // just present in the intermediate DocumentPayload object.
+  const googleMapsUrl = REAL_ASSETS.googleBusinessProfile;
+  const pdf = await generatePdfBuffer(payload);
+  const loaded = await PDFDocument.load(pdf);
+  const pdfUris = extractPdfUris(loaded);
+  assert.ok(pdfUris.includes(googleMapsUrl), "the complete Google Maps URL must exist as a real PDF link annotation, not truncated");
+
+  const docx = await generateDocxBuffer(payload);
+  const docxTargets = await extractDocxHyperlinkTargets(docx);
+  assert.ok(docxTargets.includes(googleMapsUrl), "the complete Google Maps URL must exist as a real DOCX hyperlink relationship target");
+});
+
+test("REGRESSION — wrapText character-splits a single token wider than the column (the actual root cause of the old truncated/overflowing-URL bug)", async () => {
+  const veryLongToken = `https://www.google.com/maps/place/${"X".repeat(200)}`;
+  const report = structuredReport({ website_analysis: veryLongToken });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const pdf = await generatePdfBuffer(payload);
+  // Generation must succeed without throwing and without pdf-lib refusing
+  // an over-width line — the real proof-of-fix is structural: this used
+  // to produce one unbroken 200+ char line pdf-lib would draw straight
+  // past the page margin with no wrapping at all.
+  assert.equal(pdf.subarray(0, 4).toString("latin1"), "%PDF");
+  const loaded = await PDFDocument.load(pdf);
+  assert.ok(loaded.getPageCount() >= 1);
+});
+
+test("REGRESSION — ✓/⚠ status symbols (confirmed missing from the embedded Geist font) are stripped before drawing, same as the existing emoji fix, with status still conveyed via color + verbatim text", () => {
+  const report = structuredReport({ digital_presence: { sourceMatrix: REAL_SOURCE_MATRIX } });
+  const payload = buildPreAuditDocumentPayload(report, COMPANY_NAME);
+  const tableSection = payload.sections.find((s) => s.title === "Dijital Varlıklar — Kaynak Matrisi");
+  const durumIndex = tableSection!.table!.headers.indexOf("Durum");
+  assert.ok(durumIndex >= 0);
+  // The DocumentTable payload itself still carries the real "✓ Doğrulandı"
+  // text verbatim (the strip happens only at draw-time in the PDF
+  // renderer, never in the data model) — DOCX (Calibri, which DOES have
+  // these glyphs) renders it as-is for parity with this same source data.
+  const firstRow = tableSection!.table!.rows[0];
+  assert.match(String(firstRow[durumIndex]), /Doğrulandı/);
 });

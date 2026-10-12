@@ -7,6 +7,7 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
 import { formatReportTimestamp } from "@/lib/report-timestamp";
 import { parseMarkdownBlocks, normalizeLegacyTableBlock, type ContentBlock, type DocumentTable } from "@/lib/marketing-intelligence/ad-evaluation-markdown";
+import { isDocumentLink } from "@/lib/document-model";
 
 type CampaignOption = { id: string; name: string; status: string; meta_campaign_id: string | null };
 type ReportSection = { title: string; content: string };
@@ -98,7 +99,9 @@ function MarkdownTable({ table }: { table: DocumentTable }) {
           {table.rows.map((row, rowIndex) => (
             <tr key={rowIndex} style={{ borderTop: "1px solid var(--admin-border)" }}>
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="px-3 py-2.5 align-top font-semibold" style={{ color: "var(--admin-text-primary)" }}>{cell}</td>
+                <td key={cellIndex} className="px-3 py-2.5 align-top font-semibold" style={{ color: "var(--admin-text-primary)" }}>
+                  {isDocumentLink(cell) ? <a href={cell.url} target="_blank" rel="noreferrer" className="underline decoration-dotted" style={{ color: "var(--admin-accent, #0891b2)" }}>{cell.label}</a> : cell}
+                </td>
               ))}
             </tr>
           ))}
