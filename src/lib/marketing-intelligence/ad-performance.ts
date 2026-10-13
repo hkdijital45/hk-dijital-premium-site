@@ -41,20 +41,48 @@ async function fetchMetaAccountInfo(adAccountId: string, token: string): Promise
 
 export async function getMetaAdsPerformance(companyId: string, rangePreset = "last_30d", dateFrom?: string, dateTo?: string): Promise<AdPerformanceResult> {
   const mapping = await findCustomerMetaMapping(companyId);
-  const adAccountId = mapping?.ad_account_id || mapping?.account_id;
-  if (!adAccountId) return { connected: false, reason: "ACCOUNT_NOT_MAPPED" };
+  let adAccountId = mapping?.ad_account_id || mapping?.account_id;
+  let token: string | null = null;
+  let integrationId = mapping?.id;
 
-  const { token } = await tokenForIntegration(mapping.id);
+  if (adAccountId) {
+    ({ token } = await tokenForIntegration(mapping.id));
+  } else {
+    // Real production bug (confirmed against MY CAKE 45, act_458853057196821):
+    // findCustomerMetaMapping only ever checks the legacy `ad_integrations`
+    // table (written solely by the old manual "Meta Ad Account ID" form).
+    // A customer connected the current, real way — HK Connect's OAuth
+    // flow, persisted into customer_integrations/integration_assets — has
+    // no row there at all, so this returned ACCOUNT_NOT_MAPPED even though
+    // ad-accounts.ts's resolveMetaAdAccount (the already-fixed canonical
+    // resolver the HK Admin dashboard and the meta_ads_account MCP tool
+    // both use) correctly resolves the same account. Reusing that same
+    // resolver here — rather than duplicating its customer_integrations/
+    // integration_assets lookup — means every future customer connected
+    // via HK Connect works for ad performance too, not just the mapping
+    // status check. Never bypasses authorization: resolveMetaAdAccount
+    // still only ever returns an account genuinely linked to this exact
+    // companyId's own customer_integrations row.
+    const { resolveMetaAdAccount } = await import("@/lib/marketing-intelligence/ad-accounts");
+    const resolved = await resolveMetaAdAccount(companyId);
+    if (resolved.accountId) {
+      adAccountId = resolved.accountId;
+      token = resolved.accessToken;
+      integrationId = undefined; // no ad_integrations row exists to log sync state against
+    }
+  }
+
+  if (!adAccountId) return { connected: false, reason: "ACCOUNT_NOT_MAPPED" };
   if (!token) return { connected: false, reason: "AUTH_EXPIRED" };
 
   const [pulled, account] = await Promise.all([
     pullMetaData({
       companyId,
       adAccountId,
-      businessId: mapping.business_id || mapping.business_account_id,
-      pageId: mapping.page_id,
-      instagramAccountId: mapping.instagram_account_id,
-      integrationId: mapping.id,
+      businessId: mapping?.business_id || mapping?.business_account_id,
+      pageId: mapping?.page_id,
+      instagramAccountId: mapping?.instagram_account_id,
+      integrationId,
       rangePreset,
       dateFrom,
       dateTo
