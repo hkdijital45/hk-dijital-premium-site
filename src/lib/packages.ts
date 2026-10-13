@@ -59,7 +59,7 @@ export type AdBudgetEstimate = {
   budgetFit: string;
 };
 
-const DEFAULT_VAT_RATE = 0.2;
+export const DEFAULT_VAT_RATE = 0.2;
 
 export const PACKAGE_CATEGORIES: Array<{ key: PackageCategoryKey; label: string; shortLabel: string; description: string }> = [
   { key: "meta", label: "Meta Reklam Yönetimi", shortLabel: "Meta Reklam", description: "Instagram ve Facebook reklamlarını ölçüm, kreatif ve optimizasyon disipliniyle yönetin." },

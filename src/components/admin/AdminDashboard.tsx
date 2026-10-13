@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ProposalModal } from "@/components/admin/proposals/ProposalModal";
 import { Activity, AlertTriangle, Archive, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Eye, EyeOff, Flame, MapPin, Phone, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, MoreHorizontal, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import type { SiteContent } from "@/lib/types";
 import { SITE_CONTENT_EDITABLE_FROM_ADMIN_UI } from "@/lib/site-content-allowlist";
@@ -6455,6 +6456,7 @@ const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; follow
 
 function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, onConverted }: any) {
   const [prepOpen, setPrepOpen] = useState(false);
+  const [proposalOpen, setProposalOpen] = useState(false);
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
@@ -6634,6 +6636,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       <div className="mt-5 flex flex-wrap gap-2">
         <button onClick={() => setEditOpen(true)} className="hk-button hk-button-neutral">Düzenle</button>
         <button onClick={openProposalForLead} className="hk-button hk-button-warning">Teklif Oluştur</button>
+        <button onClick={() => setProposalOpen(true)} className="hk-button hk-button-ai">Teklif Motoru</button>
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="hk-button hk-button-success">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
@@ -6660,6 +6663,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       {confirmAction === "reject" && <ConfirmDialog title="Başvuruyu reddet" description="Reddedilen başvurular yalnızca Reddedilenler klasöründe görünür. İsterseniz kısa bir red nedeni ekleyin." confirmLabel="Reddet" tone="warning" onCancel={() => setConfirmAction("")} onConfirm={reject}><TextArea rows={3} label="Red nedeni (opsiyonel)" value={rejectionReason} onChange={setRejectionReason} /></ConfirmDialog>}
       {confirmAction === "permanent" && <ConfirmDialog title="Başvuruyu kalıcı sil" description="Bu işlem geri alınamaz. Başvuru Supabase leads tablosundan tamamen silinir." confirmLabel="Kalıcı Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={removeForever} />}
       {prepOpen && <LeadPreAuditPrepPanel lead={lead} close={() => setPrepOpen(false)} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setActive={setActive} />}
+      {proposalOpen && <ProposalModal leadId={lead.id} targetLabel={lead.company || lead.name || "Lead"} onClose={() => setProposalOpen(false)} />}
     </CenteredLeadModal>
   );
 }

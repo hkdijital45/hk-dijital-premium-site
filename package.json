@@ -17,6 +17,7 @@
     "test:organic-growth": "node --conditions=react-server --import tsx --test tests/unit/organic-growth/*.test.ts",
     "test:pre-audit-export": "node --conditions=react-server --import tsx --test tests/unit/pre-audit-export/*.test.ts",
     "test:pdf-audit": "node --conditions=react-server --import tsx --test tests/unit/pdf-audit/*.test.ts",
+    "test:proposals": "node --conditions=react-server --import tsx --test tests/unit/proposals/*.test.ts",
     "test:pre-audit-versioning": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/pre-audit-export/save-report-versioning.test.ts",
     "test:business-discovery-mcp": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/business-discovery-mcp/*.test.ts",
     "test:candidate-evaluation": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/candidate-evaluation/*.test.ts",
