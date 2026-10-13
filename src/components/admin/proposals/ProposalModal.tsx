@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- fetch/create-on-open pattern, same accepted precedent as ManualEvaluationModal.tsx */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Copy, ClipboardPaste, Download, ChevronLeft, ChevronRight, Plus, Trash2, Send, CircleCheck, CircleX, GitBranch, Copy as CopyIcon, RefreshCw, TriangleAlert } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
@@ -71,6 +71,18 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
   const [findings, setFindings] = useState<PromptFindingsContext | null>(null);
   const [lastFilledFields, setLastFilledFields] = useState<string[]>([]);
 
+  // Set to true right before every setQuestionnaire call that comes FROM
+  // the server (initial load, aggregate, duplicate, revision) — the
+  // autosave effect below consumes this flag once and skips that cycle,
+  // so merely opening/viewing an existing proposal never shows
+  // "Kaydediliyor..." or writes an unnecessary PATCH for data that is
+  // already exactly what the server just sent.
+  const skipNextAutosave = useRef(false);
+  function loadQuestionnaire(data: Partial<ProposalQuestionnaire> | undefined) {
+    skipNextAutosave.current = true;
+    setQuestionnaire({ ...emptyQuestionnaire(), ...data });
+  }
+
   useEffect(() => {
     let active = true;
     async function openOrCreate() {
@@ -92,7 +104,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
         }
         if (!active) return;
         setProposal(current || null);
-        if (current?.questionnaire) setQuestionnaire({ ...emptyQuestionnaire(), ...current.questionnaire });
+        if (current?.questionnaire) loadQuestionnaire(current.questionnaire);
         if (autoAggregate && current && leadId) await runAggregate(current.id, true);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Beklenmeyen hata.");
@@ -117,7 +129,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
       const body = await res.json();
       if (!res.ok) { if (!silent) setError(body.error || "Lead verileri toplanamadı."); return; }
       setProposal(body.proposal);
-      setQuestionnaire({ ...emptyQuestionnaire(), ...body.proposal.questionnaire });
+      loadQuestionnaire(body.proposal.questionnaire);
       setAggregateContext({ completeness: body.completeness, sources: body.sources, notes: body.notes });
       setFindings(body.findings);
       setLastFilledFields(body.filledFields || []);
@@ -143,6 +155,37 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
 
   const locked = Boolean(proposal?.sent_at);
 
+  // Claude's suggested packages (data.customer_proposal.options, a
+  // loosely-typed field Claude fills with a CommercialProposal-style
+  // options array) — read-only reference, distinct from the user's own
+  // final fees/budget. "Bu Seçeneği Uygula" copies the numbers into the
+  // normal, still-fully-editable questionnaire fields — it never writes
+  // directly to financials or skips user review.
+  type SuggestedPackage = {
+    code?: string; name?: string; package?: string; durationMonths?: number;
+    monthlyAdBudget?: number; monthlyServiceFeeExclVat?: number; setupFee?: number | null;
+  };
+  const suggestedPackages: SuggestedPackage[] = Array.isArray((proposal?.data?.customer_proposal as { options?: unknown })?.options)
+    ? ((proposal!.data!.customer_proposal as { options: SuggestedPackage[] }).options)
+    : [];
+
+  function applySuggestedPackage(opt: SuggestedPackage) {
+    setQuestionnaire((q) => ({
+      ...q,
+      fees: {
+        ...q.fees,
+        packageName: opt.name || opt.package || q.fees?.packageName,
+        monthlyManagementFee: opt.monthlyServiceFeeExclVat ?? q.fees?.monthlyManagementFee,
+        setupFee: opt.setupFee ?? q.fees?.setupFee,
+        contractDurationMonths: opt.durationMonths ?? q.fees?.contractDurationMonths
+      },
+      budget: {
+        ...q.budget,
+        googleAllocation: q.platforms?.includes("Google Ads") ? (opt.monthlyAdBudget ?? q.budget?.googleAllocation) : q.budget?.googleAllocation
+      }
+    }));
+  }
+
   async function persist(nextQuestionnaire: ProposalQuestionnaire) {
     if (!proposal || locked) return;
     setSaveState("saving");
@@ -161,10 +204,24 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
     }
   }
 
+  async function persistValidUntil(value: string) {
+    if (!proposal || locked) return;
+    const res = await fetch(`/api/admin/proposals/v2/${proposal.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ validUntil: value || null })
+    });
+    const body = await res.json();
+    if (res.ok) setProposal(body.proposal);
+  }
+
   // Debounced autosave — fires ~900ms after the last field change, never
-  // on every keystroke, and never a full page reload.
+  // on every keystroke, and never a full page reload. Skips the cycle
+  // right after a server-sourced load (see loadQuestionnaire above) so
+  // merely opening an existing proposal never triggers a spurious
+  // "Kaydediliyor..." / PATCH for data that is already saved.
   useEffect(() => {
     if (!proposal || loading || locked) return;
+    if (skipNextAutosave.current) { skipNextAutosave.current = false; return; }
     const timer = setTimeout(() => { persist(questionnaire); }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -276,7 +333,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
     try {
       const res = await fetch(`/api/admin/proposals/v2/${proposal.id}/duplicate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const body = await res.json();
-      if (res.ok) { setProposal(body.proposal); setQuestionnaire({ ...emptyQuestionnaire(), ...body.proposal.questionnaire }); setStep(0); }
+      if (res.ok) { setProposal(body.proposal); loadQuestionnaire(body.proposal.questionnaire); setStep(0); }
       else setError(body.error || "Kopyalanamadı.");
     } finally {
       setTransitioning(null);
@@ -289,7 +346,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
     try {
       const res = await fetch(`/api/admin/proposals/v2/${proposal.id}/revise`, { method: "POST" });
       const body = await res.json();
-      if (res.ok) { setProposal(body.proposal); setQuestionnaire({ ...emptyQuestionnaire(), ...body.proposal.questionnaire }); }
+      if (res.ok) { setProposal(body.proposal); loadQuestionnaire(body.proposal.questionnaire); }
       else setError(body.error || "Revizyon oluşturulamadı.");
     } finally {
       setTransitioning(null);
@@ -441,6 +498,12 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                     <label><span className={labelClass} style={mutedStyle}>Sözleşme Süresi (Ay)</span><input type="number" min={1} className={inputClass} style={fieldStyle} value={questionnaire.fees?.contractDurationMonths || 1} onChange={(e) => updateFees({ contractDurationMonths: Number(e.target.value) || 1 })} /></label>
                     <label><span className={labelClass} style={mutedStyle}>Ek Hizmet Ücretleri (açıklama)</span><input className={inputClass} style={fieldStyle} value={questionnaire.fees?.additionalServiceFees || ""} onChange={(e) => updateFees({ additionalServiceFees: e.target.value })} /></label>
                     <label><span className={labelClass} style={mutedStyle}>Vergi Notu</span><input className={inputClass} style={fieldStyle} value={questionnaire.fees?.taxes || ""} onChange={(e) => updateFees({ taxes: e.target.value })} placeholder="KDV hariç fiyatlandırma" /></label>
+                    <label><span className={labelClass} style={mutedStyle}>Paket Adı</span><input className={inputClass} style={fieldStyle} value={questionnaire.fees?.packageName || ""} onChange={(e) => updateFees({ packageName: e.target.value })} placeholder="örn. 3 Aylık Stratejik İş Birliği" /></label>
+                    <label><span className={labelClass} style={mutedStyle}>İndirim</span><input className={inputClass} style={fieldStyle} value={questionnaire.fees?.discounts || ""} onChange={(e) => updateFees({ discounts: e.target.value })} placeholder="örn. İlk ay %10" /></label>
+                    <label><span className={labelClass} style={mutedStyle}>Ödeme Koşulları</span><input className={inputClass} style={fieldStyle} value={questionnaire.fees?.paymentTerms || ""} onChange={(e) => updateFees({ paymentTerms: e.target.value })} placeholder="örn. Peşin / Ayın 1'i" /></label>
+                    <label><span className={labelClass} style={mutedStyle}>Teklif Geçerlilik Tarihi</span><input type="date" className={inputClass} style={fieldStyle} value={proposal.valid_until || ""} onChange={(e) => persistValidUntil(e.target.value)} /></label>
+                    <label className="sm:col-span-2"><span className={labelClass} style={mutedStyle}>Kapsama Dahil Hizmetler</span><textarea rows={2} className={inputClass} style={fieldStyle} value={questionnaire.fees?.includedServices || ""} onChange={(e) => updateFees({ includedServices: e.target.value })} /></label>
+                    <label className="sm:col-span-2"><span className={labelClass} style={mutedStyle}>Kapsam Dışı Hizmetler</span><textarea rows={2} className={inputClass} style={fieldStyle} value={questionnaire.fees?.excludedServices || ""} onChange={(e) => updateFees({ excludedServices: e.target.value })} /></label>
                   </div>
                   <div className="mt-4 grid gap-2 rounded-[10px] border p-3 text-sm sm:grid-cols-2" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
                     <p>Toplam Aylık Reklam Bütçesi: <strong>{financials.formatted.totalMonthlyAdBudget}</strong></p>
@@ -448,6 +511,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                     <p>Sonraki Aylar (KDV Dahil): <strong>{financials.formatted.subsequentMonthTotalInclVat}</strong></p>
                     {financials.formatted.contractTotalInclVat && <p>Sözleşme Toplamı (KDV Dahil): <strong>{financials.formatted.contractTotalInclVat}</strong></p>}
                   </div>
+                  <p className="mt-2 text-xs" style={mutedStyle}>Reklam bütçesi platforma doğrudan ödenir ve HK Dijital hizmet bedeline dahil değildir — toplamlar bu ikisini her zaman ayrı gösterir.</p>
                 </fieldset>
               )}
 
@@ -493,7 +557,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                     <AdminButton variant="secondary" compact icon={<Copy size={14} />} onClick={copyPrompt}>{copied ? "Kopyalandı ✓" : "Claude İçin Prompt Oluştur"}</AdminButton>
                   </div>
                   <div className="mt-3">
-                    <textarea value={importText} onChange={(e) => setImportText(e.target.value)} rows={6} placeholder="Claude'un ürettiği HK_PROPOSAL_V1 JSON çıktısını buraya yapıştırın..." className={inputClass} style={fieldStyle} />
+                    <textarea value={importText} onChange={(e) => setImportText(e.target.value)} rows={6} placeholder="Claude'un TAM yanıtını (analiz metni + JSON birlikte) buraya yapıştırın — JSON'u ayrıca seçip kopyalamanıza gerek yok, sistem otomatik bulur." className={inputClass} style={fieldStyle} />
                     <div className="mt-2"><AdminButton variant="primary" compact loading={importing} icon={<ClipboardPaste size={14} />} onClick={importAnalysis} disabled={!importText.trim()}>Claude Analizini İçe Aktar</AdminButton></div>
                   </div>
                   {proposal.data?.market_analysis && <p className="mt-3 text-xs font-bold text-emerald-600">Bu teklif için bir analiz zaten içe aktarıldı — 9. adımda inceleyebilirsiniz.</p>}
@@ -511,6 +575,25 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                     <p>Rakip Sayısı (kullanıcı girdisi): <strong>{questionnaire.competitors?.length || 0}</strong></p>
                     <p>Claude Analizi: <strong>{proposal.data?.market_analysis ? "İçe aktarıldı" : "Henüz yok"}</strong></p>
                   </div>
+
+                  {suggestedPackages.length > 0 && (
+                    <div className="rounded-[10px] border p-3" style={fieldStyle}>
+                      <p className="mb-2 text-xs font-black uppercase tracking-[.06em]" style={mutedStyle}>Claude&apos;un Önerdiği Paket Seçenekleri (öneridir, nihai fiyat değildir)</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {suggestedPackages.map((opt, i) => (
+                          <div key={i} className="rounded-[8px] border p-3 text-xs" style={fieldStyle}>
+                            <p className="font-black">{opt.name || opt.code}</p>
+                            {opt.package && <p style={mutedStyle}>{opt.package}</p>}
+                            <p className="mt-1" style={mutedStyle}>
+                              {opt.monthlyAdBudget != null && `Reklam: ${Number(opt.monthlyAdBudget).toLocaleString("tr-TR")} TL/ay · `}
+                              {opt.monthlyServiceFeeExclVat != null && `Hizmet: ${Number(opt.monthlyServiceFeeExclVat).toLocaleString("tr-TR")} TL/ay (KDV hariç)`}
+                            </p>
+                            <button onClick={() => applySuggestedPackage(opt)} className="mt-2 rounded-full px-3 py-1 text-xs font-black text-white" style={{ background: "#0891b2" }}>Bu Seçeneği Uygula (Düzenlenebilir)</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2">
                     <AdminButton variant="secondary" compact icon={<Download size={14} />} loading={downloading === "client-pdf"} onClick={() => downloadDocument("client", "pdf")}>Müşteri PDF</AdminButton>

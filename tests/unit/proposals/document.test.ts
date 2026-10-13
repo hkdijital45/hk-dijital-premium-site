@@ -127,6 +127,40 @@ test("PDF and DOCX generation both produce real, valid, non-empty files for a pr
   assert.doesNotMatch(xml, /Fiyata duyarlı/i, "internal-only negotiation notes must never leak into a client document");
 });
 
+test("a real Claude response whose nested fields don't match the declared type (array where a string was expected) never crashes export — it degrades to readable text", async () => {
+  // Reproduces the exact root cause found in production record
+  // ce4187fc-b531-4adf-957e-ab8c78d84387: Claude returned
+  // budget_scenarios[].risks as a real string[] (ProposalBudgetScenario
+  // declares it as `string`), and recommended_services as objects
+  // (declared as string[]) — both previously crashed generatePdfBuffer
+  // with "text.split is not a function" inside wrapText, turning the
+  // whole export into a 500 error ("Belge indirilemedi").
+  const proposal = fixtureProposal({
+    data: {
+      schema_version: "HK_PROPOSAL_V1",
+      business: {}, market_analysis: {}, competitors: [], google_ads_strategy: {}, meta_ads_strategy: {}, audience_strategy: {},
+      budget_scenarios: [{
+        name: "Başlangıç", monthlyBudget: 7500, objective: "Test",
+        // @ts-expect-error - intentionally wrong-typed, matching real Claude output
+        risks: ["Risk bir", "Risk iki"], testingLimitations: undefined
+      }],
+      // @ts-expect-error - intentionally wrong-typed, matching real Claude output
+      recommended_services: [{ service: "Google Ads Reklam Yönetimi - Pro", priceInclVat: 14400, scope: "Haftalık optimizasyon" }],
+      implementation_plan: [], roadmap_90_days: [], risks: [], assumptions: [], sources: [],
+      customer_proposal: {}, internal_recommendations: {}
+    }
+  });
+  const payload = buildProposalDocumentPayload(proposal, "client");
+  const budgetSection = payload.sections.find((s) => s.title === "Reklam Bütçesi Senaryoları");
+  assert.ok(budgetSection?.table);
+  assert.equal(budgetSection!.table!.rows[0][4], "Risk bir; Risk iki");
+  const servicesSection = payload.sections.find((s) => s.title === "Önerilen HK Dijital Hizmetleri");
+  assert.ok(servicesSection?.items?.[0].includes("Google Ads Reklam Yönetimi - Pro"));
+  assert.ok(!servicesSection!.items![0].includes("[object Object]"));
+  const pdf = await generatePdfBuffer(payload);
+  assert.equal(pdf.subarray(0, 4).toString("latin1"), "%PDF");
+});
+
 test("buildProposalFileName: ASCII-safe, includes the real proposal number", () => {
   const name = buildProposalFileName(fixtureProposal(), "client", "pdf");
   assert.match(name, /^HK-Dijital-.*-Teklif-TKL-2026-0001\.pdf$/);

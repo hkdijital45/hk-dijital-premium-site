@@ -117,12 +117,71 @@ export function validateHkProposalV1(raw: unknown): ProposalValidationResult {
   return { ok: true, data: raw as unknown as HkProposalV1 };
 }
 
-/** Safe JSON.parse wrapper — never throws, used by the paste/upload import
- * UI before handing the result to validateHkProposalV1. */
-export function parseProposalJson(text: string): { ok: true; value: unknown } | { ok: false; error: string } {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? `Geçersiz JSON: ${error.message}` : "Geçersiz JSON." };
+/** Finds the first balanced top-level {...} object in arbitrary text by
+ * brace-counting (ignores braces inside string literals so a quoted "{"
+ * in an analysis paragraph never confuses the scan). Used so a user can
+ * paste Claude's ENTIRE response — the Turkish analysis prose AND the
+ * JSON block together — without manually isolating the JSON, per the
+ * brief's "no separate JSON paste" requirement. */
+function extractFirstJsonObject(text: string): string | null {
+  // Scans the WHOLE text from index 0 (not from the first literal "{"),
+  // tracking string state the entire way — a quoted brace in analysis
+  // prose that appears before the real JSON object (e.g. müşteri
+  // "{örnek}" dedi...) would otherwise be mistaken for the object's
+  // opening brace.
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') { inString = true; continue; }
+    if (char === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (char === "}") {
+      if (depth > 0) depth--;
+      if (depth === 0 && start !== -1) return text.slice(start, i + 1);
+    }
   }
+  return null;
+}
+
+/** Safe, tolerant parse used by the paste/upload import UI before handing
+ * the result to validateHkProposalV1. Tries, in order: (1) the text is
+ * already pure JSON — the common case for an already-isolated paste and
+ * every pre-existing saved record; (2) a ```json fenced code block
+ * inside a larger pasted response (ÇIKTI A analysis text + ÇIKTI B JSON,
+ * pasted together in one go); (3) the first balanced {...} object found
+ * anywhere in the text. Never throws, never guesses field values — it
+ * only locates where the real JSON starts and ends. */
+export function parseProposalJson(text: string): { ok: true; value: unknown } | { ok: false; error: string } {
+  const direct = text.trim();
+  try {
+    return { ok: true, value: JSON.parse(direct) };
+  } catch { /* fall through to extraction below */ }
+
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) {
+    try {
+      return { ok: true, value: JSON.parse(fenceMatch[1].trim()) };
+    } catch { /* fenced block itself wasn't valid JSON — fall through */ }
+  }
+
+  const extracted = extractFirstJsonObject(text);
+  if (extracted) {
+    try {
+      return { ok: true, value: JSON.parse(extracted) };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? `Yanıt içinde bir JSON bloğu bulundu ama geçerli değil: ${error.message}` : "Yanıt içinde bir JSON bloğu bulundu ama geçerli değil." };
+    }
+  }
+
+  return { ok: false, error: "Yapıştırılan metinde geçerli bir JSON nesnesi bulunamadı. Claude'un tam yanıtını (analiz metni + JSON) veya yalnızca JSON bloğunu yapıştırabilirsiniz." };
 }

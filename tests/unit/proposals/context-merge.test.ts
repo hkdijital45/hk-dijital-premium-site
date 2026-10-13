@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mergeContextIntoQuestionnaire, type LeadProposalContext } from "../../../src/lib/proposals/context-collector.ts";
+import type { ProposalQuestionnaire } from "../../../src/lib/proposals/prompt.ts";
+
+function merge(existing: Partial<ProposalQuestionnaire>, context: LeadProposalContext) {
+  return mergeContextIntoQuestionnaire<Partial<ProposalQuestionnaire>>(existing, context);
+}
 
 function fixtureContext(overrides: Partial<LeadProposalContext["lead"]> = {}): LeadProposalContext {
   return {
@@ -23,7 +28,7 @@ function fixtureContext(overrides: Partial<LeadProposalContext["lead"]> = {}): L
 }
 
 test("TEST 1 — lead exists, no reports: basic fields are prefilled from the lead alone", () => {
-  const { questionnaire, filledFields } = mergeContextIntoQuestionnaire({}, fixtureContext());
+  const { questionnaire, filledFields } = merge({}, fixtureContext());
   assert.equal(questionnaire.business?.name, "Abdulmalik Beyaz Eşya Teknik Servis");
   assert.equal(questionnaire.business?.sector, "BEYAZ EŞYA TEKNİK SERVİS");
   assert.equal(questionnaire.business?.city, "Manisa");
@@ -34,7 +39,7 @@ test("TEST 1 — lead exists, no reports: basic fields are prefilled from the le
 
 test("never overwrites a manually-edited, already-non-empty field (TEST 11 behavior)", () => {
   const existing = { business: { name: "Manuel Olarak Girilen İsim", sector: "" } };
-  const { questionnaire, filledFields } = mergeContextIntoQuestionnaire(existing, fixtureContext());
+  const { questionnaire, filledFields } = merge(existing, fixtureContext());
   assert.equal(questionnaire.business?.name, "Manuel Olarak Girilen İsim", "a manually-entered name must survive a refresh");
   assert.equal(questionnaire.business?.sector, "BEYAZ EŞYA TEKNİK SERVİS", "an empty field is still filled");
   assert.ok(!filledFields.includes("business.name"));
@@ -42,15 +47,15 @@ test("never overwrites a manually-edited, already-non-empty field (TEST 11 behav
 });
 
 test("re-running the merge on an already-fully-filled questionnaire changes nothing (idempotent refresh)", () => {
-  const first = mergeContextIntoQuestionnaire({}, fixtureContext());
-  const second = mergeContextIntoQuestionnaire(first.questionnaire, fixtureContext());
+  const first = merge({}, fixtureContext());
+  const second = merge(first.questionnaire, fixtureContext());
   assert.deepEqual(second.questionnaire, first.questionnaire);
   assert.deepEqual(second.filledFields, []);
 });
 
 test("objectives/platforms arrays are only auto-filled when genuinely empty, never appended to an existing manual selection", () => {
   const existing = { objectives: ["Lead Toplama"], platforms: ["Meta Ads"] };
-  const { questionnaire, filledFields } = mergeContextIntoQuestionnaire(existing, fixtureContext());
+  const { questionnaire, filledFields } = merge(existing, fixtureContext());
   assert.deepEqual(questionnaire.objectives, ["Lead Toplama"]);
   assert.deepEqual(questionnaire.platforms, ["Meta Ads"]);
   assert.ok(!filledFields.includes("objectives"));

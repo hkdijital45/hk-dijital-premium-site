@@ -186,7 +186,7 @@ function ExportMenu({
   );
 }
 
-export function AdEvaluationPanel({ companyId }: { companyId: string }) {
+export function AdEvaluationPanel({ companyId, emptyStateOverride }: { companyId: string; emptyStateOverride?: { title: string; description: string } }) {
   const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
   const [campaignId, setCampaignId] = useState("");
   const [rangePreset, setRangePreset] = useState<"today" | "last_7d" | "last_30d">("last_30d");
@@ -320,7 +320,18 @@ export function AdEvaluationPanel({ companyId }: { companyId: string }) {
     return campaigns.find((c) => c.id === item.campaign_id)?.name || item.meta_campaign_id || "Kampanya adı yok";
   }
 
-  if (!companyId) return <EmptyNote title="Önce bir müşteri seçin." description="Değerlendirme hazırlamak ve geçmişi görmek için sol panelden bir müşteri seçin." />;
+  if (!companyId) {
+    // Reklam Değerlendirme reads real, already-synced ad-platform
+    // campaign data — this structurally requires a connected customer
+    // (ad_evaluations has no lead_id column). A registered-but-unconverted
+    // Lead genuinely cannot have real campaign data yet, so this message
+    // must say that honestly instead of implying the user forgot to pick
+    // someone — the real "Kayıtlı Lead"/"Bağımsız" path is the
+    // ManualEvaluationSection rendered right below this panel.
+    return emptyStateOverride
+      ? <EmptyNote title={emptyStateOverride.title} description={emptyStateOverride.description} />
+      : <EmptyNote title="Önce bir müşteri seçin." description="Değerlendirme hazırlamak ve geçmişi görmek için sol panelden bir müşteri seçin." />;
+  }
 
   return (
     <div className="grid gap-4">

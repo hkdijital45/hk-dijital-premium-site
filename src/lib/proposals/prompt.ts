@@ -25,7 +25,7 @@ export type ProposalQuestionnaire = {
     notDetermined?: boolean;
   };
   fees: {
-    monthlyManagementFee?: number; setupFee?: number; additionalServiceFees?: string;
+    packageName?: string; monthlyManagementFee?: number; setupFee?: number; additionalServiceFees?: string;
     contractDurationMonths?: number; paymentTerms?: string; taxes?: string; discounts?: string;
     includedServices?: string; excludedServices?: string;
   };

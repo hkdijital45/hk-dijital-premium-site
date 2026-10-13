@@ -75,10 +75,36 @@ test("validateHkProposalV1: rejects a malformed source URL", () => {
   assert.equal(result.ok, false);
 });
 
-test("parseProposalJson: valid JSON parses, invalid JSON returns a Turkish error without throwing", () => {
+test("parseProposalJson: valid JSON parses, text with no locatable JSON object returns a Turkish error without throwing", () => {
   const ok = parseProposalJson('{"a":1}');
   assert.equal(ok.ok, true);
+  const bad = parseProposalJson("sadece düz metin, hiç süslü parantez yok");
+  assert.equal(bad.ok, false);
+  if (!bad.ok) assert.match(bad.error, /JSON nesnesi bulunamadı/);
+});
+
+test("parseProposalJson: an unclosed {...} (real parse error inside a located object) is reported distinctly", () => {
   const bad = parseProposalJson("{not valid json");
   assert.equal(bad.ok, false);
-  if (!bad.ok) assert.match(bad.error, /Geçersiz JSON/);
+});
+
+test("parseProposalJson: extracts JSON from a ```json fenced block inside Claude's full response (no separate JSON copy step required)", () => {
+  const fullResponse = `ÇIKTI A: Bu işletme için pazar analizi şu şekildedir...\n\nÇIKTI B:\n\n\`\`\`json\n{"a": 1, "b": "iki"}\n\`\`\`\n\nUmarım yardımcı olmuştur.`;
+  const result = parseProposalJson(fullResponse);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.value, { a: 1, b: "iki" });
+});
+
+test("parseProposalJson: extracts the first balanced {...} object even with no code fence at all", () => {
+  const fullResponse = `Analiz metni burada başlar ve devam eder.\n\n{"schema_version": "HK_PROPOSAL_V1", "business": {"name": "Test"}}\n\nSon not.`;
+  const result = parseProposalJson(fullResponse);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.value, { schema_version: "HK_PROPOSAL_V1", business: { name: "Test" } });
+});
+
+test("parseProposalJson: a quoted brace inside analysis prose never confuses the balanced-object scan", () => {
+  const fullResponse = `Not: müşteri "{örnek}" ifadesini kullandı.\n\n{"real": true}`;
+  const result = parseProposalJson(fullResponse);
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.value, { real: true });
 });

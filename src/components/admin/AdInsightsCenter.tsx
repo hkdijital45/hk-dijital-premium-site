@@ -466,7 +466,15 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     )}
     {activeTab === "evaluation" && (
       <div className="grid gap-4">
-        <AdEvaluationPanel companyId={companyId} />
+        <AdEvaluationPanel
+          companyId={companyId}
+          emptyStateOverride={targetMode !== "customer" ? {
+            title: "Bu bölüm bağlı müşterilerin gerçek kampanya verisini okur.",
+            description: targetMode === "lead"
+              ? "Seçili lead henüz bir müşteriye dönüştürülmedi, bu yüzden gerçek Meta/Google kampanya verisi olamaz. Aşağıdaki \"+ Manuel Değerlendirme\" ile bağımsız bir değerlendirme oluşturabilirsiniz."
+              : "Bağımsız modda gerçek kampanya verisi okunamaz. Aşağıdaki \"+ Manuel Değerlendirme\" ile bağımsız bir değerlendirme oluşturabilirsiniz."
+          } : undefined}
+        />
         <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
       </div>
     )}

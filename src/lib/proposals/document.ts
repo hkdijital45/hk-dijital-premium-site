@@ -20,23 +20,76 @@ function prettifyKey(key: string): string {
   return spaced.replace(/\b\w/g, (c) => c.toLocaleUpperCase("tr"));
 }
 
+function arrayItemText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object") {
+    const lines = objectToLines(v as Record<string, unknown>);
+    return lines.length ? lines.join(" · ") : "-";
+  }
+  return String(v);
+}
+
+// Claude's real responses nest arrays of objects inside these free-form
+// jsonb fields too (e.g. google_ads_strategy.campaignArchitecture) — a
+// bare `.join(", ")` on such an array previously produced literal
+// "[object Object]" text in the generated document.
 function objectToLines(value: Record<string, unknown>): string[] {
   return Object.entries(value)
     .filter(([, v]) => !isEmpty(v))
-    .map(([key, v]) => `${prettifyKey(key)}: ${Array.isArray(v) ? v.join(", ") : String(v)}`);
+    .map(([key, v]) => `${prettifyKey(key)}: ${Array.isArray(v) ? v.map(arrayItemText).join(", ") : typeof v === "object" ? arrayItemText(v) : String(v)}`);
+}
+
+// A real Claude Project response is not guaranteed to match
+// ProposalBudgetScenario/etc.'s declared field types exactly (e.g.
+// `risks` documented as `string` was returned as a real string[] by
+// Claude for the Abdulmalik proposal, production record
+// ce4187fc-b531-4adf-957e-ab8c78d84387) — validateHkProposalV1 only
+// checks array-ness at the top level, not every nested field's type.
+// A raw array/object handed to the PDF/DOCX table renderer previously
+// crashed the whole export ("text.split is not a function" in
+// wrapText) instead of degrading gracefully. cellText always returns a
+// real, safe string — joining arrays, flattening objects — so a
+// surprising-but-real Claude response degrades to readable text
+// instead of breaking the entire document.
+function cellText(value: unknown): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "string") return value.trim() || "-";
+  if (Array.isArray(value)) return value.length ? value.map((v) => cellText(v)).join("; ") : "-";
+  if (typeof value === "object") {
+    const lines = objectToLines(value as Record<string, unknown>);
+    return lines.length ? lines.join(" · ") : "-";
+  }
+  return String(value);
 }
 
 function budgetScenariosTable(scenarios: ProposalBudgetScenario[]) {
   return {
     headers: ["Senaryo", "Aylık Bütçe", "Hedef", "Test Sınırlamaları", "Riskler"],
     rows: scenarios.map((s) => [
-      s.name || "-",
+      cellText(s.name),
       s.monthlyBudget != null ? `${Number(s.monthlyBudget).toLocaleString("tr-TR")} TL` : "-",
-      s.objective || "-",
-      s.testingLimitations || "-",
-      s.risks || "-"
+      cellText(s.objective),
+      cellText(s.testingLimitations),
+      cellText(s.risks)
     ] as DocumentCell[])
   };
+}
+
+// recommended_services is documented as string[] but Claude may return
+// richer service objects (service/scope/price) — render a readable
+// summary line instead of the literal type-mismatch fallback
+// ("[object Object]") a bare String(item) would otherwise produce.
+function serviceLineText(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (item && typeof item === "object") {
+    const o = item as Record<string, unknown>;
+    const name = (o.service || o.name || o.title) as string | undefined;
+    const price = (o.priceInclVat || o.monthlyServiceFeeInclVat) as number | string | undefined;
+    const scope = o.scope as string | undefined;
+    const parts = [name, price ? `${Number(price).toLocaleString("tr-TR")} TL (KDV Dahil)` : undefined, scope].filter(Boolean);
+    return parts.length ? parts.join(" — ") : cellText(item);
+  }
+  return cellText(item);
 }
 
 function competitorsTable(competitors: ProposalCompetitor[], mode: ProposalDocumentMode) {
@@ -46,7 +99,7 @@ function competitorsTable(competitors: ProposalCompetitor[], mode: ProposalDocum
     rows: competitors.map((c): DocumentCell[] => {
       const status = c.verified ? "Doğrulandı" : "Tahmin / Doğrulanmadı";
       const sourceCell: DocumentCell = c.sourceUrl ? { label: "Kaynağı Aç", url: c.sourceUrl } : "—";
-      return mode === "internal" ? [c.name, status, c.notes || "-", sourceCell] : [c.name, c.notes || "-"];
+      return mode === "internal" ? [cellText(c.name), status, cellText(c.notes), sourceCell] : [cellText(c.name), cellText(c.notes)];
     })
   };
 }
@@ -86,27 +139,27 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
   }
 
   if (Array.isArray(data.recommended_services) && data.recommended_services.length) {
-    sections.push({ title: "Önerilen HK Dijital Hizmetleri", items: data.recommended_services.map(String) });
+    sections.push({ title: "Önerilen HK Dijital Hizmetleri", items: data.recommended_services.map(serviceLineText) });
   }
 
   if (Array.isArray(data.implementation_plan) && data.implementation_plan.length) {
-    sections.push({ title: "İlk 30 Gün Uygulama Planı", items: data.implementation_plan.map((item) => `${item.day ? `${item.day}: ` : ""}${item.action}`) });
+    sections.push({ title: "İlk 30 Gün Uygulama Planı", items: data.implementation_plan.map((item) => `${item.day ? `${cellText(item.day)}: ` : ""}${cellText(item.action)}`) });
   }
 
   if (Array.isArray(data.roadmap_90_days) && data.roadmap_90_days.length) {
-    sections.push({ title: "90 Günlük Yol Haritası", items: data.roadmap_90_days.map((item) => `${item.phase ? `${item.phase}: ` : ""}${item.action}`) });
+    sections.push({ title: "90 Günlük Yol Haritası", items: data.roadmap_90_days.map((item) => `${item.phase ? `${cellText(item.phase)}: ` : ""}${cellText(item.action)}`) });
   }
 
   if (mode === "internal") {
-    if (Array.isArray(data.risks) && data.risks.length) sections.push({ title: "Riskler", items: data.risks.map(String) });
-    if (Array.isArray(data.assumptions) && data.assumptions.length) sections.push({ title: "Varsayımlar", items: data.assumptions.map(String) });
+    if (Array.isArray(data.risks) && data.risks.length) sections.push({ title: "Riskler", items: data.risks.map(cellText) });
+    if (Array.isArray(data.assumptions) && data.assumptions.length) sections.push({ title: "Varsayımlar", items: data.assumptions.map(cellText) });
     if (data.internal_recommendations && !isEmpty(data.internal_recommendations)) sections.push({ title: "Dahili Öneriler", items: objectToLines(data.internal_recommendations as Record<string, unknown>) });
     if (Array.isArray(data.sources) && data.sources.length) {
       sections.push({
         title: "Kaynaklar",
         table: {
           headers: ["Kaynak", "Erişim Tarihi", "Bağlantı"],
-          rows: data.sources.map((s): DocumentCell[] => [s.note || "-", s.accessDate || "-", s.url ? { label: "Bağlantıyı Aç", url: s.url } : "—"])
+          rows: data.sources.map((s): DocumentCell[] => [cellText(s.note), cellText(s.accessDate), s.url ? { label: "Bağlantıyı Aç", url: s.url } : "—"])
         }
       });
     }

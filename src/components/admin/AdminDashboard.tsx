@@ -561,7 +561,26 @@ export function AdminDashboard({
   const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>("all");
   const [bootVisible, setBootVisible] = useState(false);
   const [bootStep, setBootStep] = useState(0);
-  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, false])));
+  const [openGroups, setOpenGroups] = useState(() => Object.fromEntries(adminNavigationGroups.map((group) => [group.label, group.items.some((item) => item.label === initialActive || (item.slug === "" && initialActive === "Dashboard"))])));
+  // Bug fix (2026-10-14, confirmed via code trace, not guessed): every
+  // sidebar group starts fully collapsed, and AdminSidebarGroup only
+  // renders its items into the DOM at all once `expanded` is true — so a
+  // collapsed group's link cannot be clicked on a "first click", that
+  // click can only ever land on the group header (which just expands it,
+  // navigating nowhere). Reported as "Teklif Merkezi'ne ilk tıklamada
+  // Lead ekranında kalındı; doğrudan URL açılınca çalıştı" — exactly
+  // consistent with this mechanism. Keeping the group containing the
+  // CURRENT page auto-expanded (both on first mount above, and here on
+  // every navigation) means every link reachable from where the user
+  // already is stays a single, real click — the same fix Instagram
+  // Değerlendir/Ön İncele's cross-tab navigation already gets implicitly
+  // by always landing on an admin page whose own group was never visited
+  // collapsed in the first place.
+  useEffect(() => {
+    const matchingGroup = adminNavigationGroups.find((group) => group.items.some((item) => item.label === active || (item.slug === "" && active === "Dashboard")));
+    if (matchingGroup) setOpenGroups((current) => (current[matchingGroup.label] ? current : { ...current, [matchingGroup.label]: true }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
   const [startupApiOpen, setStartupApiOpen] = useState(false);
   const [startupApiLoading, setStartupApiLoading] = useState(false);
   const [startupApiData, setStartupApiData] = useState<any>({ results: content.settings?.api?.ai_status || {}, lastTestTime: content.settings?.api?.ai_status_last_test_at });
