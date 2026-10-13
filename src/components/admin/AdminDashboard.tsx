@@ -1266,7 +1266,7 @@ export function AdminDashboard({
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} initialLeadId={adInsightsInitialLeadId || undefined} /></>}
           {active === "Gelen Talepler" && <ContactRequestsInbox notify={notify} onRowsChange={(rows) => setContent((current) => ({ ...current, contactForms: rows }))} />}
           {active === "Markalar" && <BrandShowcaseCenter notify={notify} />}
-          {active === "Teklif Merkezi" && <ProposalCenterPanel notify={notify} setActive={setActive} />}
+          {active === "Teklif Merkezi" && <ProposalCenterPanel notify={notify} setActive={setActive} leads={content.leads || []} />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}
@@ -6512,6 +6512,7 @@ const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; follow
 function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, onConverted }: any) {
   const [prepOpen, setPrepOpen] = useState(false);
   const [proposalOpen, setProposalOpen] = useState(false);
+  const [autoProposalOpen, setAutoProposalOpen] = useState(false);
   const { askAiProvider, chooserModal } = useAiProviderChooser();
   const [conversionMessage, setConversionMessage] = useState("");
   const [conversionError, setConversionError] = useState("");
@@ -6692,6 +6693,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <button onClick={() => setEditOpen(true)} className="hk-button hk-button-neutral">Düzenle</button>
         <button onClick={openProposalForLead} className="hk-button hk-button-warning">Teklif Oluştur</button>
         <button onClick={() => setProposalOpen(true)} className="hk-button hk-button-ai">Teklif Motoru</button>
+        <button onClick={() => setAutoProposalOpen(true)} className="hk-button hk-button-ai">Otomatik Teklif Hazırla</button>
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="hk-button hk-button-success">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
@@ -6719,6 +6721,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       {confirmAction === "permanent" && <ConfirmDialog title="Başvuruyu kalıcı sil" description="Bu işlem geri alınamaz. Başvuru Supabase leads tablosundan tamamen silinir." confirmLabel="Kalıcı Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={removeForever} />}
       {prepOpen && <LeadPreAuditPrepPanel lead={lead} close={() => setPrepOpen(false)} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setActive={setActive} />}
       {proposalOpen && <ProposalModal leadId={lead.id} targetLabel={lead.company || lead.name || "Lead"} onClose={() => setProposalOpen(false)} />}
+      {autoProposalOpen && <ProposalModal leadId={lead.id} targetLabel={lead.company || lead.name || "Lead"} autoAggregate onClose={() => setAutoProposalOpen(false)} />}
     </CenteredLeadModal>
   );
 }

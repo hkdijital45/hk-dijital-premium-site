@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-filter-change pattern, same accepted precedent as ProposalModal.tsx/ManualEvaluationModal.tsx */
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Download, Copy as CopyIcon, GitBranch } from "lucide-react";
+import { Search, Download, Copy as CopyIcon, GitBranch, Sparkles, Plus } from "lucide-react";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
@@ -22,6 +22,11 @@ type ProposalRow = {
   company_id: string | null;
 };
 
+type LeadOption = {
+  id: string; name?: string; company?: string; sector?: string; business_type?: string;
+  city?: string; status?: string; created_at?: string;
+};
+
 const STATUS_OPTIONS = [
   "Taslak", "Analiz Bekleniyor", "Analiz İçe Aktarıldı", "Düzenleniyor",
   "Gönderime Hazır", "Gönderildi", "Revize Ediliyor", "Kabul Edildi", "Reddedildi", "Süresi Doldu"
@@ -35,9 +40,14 @@ const PAGE_SIZE = 25;
  * additive to, and separate from, the older stateless "Teklif Motoru"
  * (ProposalEngine) panel — it reads/writes only the new persisted
  * `proposals` table. */
-export function ProposalCenterPanel({ notify }: { notify?: (message: string, type?: string) => void }) {
+export function ProposalCenterPanel({ notify, leads }: { notify?: (message: string, type?: string) => void; leads?: LeadOption[] }) {
   const [rows, setRows] = useState<ProposalRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [leadPickerOpen, setLeadPickerOpen] = useState(false);
+  const [leadSearch, setLeadSearch] = useState("");
+  const [autoLead, setAutoLead] = useState<LeadOption | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTargetLabel, setManualTargetLabel] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -92,6 +102,13 @@ export function ProposalCenterPanel({ notify }: { notify?: (message: string, typ
     }
   }
 
+  const filteredLeads = useMemo(() => {
+    const q = leadSearch.trim().toLocaleLowerCase("tr");
+    const pool = leads || [];
+    const matches = q ? pool.filter((l) => `${l.company || ""} ${l.name || ""}`.toLocaleLowerCase("tr").includes(q)) : pool;
+    return matches.slice(0, 30);
+  }, [leads, leadSearch]);
+
   const columns: AdminDataGridColumn<ProposalRow>[] = useMemo(() => [
     { key: "proposal_number", header: "Teklif No", render: (r) => <span className="font-black">{r.proposal_number}{r.version > 1 ? ` (v${r.version})` : ""}</span> },
     { key: "target_label", header: "İşletme / Lead", render: (r) => r.target_label },
@@ -129,8 +146,37 @@ export function ProposalCenterPanel({ notify }: { notify?: (message: string, typ
             <option value="">Tüm Durumlar</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+          <AdminButton variant="secondary" compact icon={<Plus size={13} />} onClick={() => setManualOpen(true)}>Manuel Teklif Oluştur</AdminButton>
+          <AdminButton variant="primary" compact icon={<Sparkles size={13} />} onClick={() => setLeadPickerOpen(true)}>Lead&apos;den Otomatik Teklif Oluştur</AdminButton>
         </div>
       </header>
+
+      {manualOpen && (
+        <div className="flex flex-wrap items-center gap-2 rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}>
+          <input autoFocus value={manualTargetLabel} onChange={(e) => setManualTargetLabel(e.target.value)} placeholder="İşletme / teklif adı..." className="flex-1 rounded-[10px] border p-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+          <AdminButton variant="primary" compact disabled={!manualTargetLabel.trim()} onClick={() => { setAutoLead({ id: "", name: manualTargetLabel } as LeadOption); setManualOpen(false); }}>Oluştur</AdminButton>
+          <AdminButton variant="secondary" compact onClick={() => setManualOpen(false)}>Vazgeç</AdminButton>
+        </div>
+      )}
+
+      {leadPickerOpen && (
+        <div className="grid gap-2 rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-[.06em]" style={{ color: "var(--admin-text-muted)" }}>Lead Seç — HK Admin verileri otomatik toplanacak</p>
+            <button onClick={() => setLeadPickerOpen(false)} className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Kapat</button>
+          </div>
+          <input autoFocus value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="İşletme veya kişi adıyla ara..." className="rounded-[10px] border p-2 text-sm" style={{ borderColor: "var(--admin-border)" }} />
+          <div className="max-h-[260px] overflow-y-auto grid gap-1.5">
+            {filteredLeads.map((lead) => (
+              <button key={lead.id} onClick={() => { setAutoLead(lead); setLeadPickerOpen(false); }} className="flex items-center justify-between gap-2 rounded-[8px] border px-3 py-2 text-left text-sm hover:bg-[var(--admin-surface-soft)]" style={{ borderColor: "var(--admin-border)" }}>
+                <span className="font-bold">{lead.company || lead.name}</span>
+                <span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{lead.sector || lead.business_type || "—"} · {lead.city || "—"} · {lead.status || "Yeni"}</span>
+              </button>
+            ))}
+            {!filteredLeads.length && <p className="p-3 text-center text-sm" style={{ color: "var(--admin-text-muted)" }}>Eşleşen lead bulunamadı.</p>}
+          </div>
+        </div>
+      )}
 
       <AdminDataGrid
         columns={columns}
@@ -156,6 +202,15 @@ export function ProposalCenterPanel({ notify }: { notify?: (message: string, typ
           companyId={openProposal.company_id}
           targetLabel={openProposal.target_label}
           onClose={() => setOpenProposal(null)}
+        />
+      )}
+
+      {autoLead && (
+        <ProposalModal
+          leadId={autoLead.id || null}
+          targetLabel={autoLead.company || autoLead.name || "Yeni Teklif"}
+          autoAggregate={Boolean(autoLead.id)}
+          onClose={() => { setAutoLead(null); setManualTargetLabel(""); setPage(0); }}
         />
       )}
     </section>

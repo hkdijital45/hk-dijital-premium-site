@@ -3,6 +3,7 @@
 // LLM call). A human copies this into a real Claude Project chat, then
 // pastes the HK_PROPOSAL_V1 JSON result back into the Import screen.
 import { HK_PROPOSAL_SCHEMA_VERSION, type ProposalCompetitor } from "./schema";
+import { sanitizeCompetitorsForPrompt } from "./competitors";
 
 export type ProposalQuestionnaire = {
   business: {
@@ -51,7 +52,12 @@ function section(title: string, lines: Array<[string, unknown]>): string {
   return body ? `${title}\n${body}` : "";
 }
 
-export function buildProposalClaudePrompt(q: ProposalQuestionnaire, targetLabel: string): string {
+export type PromptFindingsContext = {
+  preAudit: string; instagram: string; adEvaluation: string; sourcesSummary: string;
+};
+
+export function buildProposalClaudePrompt(q: ProposalQuestionnaire, targetLabel: string, findings?: PromptFindingsContext): string {
+  const { competitors: sanitizedCompetitors, warnings: competitorWarnings } = sanitizeCompetitorsForPrompt(q.competitors);
   const parts: string[] = [
     "HK Dijital için gerçek bir işletmeye yönelik profesyonel bir reklam/dijital pazarlama teklifi stratejisi hazırlamanı istiyorum.",
     "",
@@ -68,16 +74,34 @@ export function buildProposalClaudePrompt(q: ProposalQuestionnaire, targetLabel:
     section("STRATEJİ DETAYLARI", Object.entries(q.strategy || {})),
     section("90 GÜNLÜK YOL HARİTASI (kullanıcı girdisi)", Object.entries(q.roadmap || {})),
     section("ARAŞTIRMA MATERYALLERİ", Object.entries(q.research || {})),
-    q.competitors?.length
-      ? `BİLİNEN RAKİPLER (kullanıcı tarafından önceden girildi — bunları olduğu gibi kullan, isim uydurma, ek rakipler bulursan verified alanını dürüstçe işaretle):\n${q.competitors.map((c) => `- ${c.name}${c.website ? ` (${c.website})` : ""} — doğrulanmış: ${c.verified ? "evet" : "hayır"}${c.sourceUrl ? `, kaynak: ${c.sourceUrl}` : ""}${c.notes ? `, not: ${c.notes}` : ""}`).join("\n")}`
+    sanitizedCompetitors.length
+      ? `BİLİNEN RAKİPLER (kullanıcı tarafından önceden girildi — bunları olduğu gibi kullan, isim uydurma, ek rakipler bulursan verified alanını dürüstçe işaretle):\n${sanitizedCompetitors.map((c) => `- ${c.name}${c.website ? ` (${c.website})` : ""} — doğrulanmış: ${c.verified ? "evet" : "hayır"}${c.sourceUrl ? `, kaynak: ${c.sourceUrl}` : ""}${c.notes ? `, not: ${c.notes}` : ""}${c.urlWarning ? ` [UYARI: ${c.urlWarning}]` : ""}`).join("\n")}`
       : "",
+    competitorWarnings.length ? `RAKİP VERİSİ UYARILARI:\n${competitorWarnings.map((w) => `- ${w}`).join("\n")}` : "",
+    "",
+    findings ? [
+      "HK ADMIN'DE DAHA ÖNCE TAMAMLANMIŞ ANALİZLER (gerçek, kayıtlı veriler — bunları temel al, tekrar araştırma yapmana gerek yok ama doğrulayabiliyorsan güncelle):",
+      "",
+      "ÖN İNCELEME BULGULARI:",
+      findings.preAudit,
+      "",
+      "INSTAGRAM DEĞERLENDİRME BULGULARI:",
+      findings.instagram,
+      "",
+      "REKLAM DEĞERLENDİRME BULGULARI:",
+      findings.adEvaluation,
+      "",
+      "VERİ KAYNAKLARI:",
+      findings.sourcesSummary
+    ].join("\n") : "",
     "",
     "ZORUNLU ANALİZ BAŞLIKLARI:",
     "1. İşletme değerlendirmesi\n2. Pazar analizi\n3. Rakip araştırması\n4. Rakiplerin dijital varlığı\n5. Google Ads fırsatları\n" +
       "6. Meta Ads fırsatları\n7. Platform uygunluğu\n8. Hedef kitle stratejisi\n9. Arama niyeti analizi\n10. Anahtar kelime temaları\n" +
       "11. Negatif anahtar kelime temaları\n12. Kampanya mimarisi\n13. Coğrafi hedefleme\n14. Kreatif strateji\n15. Dönüşüm stratejisi\n" +
       "16. Ölçümleme gereksinimleri\n17. Üç bütçe senaryosu (Başlangıç / Önerilen / Büyüme)\n18. Önerilen ajans hizmetleri\n" +
-      "19. İlk 30 günlük uygulama planı\n20. 90 günlük büyüme yol haritası\n21. Riskler ve varsayımlar\n22. Profesyonel ticari teklif içeriği",
+      "19. İlk 30 günlük uygulama planı\n20. 90 günlük büyüme yol haritası\n21. Riskler ve varsayımlar\n22. Profesyonel ticari teklif içeriği\n" +
+      "23. Yukarıda 'HK ADMIN'DE DAHA ÖNCE TAMAMLANMIŞ ANALİZLER' bölümü doluysa, bu gerçek bulguları analizine ENTEGRE ET — tekrar sıfırdan tahmin üretme, var olan bulguyu temel alıp derinleştir.",
     "",
     "KRİTİK ARAŞTIRMA KURALLARI:",
     "- Rakip isimlerini ASLA uydurma. Gerçek bir rakip bulamıyorsan, competitors dizisini boş bırak veya 'verified: false' ile sadece genel bir gözlem yaz.",

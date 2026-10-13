@@ -2,12 +2,19 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch/create-on-open pattern, same accepted precedent as ManualEvaluationModal.tsx */
 
 import { useEffect, useMemo, useState } from "react";
-import { X, Copy, ClipboardPaste, Download, ChevronLeft, ChevronRight, Plus, Trash2, Send, CircleCheck, CircleX, GitBranch, Copy as CopyIcon } from "lucide-react";
+import { X, Copy, ClipboardPaste, Download, ChevronLeft, ChevronRight, Plus, Trash2, Send, CircleCheck, CircleX, GitBranch, Copy as CopyIcon, RefreshCw, TriangleAlert } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { calculateProposalFinancials, type AdPlatformBudget } from "@/lib/proposals/financials";
-import { buildProposalClaudePrompt, type ProposalQuestionnaire } from "@/lib/proposals/prompt";
+import { buildProposalClaudePrompt, type ProposalQuestionnaire, type PromptFindingsContext } from "@/lib/proposals/prompt";
 import type { ProposalCompetitor, HkProposalV1 } from "@/lib/proposals/schema";
+import { isValidHttpUrl } from "@/lib/proposals/competitors";
+
+type AggregateContext = {
+  completeness: { lead: boolean; preAudit: boolean; instagram: boolean; adEvaluation: boolean; competitors: boolean; budget: boolean };
+  sources: Array<{ module: string; recordId: string; date: string | null; verified: boolean }>;
+  notes: string[];
+};
 
 type Proposal = {
   id: string;
@@ -43,7 +50,7 @@ const ACTION_LABELS: Record<string, string> = {
 // never a full page refresh) and the real lifecycle actions (send/
 // accept/reject/revise/duplicate) wired to the validated state machine
 // in src/lib/proposals/store.ts (never a raw status overwrite).
-export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { leadId?: string | null; companyId?: string | null; targetLabel: string; onClose: () => void }) {
+export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, onClose }: { leadId?: string | null; companyId?: string | null; targetLabel: string; autoAggregate?: boolean; onClose: () => void }) {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +65,11 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
   const [importing, setImporting] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState<string | null>(null);
+
+  const [aggregating, setAggregating] = useState(false);
+  const [aggregateContext, setAggregateContext] = useState<AggregateContext | null>(null);
+  const [findings, setFindings] = useState<PromptFindingsContext | null>(null);
+  const [lastFilledFields, setLastFilledFields] = useState<string[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +93,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
         if (!active) return;
         setProposal(current || null);
         if (current?.questionnaire) setQuestionnaire({ ...emptyQuestionnaire(), ...current.questionnaire });
+        if (autoAggregate && current && leadId) await runAggregate(current.id, true);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Beklenmeyen hata.");
       } finally {
@@ -89,7 +102,29 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
     }
     openOrCreate();
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId, companyId, targetLabel]);
+
+  // "LEAD'DEN OTOMATİK TEKLİF OLUŞTUR" / "LEAD VERİLERİNİ YENİLE" — both
+  // call the same aggregate endpoint. It only ever FILLS currently-empty
+  // questionnaire fields (never overwrites a manually-edited value), so
+  // it is always safe to re-run.
+  async function runAggregate(proposalId: string, silent = false) {
+    setAggregating(true);
+    if (!silent) setError(null);
+    try {
+      const res = await fetch(`/api/admin/proposals/v2/${proposalId}/aggregate`, { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) { if (!silent) setError(body.error || "Lead verileri toplanamadı."); return; }
+      setProposal(body.proposal);
+      setQuestionnaire({ ...emptyQuestionnaire(), ...body.proposal.questionnaire });
+      setAggregateContext({ completeness: body.completeness, sources: body.sources, notes: body.notes });
+      setFindings(body.findings);
+      setLastFilledFields(body.filledFields || []);
+    } finally {
+      setAggregating(false);
+    }
+  }
 
   const adBudgets: AdPlatformBudget[] = useMemo(() => {
     const platforms = questionnaire.platforms?.filter((p) => p === "Google Ads" || p === "Meta Ads") || [];
@@ -171,7 +206,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
 
   async function copyPrompt() {
     await persist(questionnaire);
-    const prompt = buildProposalClaudePrompt({ ...questionnaire, business: { ...questionnaire.business, name: questionnaire.business?.name || targetLabel } }, targetLabel);
+    const prompt = buildProposalClaudePrompt({ ...questionnaire, business: { ...questionnaire.business, name: questionnaire.business?.name || targetLabel } }, targetLabel, findings || undefined);
     try {
       await navigator.clipboard.writeText(prompt);
       setCopied(true);
@@ -300,6 +335,41 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
           {error && <pre className="mb-4 whitespace-pre-wrap rounded-[10px] border p-3 text-xs font-bold text-[#dc2626]" style={{ borderColor: "#fecaca", background: "#fef2f2" }}>{error}</pre>}
           {warnings.map((w) => <p key={w} className="mb-4 rounded-[10px] border p-3 text-sm font-bold" style={{ borderColor: "#fde68a", background: "#fffbeb", color: "#92400e" }}>{w}</p>)}
 
+          {leadId && !loading && proposal && (
+            <div className="mb-4 rounded-[12px] border p-3.5" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-black uppercase tracking-[.06em]" style={{ color: "var(--admin-text-muted)" }}>Veri Kaynakları ve Tamlık</p>
+                <AdminButton variant="secondary" compact icon={<RefreshCw size={13} />} loading={aggregating} onClick={() => runAggregate(proposal.id)}>Lead Verilerini Yenile</AdminButton>
+              </div>
+              {aggregateContext ? (
+                <>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {([
+                      ["Lead Bilgisi", aggregateContext.completeness.lead],
+                      ["Ön İnceleme", aggregateContext.completeness.preAudit],
+                      ["Instagram Değerlendirme", aggregateContext.completeness.instagram],
+                      ["Reklam Değerlendirme", aggregateContext.completeness.adEvaluation],
+                      ["Rakip Verisi", aggregateContext.completeness.competitors],
+                      ["Bütçe Bilgisi", aggregateContext.completeness.budget]
+                    ] as const).map(([label, ok]) => (
+                      <span key={label} className="rounded-full px-2.5 py-1 text-[11px] font-black" style={ok ? { background: "#dcfce7", color: "#166534" } : { background: "#fef2f2", color: "#991b1b" }}>{ok ? "✓" : "—"} {label}</span>
+                    ))}
+                  </div>
+                  {aggregateContext.notes.length > 0 && (
+                    <ul className="mt-2 grid gap-1 text-xs" style={{ color: "var(--admin-text-muted)" }}>
+                      {aggregateContext.notes.map((n) => <li key={n}>• {n}</li>)}
+                    </ul>
+                  )}
+                  {lastFilledFields.length > 0 && (
+                    <p className="mt-2 text-xs font-bold text-emerald-700">{lastFilledFields.length} alan HK Admin verileriyle otomatik dolduruldu.</p>
+                  )}
+                </>
+              ) : (
+                <p className="mt-2 text-xs" style={{ color: "var(--admin-text-muted)" }}>Bu lead için HK Admin&apos;deki ön inceleme, Instagram ve reklam değerlendirme kayıtlarını görmek için &quot;Lead Verilerini Yenile&quot;ye tıklayın.</p>
+              )}
+            </div>
+          )}
+
           {!loading && proposal && (
             <div className="grid gap-4">
               {step === 0 && (
@@ -392,6 +462,9 @@ export function ProposalModal({ leadId, companyId, targetLabel, onClose }: { lea
                         <label className="sm:col-span-2"><span className={labelClass} style={mutedStyle}>Notlar (güçlü/zayıf yönler, fırsatlar)</span><textarea rows={2} className={inputClass} style={fieldStyle} value={c.notes || ""} onChange={(e) => updateCompetitor(i, { notes: e.target.value })} /></label>
                         <label><span className={labelClass} style={mutedStyle}>Kaynak URL</span><input className={inputClass} style={fieldStyle} value={c.sourceUrl || ""} onChange={(e) => updateCompetitor(i, { sourceUrl: e.target.value })} /></label>
                         <label className="flex items-center gap-2 self-end pb-2"><input type="checkbox" checked={c.verified} onChange={(e) => updateCompetitor(i, { verified: e.target.checked })} /><span className="text-xs font-bold" style={mutedStyle}>Doğrulanmış gerçek bilgi</span></label>
+                        {(c.website || c.sourceUrl) && !isValidHttpUrl(c.sourceUrl || c.website) && (
+                          <p className="sm:col-span-2 flex items-center gap-1.5 text-xs font-bold text-amber-700"><TriangleAlert size={13} /> Bu URL geçersiz görünüyor — otomatik düzeltilmez, lütfen kontrol edin.</p>
+                        )}
                         <div className="sm:col-span-2"><button onClick={() => removeCompetitor(i)} className="inline-flex items-center gap-1 text-xs font-black text-red-600"><Trash2 size={13} /> Kaldır</button></div>
                       </div>
                     ))}
