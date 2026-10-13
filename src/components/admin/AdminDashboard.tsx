@@ -5917,7 +5917,16 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
           );
         })}
       </div>}
-      {selectedLead && <LeadDrawer lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setAdInsightsInitialLeadId={setAdInsightsInitialLeadId} onConverted={(data) => {
+      {/* key={selectedLead.id}: root cause fix for "actions only work for the
+          first selected lead" — LeadDrawer is conditionally rendered (never
+          unmounted between two different leads selected back to back), so
+          without a key React reuses the SAME component instance and its
+          internal useState calls that seed from the `lead` prop (e.g.
+          rejectionReason, confirmAction, analysisMessage, callOutcome) never
+          resync to the newly selected lead. The key forces a full, clean
+          remount per lead.id — every action handler closure and every piece
+          of local state is guaranteed fresh for whichever lead is open. */}
+      {selectedLead && <LeadDrawer key={selectedLead.id} lead={selectedLead} update={update} persistLead={persistLead} permanentDelete={permanentDelete} canPermanentlyDelete={legacyRole(currentSession?.role) === "admin"} canManageTestRecords={legacyRole(currentSession?.role) === "admin"} close={() => setSelectedLead(null)} setActive={setActive} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setAdInsightsInitialLeadId={setAdInsightsInitialLeadId} onConverted={(data) => {
         setContent({
           ...content,
           leads: content.leads.map((lead) => lead.id === data.lead.id ? data.lead : lead),
@@ -6595,7 +6604,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
     setActive("Teklif Motoru");
   }
   return (
-    <Drawer title="Başvuru Detayı" close={close}>
+    <CenteredLeadModal title="Başvuru Detayı" close={close}>
       <div className="grid gap-3 md:grid-cols-2">
         {details.map(([label, value]) => <InfoItem key={label} label={label} value={value || "-"} />)}
       </div>
@@ -6651,7 +6660,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       {confirmAction === "reject" && <ConfirmDialog title="Başvuruyu reddet" description="Reddedilen başvurular yalnızca Reddedilenler klasöründe görünür. İsterseniz kısa bir red nedeni ekleyin." confirmLabel="Reddet" tone="warning" onCancel={() => setConfirmAction("")} onConfirm={reject}><TextArea rows={3} label="Red nedeni (opsiyonel)" value={rejectionReason} onChange={setRejectionReason} /></ConfirmDialog>}
       {confirmAction === "permanent" && <ConfirmDialog title="Başvuruyu kalıcı sil" description="Bu işlem geri alınamaz. Başvuru Supabase leads tablosundan tamamen silinir." confirmLabel="Kalıcı Sil" tone="danger" onCancel={() => setConfirmAction("")} onConfirm={removeForever} />}
       {prepOpen && <LeadPreAuditPrepPanel lead={lead} close={() => setPrepOpen(false)} setPreAuditInitialLeadId={setPreAuditInitialLeadId} setActive={setActive} />}
-    </Drawer>
+    </CenteredLeadModal>
   );
 }
 
@@ -6956,6 +6965,62 @@ function Drawer({ title, close, children }: any) {
         {children}
       </div>
     </div>
+  );
+}
+
+// Lead Merkezi detail modal — centered (not Drawer's right-side-panel
+// layout), and rendered through createPortal(..., getAdminPortalRoot())
+// like the 7+ other confirmed-working modals in this file (edit lead,
+// delete confirm, bulk action confirm, stage-move confirm, conversion
+// confirm, etc.) — Drawer itself is NOT portaled, which is exactly the
+// "fixed positioning broken by an ancestor's backdrop-filter containing
+// block" bug class this replaces: a position:fixed element nested deep in
+// the admin layout tree is constrained to whichever ancestor happens to
+// set backdrop-filter/transform/filter/will-change, instead of the real
+// viewport. Portaling to getAdminPortalRoot() (the nearest ".hk-admin"
+// ancestor, or document.body) sidesteps that entirely, same as every
+// other already-working modal here.
+function CenteredLeadModal({ title, close, children }: any) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useMemo(() => `lead-modal-title-${Math.random().toString(36).slice(2, 9)}`, []);
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    // Capture phase — same reasoning as Drawer's own handler: a bubble-
+    // phase listener here was verified unreliable elsewhere in this file.
+    window.addEventListener("keydown", handleEscape, true);
+    return () => window.removeEventListener("keydown", handleEscape, true);
+  }, [close]);
+  useEffect(() => {
+    panelRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, []);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div onMouseDown={close} className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-0 sm:p-4">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+        className="flex h-full w-full flex-col overflow-hidden bg-[var(--admin-surface)] shadow-2xl outline-none sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[1100px] sm:rounded-[20px]"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 sm:p-7 sm:pb-5">
+          <h2 id={titleId} className="text-xl font-black text-[var(--admin-text-primary)] sm:text-2xl">{title}</h2>
+          <button onClick={close} aria-label="Kapat" className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-full"><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 sm:p-7 sm:pt-5">
+          {children}
+        </div>
+      </div>
+    </div>,
+    getAdminPortalRoot()
   );
 }
 
