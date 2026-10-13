@@ -58,6 +58,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Rakip İstihbarat Merkezi", slug: "rakip-analizi", module: "rakip-analizi", description: "Lead veya müşteri için gerçek rakip keşfi, skor ve sinyal takibi." },
       { label: "Satış Hunisi", slug: "satis-hunisi", module: "leads", description: "Lead aşamaları, fırsatlar ve satış ilerleme görünümü." },
       { label: "Teklif Oluştur", slug: "teklif-hazirlama", module: "teklifler", description: "Lead veya müşteri verisinden teklif hazırlama." },
+      { label: "Teklif Merkezi", slug: "teklif-merkezi", module: "teklifler", description: "Tüm tekliflerin arama/filtre/durum takibi, revizyon geçmişi ve dışa aktarımı (Teklif Motoru)." },
       { label: "Teklif Takip Merkezi", slug: "teklif-takip-merkezi", module: "teklifler", description: "Teklif sonrası 3, 7, 14 ve 21 günlük takip akışları." },
       { label: "Kazanıldı / Kaybedildi Analizi", slug: "kazanildi-kaybedildi-analizi", module: "leads", description: "Kapanan fırsatlardan sektör, şehir, paket ve itiraz öğrenimi." }
     ]

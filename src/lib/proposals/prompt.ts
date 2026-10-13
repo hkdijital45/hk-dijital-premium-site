@@ -2,7 +2,7 @@
 // the ONLY "AI integration" this feature has (no API key, no server-side
 // LLM call). A human copies this into a real Claude Project chat, then
 // pastes the HK_PROPOSAL_V1 JSON result back into the Import screen.
-import { HK_PROPOSAL_SCHEMA_VERSION } from "./schema";
+import { HK_PROPOSAL_SCHEMA_VERSION, type ProposalCompetitor } from "./schema";
 
 export type ProposalQuestionnaire = {
   business: {
@@ -34,6 +34,16 @@ export type ProposalQuestionnaire = {
     existingPerformance?: string; competitors?: string; specialRestrictions?: string;
   };
   research: { notes?: string; competitorUrls?: string[]; websiteUrls?: string[]; instagramUrls?: string[]; sourceReferences?: string[] };
+  // User-supplied competitor knowledge gathered during the wizard, BEFORE
+  // Claude's own research — real businesses the staff member already
+  // knows about, never a placeholder/fabricated entry (same
+  // verified+sourceUrl discipline as the post-Claude HK_PROPOSAL_V1
+  // competitors array in schema.ts).
+  competitors?: ProposalCompetitor[];
+  roadmap?: {
+    first30Days?: string; days31to60?: string; days61to90?: string;
+    campaignStructure?: string; optimizationStrategy?: string; measurementPlan?: string;
+  };
 };
 
 function section(title: string, lines: Array<[string, unknown]>): string {
@@ -56,7 +66,11 @@ export function buildProposalClaudePrompt(q: ProposalQuestionnaire, targetLabel:
     section("REKLAM BÜTÇESİ", Object.entries(q.budget || {})),
     section("AJANS ÜCRETLERİ (reklam harcamasından ayrı)", Object.entries(q.fees || {})),
     section("STRATEJİ DETAYLARI", Object.entries(q.strategy || {})),
+    section("90 GÜNLÜK YOL HARİTASI (kullanıcı girdisi)", Object.entries(q.roadmap || {})),
     section("ARAŞTIRMA MATERYALLERİ", Object.entries(q.research || {})),
+    q.competitors?.length
+      ? `BİLİNEN RAKİPLER (kullanıcı tarafından önceden girildi — bunları olduğu gibi kullan, isim uydurma, ek rakipler bulursan verified alanını dürüstçe işaretle):\n${q.competitors.map((c) => `- ${c.name}${c.website ? ` (${c.website})` : ""} — doğrulanmış: ${c.verified ? "evet" : "hayır"}${c.sourceUrl ? `, kaynak: ${c.sourceUrl}` : ""}${c.notes ? `, not: ${c.notes}` : ""}`).join("\n")}`
+      : "",
     "",
     "ZORUNLU ANALİZ BAŞLIKLARI:",
     "1. İşletme değerlendirmesi\n2. Pazar analizi\n3. Rakip araştırması\n4. Rakiplerin dijital varlığı\n5. Google Ads fırsatları\n" +

@@ -7,6 +7,7 @@ import { isGenericBusinessCategory, sanitizeBusinessCategory } from "@/lib/busin
 import { normalizePlatformSelection } from "@/lib/platform-selection";
 import { preAnalysisLeadFields } from "@/lib/pre-analysis-lead";
 import { CONTACT_REQUEST_STATUS, CONTACT_LEAD_SOURCE as CONTACT_REQUEST_SOURCE } from "@/lib/contact-requests";
+import { notifyLeadCreated } from "@/lib/notifications/events";
 
 const statuses: LeadStatus[] = ["Yeni", "Görüşülecek", "Teklif Hazırlanıyor", "Teklif Gönderildi", "Takipte", "Kazanıldı", "Kaybedildi", "Dönüştürüldü"];
 
@@ -105,7 +106,9 @@ export async function POST(request: Request) {
           message: payload.note || "",
           status: "Yeni"
       });
-      return NextResponse.json({ ok: true, lead: Array.isArray(rows) ? rows[0] : rows });
+      const insertedLead = Array.isArray(rows) ? rows[0] : rows;
+      if (insertedLead?.id) notifyLeadCreated(insertedLead as { id: string; name?: string; company?: string }).catch(() => {});
+      return NextResponse.json({ ok: true, lead: insertedLead });
     } catch (error) {
       const safeError = getSafeSupabaseError(error);
       console.error("Lead kaydı Supabase hatası:", safeError.detail);

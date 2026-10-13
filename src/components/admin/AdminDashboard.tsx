@@ -13,6 +13,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ProposalModal } from "@/components/admin/proposals/ProposalModal";
 import { Activity, AlertTriangle, Archive, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Eye, EyeOff, Flame, MapPin, Phone, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, MoreHorizontal, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
+import { NotificationSettingsModal } from "@/components/admin/notifications/NotificationSettingsModal";
+import { ProposalCenterPanel } from "@/components/admin/proposals/ProposalCenterPanel";
 import type { SiteContent } from "@/lib/types";
 import { SITE_CONTENT_EDITABLE_FROM_ADMIN_UI } from "@/lib/site-content-allowlist";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
@@ -791,8 +793,55 @@ export function AdminDashboard({
     localStorage.setItem("hk-admin-notification-state", JSON.stringify(next));
   }
 
+  // Real, DB-backed, push-capable notifications (Bildirim Merkezi) merged
+  // in alongside the locally-derived ones above — same drawer, same
+  // read/filter mechanics, distinguished only by a "db-" id prefix (see
+  // classifyNotification in admin-notification-priority.ts) so every
+  // existing render branch keeps working unmodified.
+  const [dbNotifications, setDbNotifications] = useState<any[]>([]);
+  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    function load() {
+      fetch("/api/admin/notifications", { cache: "no-store" }).then((r) => r.json()).then((data) => {
+        if (!active || !Array.isArray(data.notifications)) return;
+        setDbNotifications(data.notifications);
+        const alreadyReadIds = data.notifications.filter((row: any) => row.read_at).map((row: any) => `db-${row.category}-${row.id}`);
+        if (alreadyReadIds.length) {
+          setNotificationState((current: any) => {
+            const next = { ...current, read: [...new Set([...current.read, ...alreadyReadIds])] };
+            localStorage.setItem("hk-admin-notification-state", JSON.stringify(next));
+            return next;
+          });
+        }
+      }).catch(() => {});
+    }
+    load();
+    const interval = setInterval(load, 60000);
+    return () => { active = false; clearInterval(interval); };
+  }, []);
+  const mappedDbNotifications = dbNotifications.map((row) => {
+    const id = `db-${row.category}-${row.id}`;
+    return {
+      id,
+      dbId: row.id,
+      label: row.title,
+      text: row.message,
+      tone: row.category === "system" ? "emerald" : row.category === "campaign" ? "amber" : "cyan",
+      target: "",
+      href: row.deep_link || "",
+      time: formatReportTimestamp(row.created_at),
+      isDbNotification: true,
+      ...classifyNotification(id)
+    };
+  });
+
   function markNotificationRead(id: string) {
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, id])] });
+    if (id.startsWith("db-")) {
+      const row = dbNotifications.find((item) => `db-${item.category}-${item.id}` === id);
+      if (row) fetch(`/api/admin/notifications/${row.id}/read`, { method: "POST" }).catch(() => {});
+    }
   }
 
   function markNotificationUnread(id: string) {
@@ -805,6 +854,7 @@ export function AdminDashboard({
 
   function markAllNotificationsRead(items: any[]) {
     saveNotificationState({ ...notificationState, read: [...new Set([...notificationState.read, ...items.map((item) => item.id)])] });
+    if (items.some((item) => item.id.startsWith("db-"))) fetch("/api/admin/notifications/mark-all-read", { method: "POST" }).catch(() => {});
   }
 
   const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId };
@@ -869,7 +919,7 @@ export function AdminDashboard({
   const realAiStatusForSelected = realAiProviderStatus?.[normalizeUnifiedAiProvider(aiStatus.provider)];
   const aiHeaderModeLabel = realAiStatusForSelected && unreadyAiStatusLabels.has(realAiStatusForSelected) ? realAiStatusForSelected : aiStatus.mode;
   const aiHeaderModeIsWarning = realAiStatusForSelected ? unreadyAiStatusLabels.has(realAiStatusForSelected) : false;
-  const headerNotifications = buildAdminNotifications(content, startupApiData).filter((item) => !notificationState.archived.includes(item.id));
+  const headerNotifications = [...buildAdminNotifications(content, startupApiData), ...mappedDbNotifications].filter((item) => !notificationState.archived.includes(item.id));
   const notificationCounts = notificationSummary(headerNotifications, notificationState.read);
   const visibleNotifications = sortForAttention(headerNotifications.filter((item) => matchesFilter(item, notificationFilter)), notificationState.read);
   const unreadNotifications = headerNotifications.filter((item) => !notificationState.read.includes(item.id));
@@ -1054,7 +1104,10 @@ export function AdminDashboard({
                         <p className="mt-0.5 text-sm leading-6" style={{ color: "var(--admin-text-muted)" }}>Operasyonunda dikkat gerektiren gelişmeler.</p>
                       </div>
                     </div>
-                    <button onClick={() => setNotificationsOpen(false)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Bildirim merkezini kapat"><X size={18} /></button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button onClick={() => setNotificationSettingsOpen(true)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Bildirim ayarları"><Settings2 size={17} /></button>
+                      <button onClick={() => setNotificationsOpen(false)} className="admin-icon-action grid size-10 shrink-0 place-items-center rounded-[8px]" aria-label="Bildirim merkezini kapat"><X size={18} /></button>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-2.5" aria-live="polite">
@@ -1163,6 +1216,7 @@ export function AdminDashboard({
               </aside>
             </div>
           )}
+          {notificationSettingsOpen && <NotificationSettingsModal onClose={() => setNotificationSettingsOpen(false)} />}
           {copilotOpen && <GlobalCopilotPanel content={content} setActive={setActive} onClose={() => setCopilotOpen(false)} notify={notify} />}
           <StartupApiStatusModal open={startupApiOpen} loading={startupApiLoading} data={startupApiData} message={startupApiMessage} onRetest={runStartupApiStatus} onClose={() => setStartupApiOpen(false)} onSettings={() => { setStartupApiOpen(false); setActive("API Ayarları"); }} />
           {bootVisible && <SystemBoot step={bootStep} />}
@@ -1212,6 +1266,7 @@ export function AdminDashboard({
           {(active === "Reklam Yorum Merkezi" || active === "Reklam Doktoru Pro") && <><AdDoctorMvpPanel /><AdInsightsCenter content={content} notify={notify} initialLeadId={adInsightsInitialLeadId || undefined} /></>}
           {active === "Gelen Talepler" && <ContactRequestsInbox notify={notify} onRowsChange={(rows) => setContent((current) => ({ ...current, contactForms: rows }))} />}
           {active === "Markalar" && <BrandShowcaseCenter notify={notify} />}
+          {active === "Teklif Merkezi" && <ProposalCenterPanel notify={notify} setActive={setActive} />}
           {active === "Ön İnceleme Merkezi" && <PreAuditCenter initialTab={preAuditInitialTab || undefined} initialLeadId={preAuditInitialLeadId || undefined} />}
           {active === "Rapor Merkezi" && <ReportCenterPanel content={content} notify={notify} />}
           {["HK Agent Hub", "Agent Hub", "Discord"].includes(active) && <AgentHubCenter content={content} notify={notify} onOpenCustomerDocuments={(companyId: string) => { setSelectedCompanyId(companyId); setActive("Belgeler"); }} />}

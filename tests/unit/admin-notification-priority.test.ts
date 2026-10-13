@@ -31,6 +31,15 @@ test("ordering keeps source order within the same group", () => {
   assert.deepEqual(ordered.map((item) => item.id), ["agency-1", "ending-campaigns-1"]);
 });
 
+test("classifyNotification: persisted Bildirim Merkezi rows (db- prefixes) classify to the expected kind/priority", () => {
+  assert.deepEqual(classifyNotification("db-lead-abc"), { kind: "lead_new", priority: "high" });
+  assert.deepEqual(classifyNotification("db-customer-abc"), { kind: "lead", priority: "normal" });
+  assert.deepEqual(classifyNotification("db-proposal-abc"), { kind: "lead", priority: "normal" });
+  assert.deepEqual(classifyNotification("db-campaign-abc"), { kind: "operations", priority: "normal" });
+  assert.deepEqual(classifyNotification("db-reminder-abc"), { kind: "operations", priority: "high" });
+  assert.deepEqual(classifyNotification("db-system-abc"), { kind: "system", priority: "low" });
+});
+
 test("the Öncelikli and Leadler filters surface the expected items", () => {
   assert.equal(matchesFilter(newLead, "priority"), true);
   assert.equal(matchesFilter(olderHighLead, "priority"), true);

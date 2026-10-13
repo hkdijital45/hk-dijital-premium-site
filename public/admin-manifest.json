@@ -1,0 +1,12 @@
+{
+  "name": "HK Admin",
+  "short_name": "HK Admin",
+  "start_url": "/hk-admin",
+  "scope": "/hk-admin/",
+  "display": "standalone",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
+  "icons": [
+    { "src": "/branding/hk-dijital-logo.png", "sizes": "886x886", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

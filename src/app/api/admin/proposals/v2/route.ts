@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
-import { createProposal, listProposals, ProposalValidationError, PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals/store";
+import { createProposal, listProposals, countProposals, ProposalValidationError, PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals/store";
 
 // /v2 — the new persisted Teklif Motoru (proposals table), additive and
 // separate from the existing stateless /api/admin/proposals/pdf route
@@ -18,13 +18,22 @@ export async function GET(request: Request) {
   const companyId = searchParams.get("companyId") || undefined;
   const leadId = searchParams.get("leadId") || undefined;
   const status = searchParams.get("status") || undefined;
+  const search = searchParams.get("q")?.trim() || undefined;
+  const createdFrom = searchParams.get("createdFrom") || undefined;
+  const createdTo = searchParams.get("createdTo") || undefined;
+  const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 25, 1), 100);
+  const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
   if (companyId && !uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçersiz müşteri kimliği." }, { status: 400 });
   if (leadId && !uuidPattern.test(leadId)) return NextResponse.json({ error: "Geçersiz lead kimliği." }, { status: 400 });
   if (status && !isValidStatus(status)) return NextResponse.json({ error: "Geçersiz durum." }, { status: 400 });
 
   try {
-    const proposals = await listProposals({ companyId, leadId, status: status as ProposalStatus | undefined });
-    return NextResponse.json({ proposals });
+    const filters = { companyId, leadId, status: status as ProposalStatus | undefined, search, createdFrom, createdTo };
+    const [proposals, total] = await Promise.all([
+      listProposals({ ...filters, limit, offset }),
+      countProposals(filters)
+    ]);
+    return NextResponse.json({ proposals, total, limit, offset });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Beklenmeyen hata." }, { status: 500 });
   }

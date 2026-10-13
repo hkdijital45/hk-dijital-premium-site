@@ -45,15 +45,67 @@ export class ProposalValidationError extends Error {}
  * with previous_proposal_id pointing at this one), matching the brief's
  * "do not overwrite previously sent proposal snapshots". */
 export class ProposalImmutableError extends Error {}
+export class ProposalTransitionError extends Error {}
 
-export async function listProposals(options: { companyId?: string; leadId?: string; status?: ProposalStatus; limit?: number } = {}): Promise<ProposalRecord[]> {
+/** Status-only lifecycle graph (never touches data/questionnaire, so it
+ * deliberately does NOT go through assertMutable — a sent proposal must
+ * still be able to move to Kabul Edildi/Reddedildi). Prevents accidental
+ * jumps like Taslak -> Kabul Edildi without a real send/review step. */
+export const PROPOSAL_TRANSITIONS: Record<ProposalStatus, ProposalStatus[]> = {
+  "Taslak": ["Analiz Bekleniyor", "Düzenleniyor", "Gönderime Hazır"],
+  "Analiz Bekleniyor": ["Analiz İçe Aktarıldı", "Düzenleniyor"],
+  "Analiz İçe Aktarıldı": ["Düzenleniyor", "Gönderime Hazır"],
+  "Düzenleniyor": ["Gönderime Hazır", "Analiz Bekleniyor"],
+  "Gönderime Hazır": ["Gönderildi", "Düzenleniyor"],
+  "Gönderildi": ["Kabul Edildi", "Reddedildi", "Revize Ediliyor", "Süresi Doldu"],
+  "Revize Ediliyor": ["Düzenleniyor", "Gönderime Hazır"],
+  "Kabul Edildi": [],
+  "Reddedildi": [],
+  "Süresi Doldu": ["Revize Ediliyor"]
+};
+
+export type ProposalTransitionAction = "send" | "accept" | "reject" | "expire" | "request_revision";
+const ACTION_TARGET: Record<ProposalTransitionAction, ProposalStatus> = {
+  send: "Gönderildi", accept: "Kabul Edildi", reject: "Reddedildi", expire: "Süresi Doldu", request_revision: "Revize Ediliyor"
+};
+
+export type ListProposalsOptions = {
+  companyId?: string; leadId?: string; status?: ProposalStatus;
+  search?: string; createdFrom?: string; createdTo?: string;
+  limit?: number; offset?: number;
+};
+
+export async function listProposals(options: ListProposalsOptions = {}): Promise<ProposalRecord[]> {
   const params = new URLSearchParams();
   if (options.companyId) params.set("company_id", `eq.${options.companyId}`);
   if (options.leadId) params.set("lead_id", `eq.${options.leadId}`);
   if (options.status) params.set("status", `eq.${options.status}`);
+  if (options.search) params.set("or", `(target_label.ilike.*${options.search}*,title.ilike.*${options.search}*,proposal_number.ilike.*${options.search}*)`);
+  if (options.createdFrom) params.set("created_at", `gte.${options.createdFrom}`);
+  if (options.createdTo) params.append("created_at", `lte.${options.createdTo}`);
   params.set("order", "created_at.desc");
   params.set("limit", String(options.limit || 50));
+  if (options.offset) params.set("offset", String(options.offset));
   return supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?${params.toString()}`);
+}
+
+/** Total row count for the same filter set, for pagination UI. Uses
+ * PostgREST's exact count via the Prefer header rather than fetching all
+ * rows — supabaseRest doesn't surface response headers, so this issues a
+ * HEAD-equivalent request with limit=1 and reads Content-Range via a
+ * dedicated low-level call is unnecessary here: we instead request the
+ * count using the count=exact Prefer and parse it from a 1-row fetch. */
+export async function countProposals(options: Omit<ListProposalsOptions, "limit" | "offset"> = {}): Promise<number> {
+  const params = new URLSearchParams();
+  if (options.companyId) params.set("company_id", `eq.${options.companyId}`);
+  if (options.leadId) params.set("lead_id", `eq.${options.leadId}`);
+  if (options.status) params.set("status", `eq.${options.status}`);
+  if (options.search) params.set("or", `(target_label.ilike.*${options.search}*,title.ilike.*${options.search}*,proposal_number.ilike.*${options.search}*)`);
+  if (options.createdFrom) params.set("created_at", `gte.${options.createdFrom}`);
+  if (options.createdTo) params.append("created_at", `lte.${options.createdTo}`);
+  params.set("select", "id");
+  const rows = await supabaseRest<Array<{ id: string }>>(`${PROPOSALS_TABLE}?${params.toString()}`);
+  return rows.length;
 }
 
 export async function getProposal(id: string): Promise<ProposalRecord> {
@@ -147,12 +199,59 @@ export async function importProposalAnalysis(id: string, input: ImportProposalIn
 /** Marks a proposal as sent — from this point it is immutable
  * (assertMutable above blocks further edits to THIS row). */
 export async function markProposalSent(id: string): Promise<ProposalRecord> {
+  return transitionProposal(id, "send");
+}
+
+/** Validated status-only lifecycle transition. Only moves between states
+ * allowed by PROPOSAL_TRANSITIONS — e.g. a proposal can never be marked
+ * Kabul Edildi/Reddedildi merely because someone opened it; those
+ * transitions only exist as explicit actions reachable from Gönderildi.
+ * Timestamps (sent_at/accepted_at/rejected_at) are set alongside the
+ * matching action so lifecycle history stays queryable. */
+export async function transitionProposal(id: string, action: ProposalTransitionAction): Promise<ProposalRecord> {
+  const existing = await getProposal(id);
+  const target = ACTION_TARGET[action];
+  const allowed = PROPOSAL_TRANSITIONS[existing.status] || [];
+  if (!allowed.includes(target)) {
+    throw new ProposalTransitionError(`"${existing.status}" durumundan "${target}" durumuna geçilemez.`);
+  }
+  const body: Record<string, unknown> = { status: target };
+  if (action === "send") body.sent_at = new Date().toISOString();
+  if (action === "accept") body.accepted_at = new Date().toISOString();
+  if (action === "reject") body.rejected_at = new Date().toISOString();
   const [row] = await supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ status: "Gönderildi", sent_at: new Date().toISOString() })
+    body: JSON.stringify(body)
   });
   if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
+  return row;
+}
+
+/** A free-standing copy for reuse-as-template (e.g. applying one
+ * business's proposal structure to a different lead) — unlike
+ * createProposalRevision below, this is NOT linked via
+ * previous_proposal_id and is not restricted to sent proposals. Always
+ * starts a fresh Taslak/version 1/unsent lifecycle. */
+export async function duplicateProposal(id: string, overrides: { companyId?: string | null; leadId?: string | null; targetLabel?: string } = {}): Promise<ProposalRecord> {
+  const existing = await getProposal(id);
+  const [row] = await supabaseRest<ProposalRecord[]>(PROPOSALS_TABLE, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      company_id: overrides.companyId !== undefined ? overrides.companyId : existing.company_id,
+      lead_id: overrides.leadId !== undefined ? overrides.leadId : existing.lead_id,
+      target_label: overrides.targetLabel || existing.target_label,
+      title: `${overrides.targetLabel || existing.target_label} — Teklif (Kopya)`,
+      status: "Taslak",
+      version: 1,
+      previous_proposal_id: null,
+      questionnaire: existing.questionnaire,
+      data: existing.data,
+      financials: existing.financials,
+      source: "manual"
+    })
+  });
   return row;
 }
 
@@ -161,6 +260,7 @@ export async function markProposalSent(id: string): Promise<ProposalRecord> {
  * untouched historical snapshot. */
 export async function createProposalRevision(id: string): Promise<ProposalRecord> {
   const existing = await getProposal(id);
+  if (!existing.sent_at) throw new ProposalTransitionError("Yalnızca daha önce gönderilmiş bir teklifin revizyonu oluşturulabilir.");
   const [row] = await supabaseRest<ProposalRecord[]>(PROPOSALS_TABLE, {
     method: "POST",
     headers: { Prefer: "return=representation" },

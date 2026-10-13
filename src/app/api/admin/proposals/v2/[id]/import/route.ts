@@ -3,6 +3,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { validateHkProposalV1 } from "@/lib/proposals/schema";
 import { getProposal, importProposalAnalysis, ProposalNotFoundError, ProposalImmutableError } from "@/lib/proposals/store";
+import { notifyProposalReady } from "@/lib/notifications/events";
 
 // Claude Analizini İçe Aktar — validates the pasted/uploaded HK_PROPOSAL_V1
 // JSON BEFORE ever persisting anything (never a partial/unsafe write).
@@ -37,6 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const nameMismatch = Boolean(importedName) && Boolean(targetName) && !importedName.includes(targetName) && !targetName.includes(importedName);
 
     const proposal = await importProposalAnalysis(id, { data: validation.data, claudeImportText: rawText || JSON.stringify(body.json) });
+    notifyProposalReady(proposal).catch(() => {});
     return NextResponse.json({ proposal, warnings: nameMismatch ? [`İçe aktarılan işletme adı ("${importedName}") seçili teklifin hedefiyle ("${existing.target_label}") eşleşmiyor görünüyor — lütfen doğru lead/müşteriyi seçtiğinizi onaylayın.`] : [] });
   } catch (error) {
     if (error instanceof ProposalNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });

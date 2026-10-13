@@ -65,6 +65,14 @@ export function notificationSummary<T extends AttentionNotification>(items: T[],
 // lead follow-ups and today's follow-ups are high; upcoming or routine items
 // stay normal/low, and only a source-reported critical severity is critical.
 export function classifyNotification(id: string, sourcePriority?: unknown): { kind: NotificationKind; priority: NotificationPriority } {
+  // Persisted, push-backed Bildirim Merkezi rows (admin_notifications
+  // table, merged in client-side alongside these locally-derived ones).
+  if (id.startsWith("db-lead-")) return { kind: "lead_new", priority: "high" };
+  if (id.startsWith("db-customer-")) return { kind: "lead", priority: "normal" };
+  if (id.startsWith("db-proposal-")) return { kind: "lead", priority: "normal" };
+  if (id.startsWith("db-campaign-")) return { kind: "operations", priority: "normal" };
+  if (id.startsWith("db-reminder-")) return { kind: "operations", priority: "high" };
+  if (id.startsWith("db-system-")) return { kind: "system", priority: "low" };
   if (id.startsWith("new-lead-")) return { kind: "lead_new", priority: "high" };
   if (id.startsWith("contact-requests-more-")) return { kind: "contact_request", priority: "normal" };
   if (id.startsWith("contact-request-")) return { kind: "contact_request", priority: "high" };
