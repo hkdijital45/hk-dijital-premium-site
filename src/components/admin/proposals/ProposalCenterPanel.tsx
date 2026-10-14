@@ -2,10 +2,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-filter-change pattern, same accepted precedent as ProposalModal.tsx/ManualEvaluationModal.tsx */
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Download, Copy as CopyIcon, GitBranch, Sparkles, Plus, Archive, ArchiveRestore } from "lucide-react";
+import { Search, Download, Copy as CopyIcon, GitBranch, Sparkles, Plus, Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
+import { AdminConfirmDialog } from "@/components/admin/ui/AdminConfirmDialog";
 import { ProposalModal } from "@/components/admin/proposals/ProposalModal";
 
 type ProposalRow = {
@@ -16,12 +17,22 @@ type ProposalRow = {
   status: string;
   version: number;
   created_at: string;
+  updated_at: string;
   valid_until: string | null;
   sent_at: string | null;
   lead_id: string | null;
   company_id: string | null;
   archived_at: string | null;
 };
+
+function formatIstanbul(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const datePart = date.toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul", day: "2-digit", month: "2-digit", year: "numeric" });
+  const timePart = date.toLocaleTimeString("tr-TR", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit" });
+  return `${datePart} • ${timePart}`;
+}
 
 type LeadOption = {
   id: string; name?: string; company?: string; sector?: string; business_type?: string;
@@ -58,6 +69,9 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+  const [sort, setSort] = useState<"newest" | "oldest" | "updated">("newest");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ProposalRow | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +80,7 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
     if (search.trim()) params.set("q", search.trim());
     if (status) params.set("status", status);
     if (showArchived) params.set("includeArchived", "true");
+    params.set("sort", sort);
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(page * PAGE_SIZE));
     fetch(`/api/admin/proposals/v2?${params.toString()}`)
@@ -78,7 +93,7 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
       .catch(() => { if (active) notify?.("Teklifler alınamadı.", "error"); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [search, status, page, showArchived, reloadTick, notify]);
+  }, [search, status, page, showArchived, sort, reloadTick, notify]);
 
   async function archive(row: ProposalRow) {
     setArchivingId(row.id);
@@ -101,6 +116,19 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
       else notify?.(body.error || "Arşivden çıkarılamadı.", "error");
     } finally {
       setArchivingId(null);
+    }
+  }
+
+  async function confirmAndDelete() {
+    if (!confirmDelete) return;
+    setDeletingId(confirmDelete.id);
+    try {
+      const res = await fetch(`/api/admin/proposals/v2/${confirmDelete.id}/delete`, { method: "POST" });
+      const body = await res.json();
+      if (res.ok) { notify?.("Teklif silindi.", "success"); setConfirmDelete(null); setReloadTick((t) => t + 1); }
+      else notify?.(body.error || "Silinemedi.", "error");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -149,27 +177,35 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
         </div>
       )
     },
-    { key: "created_at", header: "Oluşturulma", render: (r) => new Date(r.created_at).toLocaleDateString("tr-TR") },
+    {
+      key: "created_at", header: "Oluşturulma / Güncelleme", render: (r) => (
+        <div className="grid gap-0.5 text-xs">
+          <span style={{ color: "var(--admin-text-primary)" }}>{formatIstanbul(r.created_at)}</span>
+          {r.updated_at && r.updated_at !== r.created_at && <span style={{ color: "var(--admin-text-muted)" }}>Güncelleme: {formatIstanbul(r.updated_at)}</span>}
+        </div>
+      )
+    },
     { key: "valid_until", header: "Geçerlilik", render: (r) => r.valid_until ? new Date(r.valid_until).toLocaleDateString("tr-TR") : "—" },
     {
       key: "actions", header: "İşlemler", align: "right", render: (r) => (
         <div className="flex flex-wrap justify-end gap-1.5">
-          <AdminButton variant="secondary" compact onClick={() => setOpenProposal(r)}>Aç</AdminButton>
+          <AdminButton variant="success" compact icon={<Pencil size={13} />} onClick={() => setOpenProposal(r)}>Düzenle</AdminButton>
+          {r.archived_at ? (
+            <AdminButton variant="secondary" compact icon={<ArchiveRestore size={13} />} loading={archivingId === r.id} onClick={() => unarchive(r)}>Arşivden Çıkar</AdminButton>
+          ) : (
+            <AdminButton variant="warning" compact icon={<Archive size={13} />} loading={archivingId === r.id} onClick={() => archive(r)}>Arşivle</AdminButton>
+          )}
+          <AdminButton variant="danger" compact icon={<Trash2 size={13} />} loading={deletingId === r.id} onClick={() => setConfirmDelete(r)}>Sil</AdminButton>
           <AdminButton variant="secondary" compact icon={<CopyIcon size={13} />} onClick={() => duplicate(r)}>Kopyala</AdminButton>
           {r.status !== "Taslak" && (
             <AdminButton variant="secondary" compact icon={<Download size={13} />} loading={downloadingId === `${r.id}-client-pdf`} onClick={() => exportDoc(r, "client", "pdf")}>PDF</AdminButton>
           )}
           {r.sent_at && <span title="Revizyon geçmişi mevcut"><GitBranch size={14} className="mt-2 text-slate-400" /></span>}
-          {r.archived_at ? (
-            <AdminButton variant="secondary" compact icon={<ArchiveRestore size={13} />} loading={archivingId === r.id} onClick={() => unarchive(r)}>Arşivden Çıkar</AdminButton>
-          ) : (
-            <AdminButton variant="secondary" compact icon={<Archive size={13} />} loading={archivingId === r.id} onClick={() => archive(r)}>Arşivle</AdminButton>
-          )}
         </div>
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [downloadingId, archivingId]);
+  ], [downloadingId, archivingId, deletingId]);
 
   return (
     <section className="grid gap-4">
@@ -191,6 +227,11 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
             <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(0); }} />
             Arşivlenenleri Göster
           </label>
+          <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setPage(0); }} className="rounded-[10px] border p-2 text-sm" style={{ borderColor: "var(--admin-border)" }}>
+            <option value="newest">En Yeni</option>
+            <option value="oldest">En Eski</option>
+            <option value="updated">Son Güncellenen</option>
+          </select>
           <AdminButton variant="secondary" compact icon={<Plus size={13} />} onClick={() => setManualOpen(true)}>Manuel Teklif Oluştur</AdminButton>
           <AdminButton variant="primary" compact icon={<Sparkles size={13} />} onClick={() => setLeadPickerOpen(true)}>Lead&apos;den Otomatik Teklif Oluştur</AdminButton>
         </div>
@@ -258,6 +299,18 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
           onClose={() => { setAutoLead(null); setManualTargetLabel(""); setPage(0); }}
         />
       )}
+
+      <AdminConfirmDialog
+        open={Boolean(confirmDelete)}
+        title="Teklifi Sil"
+        description={confirmDelete ? `"${confirmDelete.target_label}" adlı teklifi silmek istediğinize emin misiniz?` : undefined}
+        confirmLabel="Sil"
+        cancelLabel="Vazgeç"
+        tone="danger"
+        busy={Boolean(deletingId)}
+        onConfirm={confirmAndDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </section>
   );
 }

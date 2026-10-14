@@ -63,6 +63,8 @@ function fixtureProposal(overrides: Partial<ProposalRecord> = {}): ProposalRecor
     updated_at: "2026-10-13T10:00:00.000Z",
     archived_at: null,
     archived_by: null,
+    deleted_at: null,
+    deleted_by: null,
     ...overrides
   };
 }

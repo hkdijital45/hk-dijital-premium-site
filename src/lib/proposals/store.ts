@@ -38,6 +38,8 @@ export type ProposalRecord = {
   updated_at: string;
   archived_at: string | null;
   archived_by: string | null;
+  deleted_at: string | null;
+  deleted_by: string | null;
 };
 
 export class ProposalNotFoundError extends Error {}
@@ -71,6 +73,8 @@ const ACTION_TARGET: Record<ProposalTransitionAction, ProposalStatus> = {
   send: "Gönderildi", accept: "Kabul Edildi", reject: "Reddedildi", expire: "Süresi Doldu", request_revision: "Revize Ediliyor"
 };
 
+export type ProposalSort = "newest" | "oldest" | "updated";
+
 export type ListProposalsOptions = {
   companyId?: string; leadId?: string; status?: ProposalStatus;
   search?: string; createdFrom?: string; createdTo?: string;
@@ -82,6 +86,11 @@ export type ListProposalsOptions = {
    * that lead are archived, instead of reopening an archived draft's old
    * form data. */
   includeArchived?: boolean;
+  sort?: ProposalSort;
+};
+
+const SORT_ORDER: Record<ProposalSort, string> = {
+  newest: "created_at.desc", oldest: "created_at.asc", updated: "updated_at.desc"
 };
 
 function applyProposalFilters(params: URLSearchParams, options: ListProposalsOptions) {
@@ -92,12 +101,15 @@ function applyProposalFilters(params: URLSearchParams, options: ListProposalsOpt
   if (options.createdFrom) params.set("created_at", `gte.${options.createdFrom}`);
   if (options.createdTo) params.append("created_at", `lte.${options.createdTo}`);
   if (!options.includeArchived) params.set("archived_at", "is.null");
+  // Soft-deleted proposals never appear anywhere, even with
+  // includeArchived — SİL is a stronger, separate state than ARŞİVLE.
+  params.set("deleted_at", "is.null");
 }
 
 export async function listProposals(options: ListProposalsOptions = {}): Promise<ProposalRecord[]> {
   const params = new URLSearchParams();
   applyProposalFilters(params, options);
-  params.set("order", "created_at.desc");
+  params.set("order", SORT_ORDER[options.sort || "newest"]);
   params.set("limit", String(options.limit || 50));
   if (options.offset) params.set("offset", String(options.offset));
   return supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?${params.toString()}`);
@@ -138,6 +150,32 @@ export async function unarchiveProposal(id: string): Promise<ProposalRecord> {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ archived_at: null, archived_by: null })
+  });
+  if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
+  return row;
+}
+
+/** Soft delete (SİL) — a stronger, separate state than ARŞİVLE. Never a
+ * real DROP/DELETE statement: the row, and everything referencing it
+ * (e.g. a revision chain's previous_proposal_id), is preserved. Fully
+ * reversible via restoreProposal. Looked up by id directly (not via
+ * listProposals, which always excludes deleted rows) so this still
+ * works even though the row is otherwise invisible. */
+export async function deleteProposal(id: string, deletedBy: string | null): Promise<ProposalRecord> {
+  const [row] = await supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ deleted_at: new Date().toISOString(), deleted_by: deletedBy })
+  });
+  if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
+  return row;
+}
+
+export async function restoreProposal(id: string): Promise<ProposalRecord> {
+  const [row] = await supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ deleted_at: null, deleted_by: null })
   });
   if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
   return row;

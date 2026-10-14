@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
-import { createProposal, listProposals, countProposals, ProposalValidationError, PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals/store";
+import { createProposal, listProposals, countProposals, ProposalValidationError, PROPOSAL_STATUSES, type ProposalStatus, type ProposalSort } from "@/lib/proposals/store";
+
+const VALID_SORTS: ProposalSort[] = ["newest", "oldest", "updated"];
+function isValidSort(value: string): value is ProposalSort {
+  return (VALID_SORTS as readonly string[]).includes(value);
+}
 
 // /v2 — the new persisted Teklif Motoru (proposals table), additive and
 // separate from the existing stateless /api/admin/proposals/pdf route
@@ -24,12 +29,14 @@ export async function GET(request: Request) {
   const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 25, 1), 100);
   const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
   const includeArchived = searchParams.get("includeArchived") === "true";
+  const sortParam = searchParams.get("sort") || "newest";
   if (companyId && !uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçersiz müşteri kimliği." }, { status: 400 });
   if (leadId && !uuidPattern.test(leadId)) return NextResponse.json({ error: "Geçersiz lead kimliği." }, { status: 400 });
   if (status && !isValidStatus(status)) return NextResponse.json({ error: "Geçersiz durum." }, { status: 400 });
+  if (!isValidSort(sortParam)) return NextResponse.json({ error: "Geçersiz sıralama." }, { status: 400 });
 
   try {
-    const filters = { companyId, leadId, status: status as ProposalStatus | undefined, search, createdFrom, createdTo, includeArchived };
+    const filters = { companyId, leadId, status: status as ProposalStatus | undefined, search, createdFrom, createdTo, includeArchived, sort: sortParam };
     const [proposals, total] = await Promise.all([
       listProposals({ ...filters, limit, offset }),
       countProposals(filters)

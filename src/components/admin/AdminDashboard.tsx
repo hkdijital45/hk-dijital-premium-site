@@ -15,6 +15,7 @@ import { ProposalModal } from "@/components/admin/proposals/ProposalModal";
 import { Activity, AlertTriangle, Archive, ArrowDown, ArrowUp, AtSign, BarChart3, Bell, Bot, Building2, CircleCheck, CircleOff, Copy, Database, Download, Eye, EyeOff, Flame, MapPin, Phone, FileBarChart, Gauge, Globe, HelpCircle, ImagePlus, ListChecks, Loader2, LogOut, MapPinned, MessageSquareText, MoreHorizontal, Plus, Save, Search, Send, Settings2, Sparkles, Star, ThumbsDown, ThumbsUp, Trash2, UsersRound, X } from "lucide-react";
 import { NotificationSettingsModal } from "@/components/admin/notifications/NotificationSettingsModal";
 import { ProposalCenterPanel } from "@/components/admin/proposals/ProposalCenterPanel";
+import { TaskCreationModal } from "@/components/admin/tasks/TaskCreationModal";
 import type { SiteContent } from "@/lib/types";
 import { SITE_CONTENT_EDITABLE_FROM_ADMIN_UI } from "@/lib/site-content-allowlist";
 import { ReportTools } from "@/components/admin/reports/ReportTools";
@@ -375,31 +376,62 @@ function useAiProviderChooser() {
 // Compact "···" overflow menu for a notification card's secondary/maintenance
 // actions (read/unread toggle, archive) — same accessible popover pattern as
 // AdEvaluationPanel's ExportMenu (outside-click + Escape to close).
+// Bug fix (2026-10-14): this menu used to be a plain position:absolute
+// child of its own trigger button, inside the notification drawer's own
+// overflow-y-auto scroll container — any card near the bottom edge
+// rendered its menu partially or fully clipped by that scroll container,
+// and a card near the drawer's right edge could render it partially
+// off-viewport. Fixed by portaling the menu to getAdminPortalRoot() (the
+// same escape-the-clipping-ancestor pattern as CenteredLeadModal/
+// CenteredLeadModal-style dialogs elsewhere in this file) and computing
+// its position from the trigger's real getBoundingClientRect(), flipping
+// upward/leftward when there isn't room below/right.
 function NotificationOverflowMenu({ unread, onToggleRead, onArchive }: { unread: boolean; onToggleRead: () => void; onArchive: () => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; openUpward: boolean } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const MENU_WIDTH = 176;
+  const MENU_HEIGHT = 92;
+
+  function openMenu() {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const openUpward = rect.bottom + MENU_HEIGHT > window.innerHeight;
+    const left = Math.min(Math.max(rect.right - MENU_WIDTH, 8), window.innerWidth - MENU_WIDTH - 8);
+    const top = openUpward ? rect.top - MENU_HEIGHT - 4 : rect.bottom + 4;
+    setCoords({ top, left, openUpward });
+    setOpen(true);
+  }
+
   useEffect(() => {
     if (!open) return;
-    function onClick(event: MouseEvent) { if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false); }
+    function onClick(event: MouseEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      if (triggerRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
     function onKey(event: KeyboardEvent) { if (event.key === "Escape") setOpen(false); }
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onClick); document.removeEventListener("keydown", onKey); };
   }, [open]);
+
   return (
-    <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} aria-label="Diğer işlemler" className="grid size-8 shrink-0 place-items-center rounded-[8px] transition hover:bg-[var(--admin-surface-soft)]" style={{ color: "var(--admin-text-muted)" }}>
+    <div className="relative">
+      <button ref={triggerRef} type="button" onClick={() => (open ? setOpen(false) : openMenu())} aria-haspopup="menu" aria-expanded={open} aria-label="Diğer işlemler" className="grid size-8 shrink-0 place-items-center rounded-[8px] transition hover:bg-[var(--admin-surface-soft)]" style={{ color: "var(--admin-text-muted)" }}>
         <MoreHorizontal size={16} />
       </button>
-      {open && (
-        <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-[10px] border shadow-lg" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+      {open && coords && typeof document !== "undefined" && createPortal(
+        <div ref={menuRef} role="menu" className="fixed z-[10000] w-44 overflow-hidden rounded-[10px] border shadow-lg" style={{ top: coords.top, left: coords.left, borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
           <button type="button" role="menuitem" onClick={() => { onToggleRead(); setOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-bold transition hover:bg-[var(--admin-surface-soft)]" style={{ color: "var(--admin-text-primary)" }}>
             {unread ? <Eye size={14} /> : <EyeOff size={14} />} {unread ? "Okundu yap" : "Okunmadı yap"}
           </button>
           <button type="button" role="menuitem" onClick={() => { onArchive(); setOpen(false); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-bold transition hover:bg-[var(--admin-surface-soft)]" style={{ color: "var(--admin-text-primary)" }}>
             <Archive size={14} /> Arşivle
           </button>
-        </div>
+        </div>,
+        getAdminPortalRoot()
       )}
     </div>
   );
@@ -1111,7 +1143,7 @@ export function AdminDashboard({
         <>
           {notificationsOpen && (
             <div className="fixed inset-0 z-[80] flex justify-end bg-black/40" onMouseDown={() => setNotificationsOpen(false)}>
-              <aside role="dialog" aria-modal="true" aria-labelledby="notification-center-title" className="admin-drawer-panel flex h-full w-full max-w-[min(460px,100vw)] flex-col overflow-hidden border-l shadow-2xl" style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }} onMouseDown={(event) => event.stopPropagation()}>
+              <aside role="dialog" aria-modal="true" aria-labelledby="notification-center-title" className="admin-drawer-panel flex h-full w-full max-w-full flex-col overflow-hidden border-l shadow-2xl sm:max-w-[min(680px,48vw)]" style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)", color: "var(--admin-text-primary)" }} onMouseDown={(event) => event.stopPropagation()}>
                 <header className="shrink-0 border-b p-5" style={{ borderColor: "var(--admin-border)" }}>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
@@ -1157,7 +1189,7 @@ export function AdminDashboard({
                       aria-pressed={notificationFilter === key}
                       onClick={() => setNotificationFilter(key)}
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600"
-                      style={notificationFilter === key ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2", boxShadow: "0 4px 10px rgba(8,145,178,.28)" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)", background: "var(--admin-surface)" }}
+                      style={notificationFilter === key ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490", boxShadow: "0 4px 10px rgba(8,145,178,.28)" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)", background: "var(--admin-surface)" }}
                     >
                       {label}<span className="tabular-nums opacity-80">{notificationFilterCounts[key]}</span>
                     </button>
@@ -1203,7 +1235,7 @@ export function AdminDashboard({
                                   {item.appliedAt && <p className="mt-1.5 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Başvuru: {item.appliedAt}</p>}
                                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white transition hover:brightness-110" style={{ background: "#0891b2" }}>{isLead ? "Lead'i Aç" : "İlgili kaydı aç"}</button>
+                                      <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white transition hover:brightness-110" style={{ background: "#0e7490" }}>{isLead ? "Lead'i Aç" : "İlgili kaydı aç"}</button>
                                       <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white transition hover:brightness-110" style={{ background: "#7c3aed" }}>Göreve dönüştür</button>
                                     </div>
                                     <NotificationOverflowMenu unread={unread} onToggleRead={() => (unread ? markNotificationRead(item.id) : markNotificationUnread(item.id))} onArchive={() => archiveNotification(item.id)} />
@@ -1230,7 +1262,7 @@ export function AdminDashboard({
                     <Bell size={15} aria-hidden style={{ color: "var(--admin-text-muted)" }} />
                     {notificationCounts.unread} okunmamış bildirim
                   </span>
-                  <button onClick={() => markAllNotificationsRead(headerNotifications)} disabled={notificationCounts.unread === 0} className="rounded-[8px] px-4 py-2 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "#0891b2" }}>Tümünü Okundu Yap</button>
+                  <button onClick={() => markAllNotificationsRead(headerNotifications)} disabled={notificationCounts.unread === 0} className="rounded-[8px] px-4 py-2 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "#0e7490" }}>Tümünü Okundu Yap</button>
                 </footer>
               </aside>
             </div>
@@ -4009,7 +4041,7 @@ function AgencyCalendarCenter({ content, setActive }: any) {
   );
 }
 
-function AgencyTasksCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "" }: any) {
+function AgencyTasksCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", setActive }: any) {
   const items = content.agencyTasks || [];
   const [statusFilter, setStatusFilter] = useState("Tümü");
   const [companyFilter, setCompanyFilter] = useState("");
@@ -4019,6 +4051,8 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [expandedTask, setExpandedTask] = useState("");
   const [taskView, setTaskView] = useState("Liste");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "customer" | "lead" | "internal">("all");
+  const [creationModalOpen, setCreationModalOpen] = useState(false);
   const [bulkPriority, setBulkPriority] = useState("Yüksek");
   const [bulkAssignee, setBulkAssignee] = useState("");
   const [bulkDueDate, setBulkDueDate] = useState("");
@@ -4029,7 +4063,10 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
   const activeItems = items.filter((item) => !isArchivedRecord(item));
   const companyBranches = (content.customerBranches || []).filter((branch) => !companyFilter || branch.company_id === companyFilter);
-  const filteredItems = filterTasks(items, { status: statusFilter, companyId: companyFilter, branchId: branchFilter, startDate, endDate });
+  const taskSource = (item: any): "customer" | "lead" | "internal" => item.lead_id ? "lead" : item.company_id ? "customer" : "internal";
+  const filteredItems = filterTasks(items, { status: statusFilter, companyId: companyFilter, branchId: branchFilter, startDate, endDate })
+    .filter((item) => sourceFilter === "all" || taskSource(item) === sourceFilter);
+  const leadName = (leadId?: string) => (content.leads || []).find((lead: any) => lead.id === leadId)?.company || (content.leads || []).find((lead: any) => lead.id === leadId)?.name || "";
   const completedWeek = activeItems.filter((item) => item.status === "Tamamlandı" && new Date(item.completed_at || item.updated_at || item.created_at || Date.now()) >= weekStart).length;
   const update = (index, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   const updateById = (id, patch, message = "") => {
@@ -4057,7 +4094,6 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
     }
     notify?.(`✓ Görev durumu ${status} olarak güncellendi`, "success");
   };
-  const add = () => updateCollection(content, setContent, "agencyTasks", [{ id: createLocalId(), title: "Yeni görev", description: "", status: "Yapılacak", priority: "Orta", due_date: today, notes: "", company_id: companyFilter, branch_id: branchFilter, visible_to_customer: false, show_to_customer: false }, ...items]);
   const deleteTask = (id) => {
     if (!confirmRecordAction("Bu görevi silmek istediğinize emin misiniz? Kayıt güvenli şekilde silinmiş olarak işaretlenecek.")) return;
     updateCollection(content, setContent, "agencyTasks", items.map((item) => item.id === id ? softDeleteRecord(item) : item));
@@ -4105,7 +4141,23 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
   const selectedTask = expandedTask ? items.find((item) => (item.id || `${items.indexOf(item)}`) === expandedTask) : null;
   const selectedTaskIndex = selectedTask ? items.findIndex((candidate) => candidate.id === selectedTask.id) : -1;
   const taskGridColumns: AdminDataGridColumn<any>[] = [
-    { key: "title", header: "Başlık", render: (item: any) => <div className="min-w-0"><strong className="block truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{item.title || "Adsız görev"}</strong><span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ""}</span></div> },
+    {
+      key: "title", header: "Başlık", render: (item: any) => {
+        const src = taskSource(item);
+        const srcLabel = src === "lead" ? "POTANSİYEL MÜŞTERİ" : src === "customer" ? "MÜŞTERİ" : "DAHİLİ GÖREV";
+        const srcStyle = src === "lead" ? { background: "#7c3aed1A", color: "#6d28d9" } : src === "customer" ? { background: "#0e749014", color: "#0e7490" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-muted)" };
+        const entityLabel = src === "lead" ? leadName(item.lead_id) : src === "customer" ? companyName(content, item.company_id) : "HK Dijital";
+        return (
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <strong className="truncate" style={{ color: "var(--admin-text, var(--admin-text-primary))" }}>{item.title || "Adsız görev"}</strong>
+              <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[.04em]" style={srcStyle}>{srcLabel}</span>
+            </div>
+            <span className="block truncate text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{entityLabel}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ""}</span>
+          </div>
+        );
+      }
+    },
     { key: "due", header: "Son Tarih", render: (item: any) => formatDate(item.due_date) },
     { key: "status", header: "Durum", render: (item: any) => <AdminStatusBadge tone={item.status === "Tamamlandı" ? "success" : item.status === "İptal" ? "neutral" : "info"}>{item.status || "Yapılacak"}</AdminStatusBadge> },
     { key: "priority", header: "Öncelik", render: (item: any) => <AdminStatusBadge tone={item.priority === "Kritik" ? "danger" : item.priority === "Yüksek" ? "warning" : "neutral"}>{item.priority || "Orta"}</AdminStatusBadge> },
@@ -4120,7 +4172,7 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
         title="Görevler"
         description="Ajans içi yapılacak işler ve müşteri görünür görevler."
         headerActions={<>
-          {canManage && <AdminButton compact variant="primary" onClick={add}>+ Yeni Görev</AdminButton>}
+          {canManage && <AdminButton compact variant="primary" onClick={() => setCreationModalOpen(true)}>+ Yeni Görev</AdminButton>}
           <div className="flex flex-wrap gap-1">
             {["Liste", "Kanban", "Takvim", "Müşteri bazlı"].map((view) => <AdminButton key={view} compact variant={taskView === view ? "info" : "secondary"} onClick={() => setTaskView(view)}>{view}</AdminButton>)}
           </div>
@@ -4135,14 +4187,21 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
                 <AdminStatusBadge tone="success">Bu hafta tamam: {completedWeek}</AdminStatusBadge>
               </div>
             </AdminFilterSection>
+            <AdminFilterSection title="Görev Kaynağı">
+              <div className="flex flex-wrap gap-1.5">
+                {([["all", "Tüm Görevler"], ["customer", "Müşteri Görevleri"], ["lead", "Lead Görevleri"], ["internal", "Dahili Görevler"]] as const).map(([value, label]) => (
+                  <button key={value} onClick={() => { setSourceFilter(value); if (value !== "customer") { setCompanyFilter(""); setBranchFilter(""); } }} className="rounded-full border px-3 py-1.5 text-xs font-black" style={sourceFilter === value ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>{label}</button>
+                ))}
+              </div>
+            </AdminFilterSection>
             <AdminFilterSection title="Filtreler">
               <div className="grid gap-2">
                 <SelectField label="Durum" value={statusFilter} onChange={setStatusFilter} options={taskHistoryFilters} />
-                <CompanySelect value={companyFilter} onChange={(value) => { setCompanyFilter(value); setBranchFilter(""); }} companies={content.companies} />
-                <SelectField label="Şube" value={branchFilter} onChange={setBranchFilter} options={companyBranches.map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder={companyFilter ? "Tüm şubeler" : "Önce müşteri seçin"} />
+                {sourceFilter !== "lead" && <CompanySelect value={companyFilter} onChange={(value) => { setCompanyFilter(value); setBranchFilter(""); }} companies={content.companies} />}
+                {sourceFilter !== "lead" && <SelectField label="Şube" value={branchFilter} onChange={setBranchFilter} options={companyBranches.map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder={companyFilter ? "Tüm şubeler" : "Önce müşteri seçin"} />}
                 <Field label="Başlangıç tarihi" type="date" value={startDate} onChange={setStartDate} />
                 <Field label="Bitiş tarihi" type="date" value={endDate} onChange={setEndDate} />
-                <AdminButton compact variant="secondary" onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setBranchFilter(""); setStartDate(""); setEndDate(""); setSelectedTasks([]); }}>Filtreleri Temizle</AdminButton>
+                <AdminButton compact variant="secondary" onClick={() => { setStatusFilter("Tümü"); setCompanyFilter(""); setBranchFilter(""); setStartDate(""); setEndDate(""); setSourceFilter("all"); setSelectedTasks([]); }}>Filtreleri Temizle</AdminButton>
               </div>
             </AdminFilterSection>
             {selectedTasks.length > 0 && (
@@ -4164,10 +4223,11 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
         rightPanel={
           <AdminDetailInspector
             title={selectedTask?.title || undefined}
-            subtitle={selectedTask ? `${companyName(content, selectedTask.company_id)}${selectedTask.branch_id ? ` · ${branchName(selectedTask.branch_id)}` : ""}` : undefined}
+            subtitle={selectedTask ? (selectedTask.lead_id ? `Lead: ${leadName(selectedTask.lead_id) || "—"}` : `${companyName(content, selectedTask.company_id)}${selectedTask.branch_id ? ` · ${branchName(selectedTask.branch_id)}` : ""}`) : undefined}
             emptyTitle="Bir görev seçin"
             emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
             actions={selectedTask ? <>
+              {selectedTask.lead_id && <AdminButton compact variant="info" onClick={() => setActive?.("CRM")}>Lead&apos;i Aç</AdminButton>}
               {canManage && <AdminButton compact variant="success" onClick={() => setStatus(selectedTask.id, selectedTask.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")}>{selectedTask.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</AdminButton>}
               {canManage && (isArchivedRecord(selectedTask) ? <AdminButton compact variant="info" onClick={() => updateById(selectedTask.id, { archived_at: null, deleted_at: null }, "Görev arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updateById(selectedTask.id, { archived_at: new Date().toISOString() }, "Görev arşivlendi")}>Arşivle</AdminButton>)}
               {canManage && <AdminButton compact variant="danger" onClick={() => deleteTask(selectedTask.id)}>Sil</AdminButton>}
@@ -4224,6 +4284,17 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
         {taskView === "Takvim" && <div className="grid gap-2">{filteredItems.slice().sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || ""))).map((item) => <div key={item.id || item.title} className="grid gap-3 rounded-[8px] border p-3 md:grid-cols-[130px_1fr_auto] md:items-center" style={{ borderColor: "var(--admin-border)" }}><span className="rounded-full bg-[var(--admin-surface)] px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{formatDate(item.due_date)}</span><span><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)} · {item.status || "Yapılacak"}</span></span><AdminButton compact variant="info" onClick={() => setExpandedTask(item.id || item.title)}>Görüntüle</AdminButton></div>)}</div>}
         {taskView === "Müşteri bazlı" && <div className="grid gap-3 md:grid-cols-2">{(content.companies || []).filter((company) => filteredItems.some((item) => item.company_id === company.id)).map((company) => <div key={company.id} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.company_id === company.id).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2 text-left text-xs" style={{ color: "var(--admin-text-secondary)" }}><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>}
       </AdminWorkspace>
+      {creationModalOpen && (
+        <TaskCreationModal
+          companies={content.companies || []}
+          leads={content.leads || []}
+          users={content.users || []}
+          defaultCompanyId={companyFilter || undefined}
+          notify={notify}
+          onClose={() => setCreationModalOpen(false)}
+          onCreated={(created) => updateCollection(content, setContent, "agencyTasks", [...created, ...items])}
+        />
+      )}
     </div>
   );
 }
