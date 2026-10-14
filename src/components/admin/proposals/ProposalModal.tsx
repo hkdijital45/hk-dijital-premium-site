@@ -9,6 +9,7 @@ import { calculateProposalFinancials, type AdPlatformBudget } from "@/lib/propos
 import { buildProposalClaudePrompt, type ProposalQuestionnaire, type PromptFindingsContext } from "@/lib/proposals/prompt";
 import type { ProposalCompetitor, HkProposalV1 } from "@/lib/proposals/schema";
 import { isValidHttpUrl } from "@/lib/proposals/competitors";
+import { forceTextColor } from "@/lib/admin-style";
 
 type AggregateContext = {
   completeness: { lead: boolean; preAudit: boolean; instagram: boolean; adEvaluation: boolean; competitors: boolean; budget: boolean };
@@ -381,7 +382,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
 
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b px-5 py-2.5" style={{ borderColor: "var(--admin-border)" }}>
           {STEPS.map((label, i) => (
-            <button key={label} onClick={() => setStep(i)} className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-black" style={step === i ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2" } : fieldStyle}>
+            <button key={label} onClick={() => setStep(i)} className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-black" style={forceTextColor(step === i ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>
               {i + 1}. {label}
             </button>
           ))}
@@ -409,7 +410,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                       ["Rakip Verisi", aggregateContext.completeness.competitors],
                       ["Bütçe Bilgisi", aggregateContext.completeness.budget]
                     ] as const).map(([label, ok]) => (
-                      <span key={label} className="rounded-full px-2.5 py-1 text-[11px] font-black" style={ok ? { background: "#dcfce7", color: "#166534" } : { background: "#fef2f2", color: "#991b1b" }}>{ok ? "✓" : "—"} {label}</span>
+                      <span key={label} className="rounded-full px-2.5 py-1 text-[11px] font-black" style={forceTextColor(ok ? { background: "#dcfce7", color: "#166534" } : { background: "#fef2f2", color: "#991b1b" })}>{ok ? "✓" : "—"} {label}</span>
                     ))}
                   </div>
                   {aggregateContext.notes.length > 0 && (
@@ -450,7 +451,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                   <legend className="mb-2 text-sm font-black">2. İşletme Hedefleri</legend>
                   <div className="flex flex-wrap gap-2">
                     {OBJECTIVE_OPTIONS.map((o) => (
-                      <button key={o} type="button" onClick={() => toggleObjective(o)} className="rounded-full border px-3 py-1.5 text-xs font-black" style={questionnaire.objectives?.includes(o) ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2" } : fieldStyle}>{o}</button>
+                      <button key={o} type="button" onClick={() => toggleObjective(o)} className="rounded-full border px-3 py-1.5 text-xs font-black" style={forceTextColor(questionnaire.objectives?.includes(o) ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>{o}</button>
                     ))}
                   </div>
                 </fieldset>
@@ -461,7 +462,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                   <legend className="mb-2 text-sm font-black">3. Platform Stratejisi</legend>
                   <div className="flex flex-wrap gap-2">
                     {PLATFORM_OPTIONS.map((p) => (
-                      <button key={p} type="button" onClick={() => togglePlatform(p)} className="rounded-full border px-3 py-1.5 text-xs font-black" style={questionnaire.platforms?.includes(p) ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2" } : fieldStyle}>{p}</button>
+                      <button key={p} type="button" onClick={() => togglePlatform(p)} className="rounded-full border px-3 py-1.5 text-xs font-black" style={forceTextColor(questionnaire.platforms?.includes(p) ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>{p}</button>
                     ))}
                   </div>
                 </fieldset>
@@ -588,7 +589,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                               {opt.monthlyAdBudget != null && `Reklam: ${Number(opt.monthlyAdBudget).toLocaleString("tr-TR")} TL/ay · `}
                               {opt.monthlyServiceFeeExclVat != null && `Hizmet: ${Number(opt.monthlyServiceFeeExclVat).toLocaleString("tr-TR")} TL/ay (KDV hariç)`}
                             </p>
-                            <button onClick={() => applySuggestedPackage(opt)} className="mt-2 rounded-full px-3 py-1 text-xs font-black text-white" style={{ background: "#0891b2" }}>Bu Seçeneği Uygula (Düzenlenebilir)</button>
+                            <button onClick={() => applySuggestedPackage(opt)} className="mt-2 rounded-full px-3 py-1 text-xs font-black" style={forceTextColor({ background: "#0e7490", color: "#fff" })}>Bu Seçeneği Uygula (Düzenlenebilir)</button>
                           </div>
                         ))}
                       </div>

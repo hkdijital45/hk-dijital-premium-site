@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { TASK_TEMPLATE_CATEGORIES, findTemplate } from "@/lib/tasks/templates";
+import { forceTextColor as forceStyle } from "@/lib/admin-style";
 
 function getAdminPortalRoot(): Element {
   return document.querySelector(".hk-admin") || document.body;
@@ -139,8 +140,8 @@ export function TaskCreationModal({
             <button onClick={onClose} aria-label="Kapat" className="grid size-10 shrink-0 place-items-center rounded-full border" style={fieldStyle}><X size={16} /></button>
           </div>
           <div className="mt-4 flex gap-2">
-            <button onClick={() => setMode("single")} className="rounded-full border px-4 py-2 text-sm font-black" style={mode === "single" ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle}>Tek Görev</button>
-            <button onClick={() => setMode("bulk")} className="rounded-full border px-4 py-2 text-sm font-black" style={mode === "bulk" ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle}>Toplu Görev Ekle</button>
+            <button onClick={() => setMode("single")} className="rounded-full border px-4 py-2 text-sm font-black" style={forceStyle(mode === "single" ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>Tek Görev</button>
+            <button onClick={() => setMode("bulk")} className="rounded-full border px-4 py-2 text-sm font-black" style={forceStyle(mode === "bulk" ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>Toplu Görev Ekle</button>
           </div>
         </div>
 
@@ -149,7 +150,7 @@ export function TaskCreationModal({
             <legend className="px-1 text-sm font-black">Görev Türü</legend>
             <div className="flex flex-wrap gap-2">
               {([["customer", "Müşteri"], ["lead", "Potansiyel Müşteri"], ["internal", "Dahili"]] as const).map(([value, label]) => (
-                <button key={value} onClick={() => setEntityType(value)} className="rounded-full border px-3.5 py-1.5 text-xs font-black" style={entityType === value ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2" } : fieldStyle}>{label}</button>
+                <button key={value} onClick={() => setEntityType(value)} className="rounded-full border px-3.5 py-1.5 text-xs font-black" style={forceStyle(entityType === value ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : fieldStyle)}>{label}</button>
               ))}
             </div>
 
@@ -219,7 +220,7 @@ export function TaskCreationModal({
               <div className="mb-2 flex items-center justify-between">
                 <legend className="text-sm font-black">Görev Şablonları</legend>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-black" style={{ color: "#0e7490" }}>{selectedTemplateIds.length} görev seçildi</span>
+                  <span className="text-xs font-black" style={forceStyle({ color: "#0e7490" })}>{selectedTemplateIds.length} görev seçildi</span>
                   <button onClick={() => setSelectedTemplateIds([])} className="text-xs font-bold underline" style={mutedStyle}>Seçimi Temizle</button>
                 </div>
               </div>
@@ -236,7 +237,7 @@ export function TaskCreationModal({
                       {open && (
                         <div className="border-t p-3" style={fieldStyle}>
                           <div className="mb-2 flex gap-2">
-                            <button onClick={() => toggleCategoryAll(cat.id, true)} className="text-xs font-bold underline" style={{ color: "#0e7490" }}>Tümünü Seç</button>
+                            <button onClick={() => toggleCategoryAll(cat.id, true)} className="text-xs font-bold underline" style={forceStyle({ color: "#0e7490" })}>Tümünü Seç</button>
                             <button onClick={() => toggleCategoryAll(cat.id, false)} className="text-xs font-bold underline" style={mutedStyle}>Kategoriyi Temizle</button>
                           </div>
                           <div className="grid gap-1.5 sm:grid-cols-2">

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bell, BellOff, X, Smartphone, CircleCheck, CircleAlert } from "lucide-react";
 import { getPushSupportState, isStandalone, getPermission, enablePushNotifications, disablePushNotifications, getActiveSubscriptionEndpoint } from "@/lib/notifications/client";
+import { forceTextColor } from "@/lib/admin-style";
 
 function getAdminPortalRoot(): Element {
   return document.querySelector(".hk-admin") || document.body;
@@ -131,7 +132,7 @@ export function NotificationSettingsModal({ onClose }: { onClose: () => void }) 
                   <BellOff size={13} className="mr-1 inline" /> Devre Dışı Bırak
                 </button>
               ) : (
-                <button disabled={busy || permission === "denied"} onClick={handleEnable} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white" style={{ background: "#0891b2" }}>
+                <button disabled={busy || permission === "denied"} onClick={handleEnable} className="rounded-[8px] px-3 py-1.5 text-xs font-black" style={forceTextColor({ background: "#0e7490", color: "#fff" })}>
                   Bildirimleri Etkinleştir
                 </button>
               )}

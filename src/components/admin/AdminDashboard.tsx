@@ -412,9 +412,21 @@ function NotificationOverflowMenu({ unread, onToggleRead, onArchive }: { unread:
       setOpen(false);
     }
     function onKey(event: KeyboardEvent) { if (event.key === "Escape") setOpen(false); }
+    // Closes rather than tries to live-track position on scroll — the
+    // menu is position:fixed (viewport-relative) so it would otherwise
+    // visibly detach from its trigger the instant the drawer's own
+    // notification list scrolls underneath it.
+    function onScroll() { setOpen(false); }
     document.addEventListener("mousedown", onClick);
     document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onClick); document.removeEventListener("keydown", onKey); };
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [open]);
 
   return (
@@ -578,6 +590,7 @@ export function AdminDashboard({
   const [preAuditInitialTab, setPreAuditInitialTab] = useState("");
   const [preAuditInitialLeadId, setPreAuditInitialLeadId] = useState("");
   const [adInsightsInitialLeadId, setAdInsightsInitialLeadId] = useState("");
+  const [crmInitialLeadId, setCrmInitialLeadId] = useState("");
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState("idle");
@@ -881,6 +894,8 @@ export function AdminDashboard({
       tone: row.category === "system" ? "emerald" : row.category === "campaign" ? "amber" : "cyan",
       target: "",
       href: row.deep_link || "",
+      relatedType: row.related_type || "",
+      relatedId: row.related_id || "",
       time: formatReportTimestamp(row.created_at),
       isDbNotification: true,
       ...classifyNotification(id)
@@ -908,7 +923,7 @@ export function AdminDashboard({
     if (items.some((item) => item.id.startsWith("db-"))) fetch("/api/admin/notifications/mark-all-read", { method: "POST" }).catch(() => {});
   }
 
-  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId };
+  const props = { content, setContent, currentSession, allowedModules, setActive, save, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, crmInitialLeadId, setCrmInitialLeadId };
   const accountingAliases = ["Muhasebe Merkezi", "Tahsilat", "Tahsilatlar", "Bekleyen Ödemeler", "Gelir / Gider", "Gelir Gider", "Gelir Tahmini", "Karlılık", "Kârlılık", "Müşteri Finans Özeti", "Export", "Muhasebe Raporları"];
   const visibleNavigationGroups = adminNavigationGroups
     .filter((group) => group.label !== "Finans" || canViewAccounting(currentSession))
@@ -1165,10 +1180,10 @@ export function AdminDashboard({
                     <div className="rounded-[12px] border p-3" style={{ borderColor: "#fecdd3", background: "#fff1f2" }}>
                       <div className="flex items-center gap-2">
                         <AlertTriangle size={15} style={{ color: "#b42318" }} aria-hidden />
-                        <span className="text-[11px] font-black uppercase tracking-[.06em]" style={{ color: "#b42318" }}>Öncelikli</span>
+                        <span className="text-[11px] font-black uppercase tracking-[.06em]" style={{ color: "#b42318" }}>Öncelikli (Okunmamış)</span>
                       </div>
                       <p className="mt-1.5 text-2xl font-black leading-none" style={{ color: "#9f1239" }}>{notificationCounts.highPriorityUnread}</p>
-                      <p className="mt-1 text-xs font-bold" style={{ color: "#b42318" }}>Öncelikli bildirim</p>
+                      <p className="mt-1 text-xs font-bold" style={{ color: "#b42318" }}>Okunmamış öncelikli bildirim — alttaki &quot;Öncelikli&quot; filtresi, okunmuş dahil tüm kayıtları sayar.</p>
                     </div>
                     <div className="rounded-[12px] border p-3" style={{ borderColor: "#bae6fd", background: "#eff8ff" }}>
                       <div className="flex items-center gap-2">
@@ -1189,7 +1204,7 @@ export function AdminDashboard({
                       aria-pressed={notificationFilter === key}
                       onClick={() => setNotificationFilter(key)}
                       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-600"
-                      style={notificationFilter === key ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490", boxShadow: "0 4px 10px rgba(8,145,178,.28)" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)", background: "var(--admin-surface)" }}
+                      style={(notificationFilter === key ? { background: "#0e7490", color: "#fff", "--hk-force-text-color": "#fff", borderColor: "#0e7490", boxShadow: "0 4px 10px rgba(8,145,178,.28)" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)", "--hk-force-text-color": "var(--admin-text-secondary)", background: "var(--admin-surface)" }) as unknown as CSSProperties}
                     >
                       {label}<span className="tabular-nums opacity-80">{notificationFilterCounts[key]}</span>
                     </button>
@@ -1235,8 +1250,8 @@ export function AdminDashboard({
                                   {item.appliedAt && <p className="mt-1.5 text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>Başvuru: {item.appliedAt}</p>}
                                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <button onClick={() => { if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white transition hover:brightness-110" style={{ background: "#0e7490" }}>{isLead ? "Lead'i Aç" : "İlgili kaydı aç"}</button>
-                                      <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black text-white transition hover:brightness-110" style={{ background: "#7c3aed" }}>Göreve dönüştür</button>
+                                      <button onClick={() => { if (item.relatedType === "lead" && item.relatedId) { setCrmInitialLeadId(item.relatedId); setActive("Lead Merkezi"); } else if (item.href) window.location.assign(item.href); else setActive(item.target || "Dashboard"); markNotificationRead(item.id); setNotificationsOpen(false); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black transition hover:brightness-110" style={{ background: "#0e7490", color: "#fff", "--hk-force-text-color": "#fff" } as CSSProperties}>{isLead ? "Lead'i Aç" : "İlgili kaydı aç"}</button>
+                                      <button onClick={() => { setActive("Görevler"); markNotificationRead(item.id); setNotificationsOpen(false); notify?.("Bildirim görev taslağına dönüştürülecek bağlamla açıldı.", "success"); }} className="rounded-[8px] px-3 py-1.5 text-xs font-black transition hover:brightness-110" style={{ background: "#6d28d9", color: "#fff", "--hk-force-text-color": "#fff" } as CSSProperties}>Göreve dönüştür</button>
                                     </div>
                                     <NotificationOverflowMenu unread={unread} onToggleRead={() => (unread ? markNotificationRead(item.id) : markNotificationUnread(item.id))} onArchive={() => archiveNotification(item.id)} />
                                   </div>
@@ -1262,7 +1277,7 @@ export function AdminDashboard({
                     <Bell size={15} aria-hidden style={{ color: "var(--admin-text-muted)" }} />
                     {notificationCounts.unread} okunmamış bildirim
                   </span>
-                  <button onClick={() => markAllNotificationsRead(headerNotifications)} disabled={notificationCounts.unread === 0} className="rounded-[8px] px-4 py-2 text-sm font-black text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "#0e7490" }}>Tümünü Okundu Yap</button>
+                  <button onClick={() => markAllNotificationsRead(headerNotifications)} disabled={notificationCounts.unread === 0} title={notificationCounts.unread === 0 ? "Okunmamış bildirim yok" : undefined} className="rounded-[8px] px-4 py-2 text-sm font-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" style={{ background: "#0e7490", color: "#fff", "--hk-force-text-color": "#fff" } as CSSProperties}>Tümünü Okundu Yap</button>
                 </footer>
               </aside>
             </div>
@@ -4041,7 +4056,7 @@ function AgencyCalendarCenter({ content, setActive }: any) {
   );
 }
 
-function AgencyTasksCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", setActive }: any) {
+function AgencyTasksCenter({ content, setContent, save, currentSession, notify, selectedCompanyId = "", setActive, setCrmInitialLeadId }: any) {
   const items = content.agencyTasks || [];
   const [statusFilter, setStatusFilter] = useState("Tümü");
   const [companyFilter, setCompanyFilter] = useState("");
@@ -4063,10 +4078,20 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
   const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - 7);
   const activeItems = items.filter((item) => !isArchivedRecord(item));
   const companyBranches = (content.customerBranches || []).filter((branch) => !companyFilter || branch.company_id === companyFilter);
-  const taskSource = (item: any): "customer" | "lead" | "internal" => item.lead_id ? "lead" : item.company_id ? "customer" : "internal";
+  // Real bug found by inspecting production data (MY CAKE 45): a task
+  // created around a lead's conversion moment can carry BOTH company_id
+  // AND lead_id (the lead row persists after conversion, gaining a
+  // company_id, and tasks created in that window were stamped with both
+  // for traceability). company_id must win — it means a real, current
+  // customer relationship exists, which is the stronger and more
+  // current signal than a lead_id left over from before conversion.
+  // This, not duplicate records or an incomplete conversion, is why some
+  // MY CAKE 45 tasks showed "POTANSİYEL MÜŞTERİ" instead of "MÜŞTERİ".
+  const taskSource = (item: any): "customer" | "lead" | "internal" => item.company_id ? "customer" : item.lead_id ? "lead" : "internal";
   const filteredItems = filterTasks(items, { status: statusFilter, companyId: companyFilter, branchId: branchFilter, startDate, endDate })
     .filter((item) => sourceFilter === "all" || taskSource(item) === sourceFilter);
   const leadName = (leadId?: string) => (content.leads || []).find((lead: any) => lead.id === leadId)?.company || (content.leads || []).find((lead: any) => lead.id === leadId)?.name || "";
+  const taskEntityLabel = (item: any) => { const src = taskSource(item); return src === "lead" ? leadName(item.lead_id) : src === "customer" ? companyName(content, item.company_id) : "HK Dijital (Dahili)"; };
   const completedWeek = activeItems.filter((item) => item.status === "Tamamlandı" && new Date(item.completed_at || item.updated_at || item.created_at || Date.now()) >= weekStart).length;
   const update = (index, patch) => updateCollection(content, setContent, "agencyTasks", items.map((item, i) => i === index ? { ...item, ...patch } : item));
   const updateById = (id, patch, message = "") => {
@@ -4145,7 +4170,7 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
       key: "title", header: "Başlık", render: (item: any) => {
         const src = taskSource(item);
         const srcLabel = src === "lead" ? "POTANSİYEL MÜŞTERİ" : src === "customer" ? "MÜŞTERİ" : "DAHİLİ GÖREV";
-        const srcStyle = src === "lead" ? { background: "#7c3aed1A", color: "#6d28d9" } : src === "customer" ? { background: "#0e749014", color: "#0e7490" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-muted)" };
+        const srcStyle = (src === "lead" ? { background: "#7c3aed1A", color: "#6d28d9", "--hk-force-text-color": "#6d28d9" } : src === "customer" ? { background: "#0e749014", color: "#0e7490", "--hk-force-text-color": "#0e7490" } : { background: "var(--admin-surface-soft)", color: "var(--admin-text-muted)", "--hk-force-text-color": "var(--admin-text-muted)" }) as unknown as CSSProperties;
         const entityLabel = src === "lead" ? leadName(item.lead_id) : src === "customer" ? companyName(content, item.company_id) : "HK Dijital";
         return (
           <div className="min-w-0">
@@ -4190,7 +4215,7 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
             <AdminFilterSection title="Görev Kaynağı">
               <div className="flex flex-wrap gap-1.5">
                 {([["all", "Tüm Görevler"], ["customer", "Müşteri Görevleri"], ["lead", "Lead Görevleri"], ["internal", "Dahili Görevler"]] as const).map(([value, label]) => (
-                  <button key={value} onClick={() => { setSourceFilter(value); if (value !== "customer") { setCompanyFilter(""); setBranchFilter(""); } }} className="rounded-full border px-3 py-1.5 text-xs font-black" style={sourceFilter === value ? { background: "#0e7490", color: "#fff", borderColor: "#0e7490" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>{label}</button>
+                  <button key={value} onClick={() => { setSourceFilter(value); if (value !== "customer") { setCompanyFilter(""); setBranchFilter(""); } }} className="rounded-full border px-3 py-1.5 text-xs font-black" style={(sourceFilter === value ? { background: "#0e7490", color: "#fff", "--hk-force-text-color": "#fff", borderColor: "#0e7490" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)", "--hk-force-text-color": "var(--admin-text-secondary)" }) as unknown as CSSProperties}>{label}</button>
                 ))}
               </div>
             </AdminFilterSection>
@@ -4227,7 +4252,7 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
             emptyTitle="Bir görev seçin"
             emptyDescription="Listeden bir satıra tıklayarak detaylarını buradan düzenleyin."
             actions={selectedTask ? <>
-              {selectedTask.lead_id && <AdminButton compact variant="info" onClick={() => setActive?.("CRM")}>Lead&apos;i Aç</AdminButton>}
+              {selectedTask.lead_id && <AdminButton compact variant="info" onClick={() => { setCrmInitialLeadId?.(selectedTask.lead_id); setActive?.("Lead Merkezi"); }}>Lead&apos;i Aç</AdminButton>}
               {canManage && <AdminButton compact variant="success" onClick={() => setStatus(selectedTask.id, selectedTask.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı")}>{selectedTask.status === "Tamamlandı" ? "Tekrar Aç" : "Tamamlandı Yap"}</AdminButton>}
               {canManage && (isArchivedRecord(selectedTask) ? <AdminButton compact variant="info" onClick={() => updateById(selectedTask.id, { archived_at: null, deleted_at: null }, "Görev arşivden çıkarıldı")}>Arşivden Çıkar</AdminButton> : <AdminButton compact variant="warning" onClick={() => updateById(selectedTask.id, { archived_at: new Date().toISOString() }, "Görev arşivlendi")}>Arşivle</AdminButton>)}
               {canManage && <AdminButton compact variant="danger" onClick={() => deleteTask(selectedTask.id)}>Sil</AdminButton>}
@@ -4237,15 +4262,33 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
             {selectedTask && (
               <div className="grid gap-2">
                 <Field label="Başlık" value={selectedTask.title || ""} onChange={(value) => update(selectedTaskIndex, { title: value })} />
-                <CompanySelect value={selectedTask.company_id || ""} onChange={(value) => update(selectedTaskIndex, { company_id: value, branch_id: "" })} companies={content.companies} />
-                <SelectField label="Şube" value={selectedTask.branch_id || ""} onChange={(value) => update(selectedTaskIndex, { branch_id: value })} options={(content.customerBranches || []).filter((branch) => branch.company_id === selectedTask.company_id).map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" />
+                {/* Entity fields adapt to the task's real source — an
+                    internal (no company_id/lead_id) task never shows
+                    company/branch selectors it has no use for, and a
+                    lead task shows a read-only reference (the real
+                    owner change happens via conversion, not here) rather
+                    than a misleading customer picker. */}
+                {taskSource(selectedTask) === "customer" && (
+                  <>
+                    <CompanySelect value={selectedTask.company_id || ""} onChange={(value) => update(selectedTaskIndex, { company_id: value, branch_id: "" })} companies={content.companies} />
+                    <SelectField label="Şube" value={selectedTask.branch_id || ""} onChange={(value) => update(selectedTaskIndex, { branch_id: value })} options={(content.customerBranches || []).filter((branch) => branch.company_id === selectedTask.company_id).map((branch) => ({ value: branch.id, label: branch.branch_name }))} placeholder="Tüm şubeler" />
+                  </>
+                )}
+                {taskSource(selectedTask) === "lead" && (
+                  <div className="rounded-[8px] border p-2.5 text-xs font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>Lead: {leadName(selectedTask.lead_id) || "—"}</div>
+                )}
+                {taskSource(selectedTask) === "internal" && (
+                  <div className="rounded-[8px] border p-2.5 text-xs font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>Dahili ajans görevi</div>
+                )}
                 <SelectField label="Durum" value={selectedTask.status || "Yapılacak"} onChange={(value) => canManage && setStatus(selectedTask.id, value)} options={taskStatusOptions} />
                 <SelectField label="Öncelik" value={selectedTask.priority || "Orta"} onChange={(value) => update(selectedTaskIndex, { priority: value })} options={["Düşük", "Orta", "Yüksek", "Kritik"]} />
                 <Field label="Son tarih" type="date" value={selectedTask.due_date || ""} onChange={(value) => update(selectedTaskIndex, { due_date: value })} />
                 <SelectField label="Atanan kullanıcı" value={selectedTask.assigned_user_id || ""} onChange={(value) => update(selectedTaskIndex, { assigned_user_id: value })} options={(content.users || []).map((user) => ({ value: user.id, label: user.full_name || user.email }))} placeholder="Atanmadı" />
-                <label className="flex items-center gap-2 rounded-[8px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-2 text-xs font-bold text-cyan-800">
-                  <input type="checkbox" checked={Boolean(selectedTask.visible_to_customer || selectedTask.show_to_customer)} onChange={(event) => update(selectedTaskIndex, { visible_to_customer: event.target.checked, show_to_customer: event.target.checked })} /> Müşteriye gösterilsin
-                </label>
+                {taskSource(selectedTask) !== "internal" && (
+                  <label className="flex items-center gap-2 rounded-[8px] border border-cyan-200 bg-[var(--admin-surface)] px-3 py-2 text-xs font-bold text-cyan-800">
+                    <input type="checkbox" checked={Boolean(selectedTask.visible_to_customer || selectedTask.show_to_customer)} onChange={(event) => update(selectedTaskIndex, { visible_to_customer: event.target.checked, show_to_customer: event.target.checked })} /> Müşteriye gösterilsin
+                  </label>
+                )}
                 <TextArea label="Açıklama / not" value={selectedTask.description || selectedTask.notes || ""} onChange={(value) => update(selectedTaskIndex, { description: value, notes: value })} />
               </div>
             )}
@@ -4280,9 +4323,17 @@ function AgencyTasksCenter({ content, setContent, save, currentSession, notify, 
             emptyTitle="Bu filtrelerle görev kaydı bulunamadı."
           />
         )}
-        {taskView === "Kanban" && <div className="grid gap-3 xl:grid-cols-4">{["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"].map((status) => <div key={status} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{status}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => (item.status || "Yapılacak") === status).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2.5 text-left text-xs"><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="mt-1 block" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)} · {formatDate(item.due_date)}</span></button>)}{!filteredItems.filter((item) => (item.status || "Yapılacak") === status).length && <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Bu sütunda görev yok.</p>}</div></div>)}</div>}
-        {taskView === "Takvim" && <div className="grid gap-2">{filteredItems.slice().sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || ""))).map((item) => <div key={item.id || item.title} className="grid gap-3 rounded-[8px] border p-3 md:grid-cols-[130px_1fr_auto] md:items-center" style={{ borderColor: "var(--admin-border)" }}><span className="rounded-full bg-[var(--admin-surface)] px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{formatDate(item.due_date)}</span><span><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{companyName(content, item.company_id)} · {item.status || "Yapılacak"}</span></span><AdminButton compact variant="info" onClick={() => setExpandedTask(item.id || item.title)}>Görüntüle</AdminButton></div>)}</div>}
-        {taskView === "Müşteri bazlı" && <div className="grid gap-3 md:grid-cols-2">{(content.companies || []).filter((company) => filteredItems.some((item) => item.company_id === company.id)).map((company) => <div key={company.id} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.company_id === company.id).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2 text-left text-xs" style={{ color: "var(--admin-text-secondary)" }}><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>}
+        {taskView === "Kanban" && <div className="grid gap-3 xl:grid-cols-4">{["Yapılacak", "Devam Ediyor", "Beklemede", "Tamamlandı"].map((status) => <div key={status} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{status}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => (item.status || "Yapılacak") === status).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2.5 text-left text-xs"><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="mt-1 block" style={{ color: "var(--admin-text-muted)" }}>{taskEntityLabel(item)} · {formatDate(item.due_date)}</span></button>)}{!filteredItems.filter((item) => (item.status || "Yapılacak") === status).length && <p className="text-xs" style={{ color: "var(--admin-text-muted)" }}>Bu sütunda görev yok.</p>}</div></div>)}</div>}
+        {taskView === "Takvim" && <div className="grid gap-2">{filteredItems.slice().sort((a, b) => String(a.due_date || "").localeCompare(String(b.due_date || ""))).map((item) => <div key={item.id || item.title} className="grid gap-3 rounded-[8px] border p-3 md:grid-cols-[130px_1fr_auto] md:items-center" style={{ borderColor: "var(--admin-border)" }}><span className="rounded-full bg-[var(--admin-surface)] px-3 py-2 text-center text-xs font-black text-cyan-700 ring-1 ring-cyan-200">{formatDate(item.due_date)}</span><span><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong><span className="text-xs" style={{ color: "var(--admin-text-muted)" }}>{taskEntityLabel(item)} · {item.status || "Yapılacak"}</span></span><AdminButton compact variant="info" onClick={() => setExpandedTask(item.id || item.title)}>Görüntüle</AdminButton></div>)}</div>}
+        {taskView === "Müşteri bazlı" && <div className="grid gap-4">
+          <div className="grid gap-3 md:grid-cols-2">{(content.companies || []).filter((company) => filteredItems.some((item) => item.company_id === company.id)).map((company) => <div key={company.id} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{company.name}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.company_id === company.id).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2 text-left text-xs" style={{ color: "var(--admin-text-secondary)" }}><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>
+          {filteredItems.some((item) => taskSource(item) === "lead") && (
+            <div>
+              <p className="mb-2 text-xs font-black uppercase tracking-[.06em]" style={{ color: "var(--admin-text-muted)" }}>Lead Bazlı</p>
+              <div className="grid gap-3 md:grid-cols-2">{Array.from(new Set(filteredItems.filter((item) => taskSource(item) === "lead").map((item) => item.lead_id))).map((leadId) => <div key={leadId} className="rounded-[10px] border p-3" style={{ borderColor: "var(--admin-border)" }}><h3 className="text-xs font-black" style={{ color: "var(--admin-text-primary)" }}>{leadName(leadId) || "Lead"}</h3><div className="mt-2 grid gap-2">{filteredItems.filter((item) => item.lead_id === leadId).map((item) => <button key={item.id || item.title} onClick={() => setExpandedTask(item.id || item.title)} className="admin-card rounded-[8px] p-2 text-left text-xs" style={{ color: "var(--admin-text-secondary)" }}><strong className="block" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</strong>{item.status || "Yapılacak"} · {formatDate(item.due_date)}</button>)}</div></div>)}</div>
+            </div>
+          )}
+        </div>}
       </AdminWorkspace>
       {creationModalOpen && (
         <TaskCreationModal
@@ -5779,7 +5830,7 @@ function LeadKanbanCard({ lead, onOpen, onMove }: { lead: any; onOpen: () => voi
   );
 }
 
-function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId }: any) {
+function Crm({ content, setContent, view, setActive, currentSession, notify, setPreAuditInitialTab, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, crmInitialLeadId, setCrmInitialLeadId }: any) {
   const [viewMode, setViewMode] = useState<"liste" | "kanban">("liste");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -5803,6 +5854,20 @@ function Crm({ content, setContent, view, setActive, currentSession, notify, set
   const [message, setMessage] = useState("");
   const [recordVisibility, setRecordVisibility] = useState("live");
   const allLeads = content.leads ?? [];
+  // Real cross-component deep link (Task Center/Notification Center
+  // "Lead'i Aç") — previously only switched to the unrelated "CRM" hub
+  // overview page (CrmHub, a different component) without ever opening
+  // this component or selecting a lead. Consumed once (cleared via
+  // setCrmInitialLeadId("")) so it never re-fires on an unrelated
+  // re-render once the drawer has been opened.
+  useEffect(() => {
+    if (!crmInitialLeadId) return;
+    const found = allLeads.find((lead: any) => lead.id === crmInitialLeadId);
+    if (found) setSelectedLead(found);
+    else notify?.("Bu lead artık bulunamıyor.", "warning");
+    setCrmInitialLeadId?.("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crmInitialLeadId]);
   // Discovery candidates awaiting qualification (Değerlendirme Havuzu /
   // Potansiyel Müşteriler — see Müşteri Keşfi) are not yet worked sales
   // leads; Lead Merkezi only shows a business once it has actually left
