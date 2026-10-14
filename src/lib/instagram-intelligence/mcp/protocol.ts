@@ -229,6 +229,43 @@ export const tools: Tool[] = [
     description: "Get a verified HK Dijital company's Instagram profile optimization report history. Without `id`, returns a compact list (id, audit_date, status, instagram_username, overall_summary — never the full heavy analysis, for token efficiency) ordered newest first, limited by `limit` (default 10, max 50). With `id`, returns that one full report (every analysis section) — verified to actually belong to this companyId, never another company's report. Returns not_found if no reports exist yet or the id doesn't belong to this company. Read-only.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { companyId, id: text, limit }, required: ["companyId"], additionalProperties: false }
+  },
+
+  // --- Lead Merkezi -> Reklam Doktoru Pro -> Instagram Değerlendirme:
+  // direct-MCP research-and-save path for a registered CRM lead (a
+  // prospect, NOT yet an existing customer with a connected Instagram
+  // account). Deliberately reuses the SAME storage as HK Admin's own
+  // "+ Manuel Değerlendirme" button for the `instagram` module
+  // (manual_evaluations table) instead of a new table, so a row saved
+  // here and a row saved by hand in HK Admin show up in the exact same
+  // history with no second source of truth. NOT the same as
+  // get_instagram_profile_audit_context/save_instagram_profile_audit
+  // above (that pair is for an EXISTING customer's own OAuth-connected
+  // Instagram) — a lead has no connected account, so only publicly
+  // observable Instagram/web research ever applies here; private
+  // Insights-only metrics must never be fabricated for a lead. ---
+  {
+    name: "get_lead_instagram_evaluation_context",
+    description: "Get the real HK Dijital lead context required before an Instagram Değerlendirme for a registered CRM lead (a prospect not yet an existing customer — use get_instagram_profile_audit_context instead for an existing customer's own connected Instagram). Returns the lead's business name, Instagram username/URL, sector, city, district, website, whether it has already been converted to a customer, an explicit list of which data sources are legitimately usable (public Instagram/web research) vs. which must never be fabricated (Instagram Insights-only metrics: reach, impressions, profile visits, messages, leads, sales, revenue, story views — this lead has no connected account to read them from), and the latest previously-saved Instagram evaluation for this lead (id, title, status, date), if any. Returns not_found if leadId doesn't match a real lead. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { leadId: text }, required: ["leadId"], additionalProperties: false }
+  },
+  {
+    name: "save_lead_instagram_evaluation",
+    description: "Save an explicitly user-approved Instagram Değerlendirme for a registered CRM lead (not an existing customer — use save_instagram_profile_audit instead for an existing customer's own connected Instagram). Writes into the same manual_evaluations row HK Admin's own \"+ Manuel Değerlendirme\" button uses for the `instagram` module, so it appears identically in HK Admin's history/report screens. ZORUNLU: leadId (verified against public.leads; NOT_FOUND if it doesn't exist). `data` (optional object) accepts ONLY the real Instagram Değerlendirme field keys HK Admin itself uses — unknown keys are rejected with a clear error naming the bad key, so never invent new ones: businessName, instagramUsername, instagramUrl, sector, city, district, website, businessDescription, mainObjective, accountName, biography, followers, following, posts, profileCategory, contactButtons, whatsappAvailable, locationInfo, analysisStartDate, analysisEndDate, profilePhotoQuality, usernameClarity, nameFieldQuality, bioQuality, linkStructure, highlights, pinnedPosts, visualConsistency, trustSignals, contactAccessibility, conversionPath, postingFrequency, averageEngagement, bestPerformingContent, weakestPerformingContent, reelsCount, carouselCount, staticPostCount, storyCount, isExistingCustomer. Insights-only private metrics (accountsReached, impressions, profileVisits, newFollowers, unfollows, totalInteractions, likes, comments, shares, saves, reelViews, storyViews, websiteClicks, contactTaps, messages, leads, confirmedSales, revenue, startingFollowers) also exist as keys but must be OMITTED entirely rather than filled with an invented number — a lead has no connected account to source them from. `notes` and/or `reportText` should carry the actual analysis write-up (strengths/weaknesses/recommendations) — this is what appears as \"Claude Analizi\" in the exported report, and the export always labels it 'Claude Yorumu (Doğrulama Gerekir)' so a human reviews it before client use. `title` and `status` ('draft'|'submitted', default 'submitted') are optional. A genuinely NEW evaluation should omit evaluationId — this always inserts a new history row (never overwrites a previous one). To update an existing evaluation in place (user says 'bu değerlendirmeyi güncelle') pass evaluationId (from a prior save or get_lead_instagram_evaluation_context's existingEvaluation.id) — NOT_FOUND if that id doesn't belong to this exact leadId's own Instagram Değerlendirme. ONLY call this after the user explicitly says something like 'kaydet' / 'HK Admin'e kaydet' / 'değerlendirmeyi kaydet' — showing the analysis in chat and discussing it is never itself a save instruction. Never modifies the lead's actual Instagram account and never converts the lead into a customer.",
+    permission: "WRITE_SAFE",
+    inputSchema: {
+      type: "object",
+      properties: { leadId: text, evaluationId: text, title: text, status: text, data: obj, notes: text, reportText: text },
+      required: ["leadId"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "get_lead_instagram_evaluations",
+    description: "Get a registered CRM lead's Instagram Değerlendirme history (the same rows HK Admin's own Instagram Değerlendirme history list shows for this lead). Without `id`, returns a compact list (id, title, status, created_at) ordered newest first, limited by `limit` (default 10, max 50). With `id`, returns that one full record (all saved fields, derived metrics, notes, and the preserved Claude analysis text) — verified to actually belong to this leadId, never another lead's or a non-instagram-module row. Returns not_found if no evaluations exist yet or the id doesn't belong to this lead. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { leadId: text, id: text, limit }, required: ["leadId"], additionalProperties: false }
   }
 ];
 
@@ -851,6 +888,45 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         });
       } catch (error) {
         if (error instanceof InstagramProfileAuditNotFoundError) return { status: "not_found" };
+        throw error;
+      }
+    }
+
+    case "get_lead_instagram_evaluation_context": {
+      const { getLeadInstagramEvaluationContext } = await import("@/lib/instagram-intelligence/lead-evaluation");
+      return getLeadInstagramEvaluationContext(String(args.leadId || ""));
+    }
+    case "save_lead_instagram_evaluation": {
+      const { saveLeadInstagramEvaluation, LeadInstagramEvaluationValidationError, LeadInstagramEvaluationNotFoundError } = await import("@/lib/instagram-intelligence/lead-evaluation");
+      try {
+        return await saveLeadInstagramEvaluation({
+          leadId: String(args.leadId || ""),
+          evaluationId: typeof args.evaluationId === "string" ? args.evaluationId : undefined,
+          title: typeof args.title === "string" ? args.title : undefined,
+          status: args.status === "draft" || args.status === "submitted" ? args.status : undefined,
+          data: args.data && typeof args.data === "object" ? (args.data as Record<string, unknown>) : undefined,
+          notes: typeof args.notes === "string" ? args.notes : undefined,
+          reportText: typeof args.reportText === "string" ? args.reportText : undefined
+        });
+      } catch (error) {
+        if (error instanceof LeadInstagramEvaluationValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof LeadInstagramEvaluationNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw error;
+      }
+    }
+    case "get_lead_instagram_evaluations": {
+      const { listManualEvaluations, getManualEvaluation, ManualEvaluationNotFoundError } = await import("@/lib/manual-evaluations");
+      const leadId = String(args.leadId || "");
+      try {
+        if (typeof args.id === "string" && args.id) {
+          const record = await getManualEvaluation(args.id);
+          if (record.module !== "instagram" || record.lead_id !== leadId) return { status: "not_found" };
+          return record;
+        }
+        const history = await listManualEvaluations("instagram", { leadId, limit: typeof args.limit === "number" ? args.limit : toolLimit });
+        return history.map((row) => ({ id: row.id, title: row.title, status: row.status, created_at: row.created_at }));
+      } catch (error) {
+        if (error instanceof ManualEvaluationNotFoundError) return { status: "not_found" };
         throw error;
       }
     }

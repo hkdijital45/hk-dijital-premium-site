@@ -154,6 +154,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
   const [data, setData] = useState<any>(null);
   const [completedActions, setCompletedActions] = useState<Record<string, boolean>>({});
   const [selectedDiagnosisIndex, setSelectedDiagnosisIndex] = useState<number | null>(null);
+  const [leadPromptCopied, setLeadPromptCopied] = useState(false);
   const selectedCompany = companies.find((company: any) => company.id === companyId);
   const selectedLead = leads.find((lead: any) => lead.id === leadId);
   const leadNotFound = Boolean(initialLeadId && targetMode === "lead" && !selectedLead && leads.length > 0);
@@ -178,6 +179,39 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     if (mode !== "customer") setCompanyId("");
     if (mode !== "lead") setLeadId("");
   }
+
+  // Phase 5/6 of the "Instagram Değerlendir" brief: a lead has no
+  // connected Instagram account to read, so there is no API-driven
+  // research here — instead this generates ONE prompt naming the real
+  // get_lead_instagram_evaluation_context/save_lead_instagram_evaluation
+  // MCP tools (HK Instagram Intelligence connector) and the real leadId,
+  // so pasting it into Claude lets Claude call those tools directly and
+  // save the finished evaluation itself — the user never copies Claude's
+  // analysis back into HK Admin for this flow.
+  async function copyLeadInstagramPrompt(lead: any) {
+    const businessName = lead.company || lead.name || "İsimsiz lead";
+    const lines = [
+      `HK Admin "HK Instagram Intelligence" MCP bağlantısını kullanarak aşağıdaki lead için bir Instagram Değerlendirmesi hazırla ve SONUCU DOĞRUDAN KAYDET (bana geri yapıştırmama gerek yok).`,
+      `leadId: ${lead.id}`,
+      `İşletme: ${businessName}`,
+      lead.instagram ? `Instagram: ${lead.instagram}` : "Instagram kullanıcı adı HK Admin'de kayıtlı değil — araştırmana dayanarak bul.",
+      [lead.business_type || lead.businessType, lead.city, lead.district].filter(Boolean).join(" / ") || undefined,
+      lead.website ? `Website: ${lead.website}` : undefined,
+      "",
+      "Adımlar:",
+      "1. get_lead_instagram_evaluation_context(leadId) aracını çağırarak mevcut bilgileri ve varsa önceki değerlendirmeyi oku.",
+      "2. İşletmenin herkese açık Instagram profilini ve web varlığını araştır: profil optimizasyonu (biyografi, kullanıcı adı, ad alanı, bağlantı/CTA), içerik stratejisi, görsel tutarlılık, etkileşim sinyalleri, iletişime geçilebilirlik, dönüşüm fırsatları.",
+      "3. Güçlü yönleri, zayıf yönleri ve uygulanabilir önerileri listele.",
+      "4. Erişim/gösterim/profil ziyareti/mesaj/lead/satış/gelir gibi yalnızca Instagram Insights ile ölçülebilen özel verileri ASLA uydurma — bu lead için bağlı bir hesap yok; bu alanları atla ve net biçimde \"Veri mevcut değil\" olarak belirt.",
+      "5. Analizi bana gösterdikten ve onayımı aldıktan SONRA save_lead_instagram_evaluation(leadId, data, notes) aracını çağırarak sonucu HK Admin'e kaydet — onay almadan kaydetme."
+    ].filter(Boolean);
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setLeadPromptCopied(true);
+      setTimeout(() => setLeadPromptCopied(false), 2000);
+    } catch { /* clipboard denied */ }
+  }
+
   const metrics = data?.metrics || {};
   const diagnoses = data?.diagnoses || [];
   const prescription = data?.prescription || {};
@@ -490,7 +524,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     {activeTab === "instagram" && (
       <div className="grid gap-4">
         <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-          <strong>Mod A — Bağlı Hesap:</strong> yukarıda &quot;Müşteri&quot; hedefini seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B/C — Kayıtlı Lead / Bağımsız Manuel:</strong> &quot;Kayıtlı Lead&quot; veya &quot;Bağımsız&quot; hedefinde, aşağıdaki &quot;+ Manuel Değerlendirme&quot;yi kullanın — ekran görüntüsü/gözlemlerinizi girin, otomatik tarama yapılmaz.
+          <strong>Mod A — Bağlı Hesap:</strong> yukarıda &quot;Müşteri&quot; hedefini seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B — Kayıtlı Lead:</strong> aşağıdaki &quot;Claude Araştırma Promptunu Kopyala&quot; ile Claude&apos;un gerçek verilere dayanarak araştırıp sonucu doğrudan HK Admin&apos;e kaydetmesini sağlayın — geri yapıştırma gerekmez. <strong>Mod C — Bağımsız Manuel:</strong> &quot;+ Manuel Değerlendirme&quot;yi kullanın, ekran görüntüsü/gözlemlerinizi elle girin.
         </div>
         {targetMode === "customer" && (
           selectedCompany ? (
@@ -500,9 +534,24 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
           )
         )}
         {targetMode === "lead" && !selectedLead && <AdminEmptyState title="Instagram değerlendirmesi için yukarıdan bir lead seçin." />}
-        {targetMode === "lead" && selectedLead && !selectedLead.instagram && (
-          <div className="rounded-[10px] border p-3 text-sm font-bold" style={{ borderColor: "#fde68a", background: "#fffbeb", color: "#92400e" }}>
-            Bu lead için Instagram hesabı kayıtlı değil. Aşağıdaki manuel değerlendirmede kullanıcı adını/URL&apos;yi elle girebilirsiniz.
+        {targetMode === "lead" && selectedLead && (
+          <div className="rounded-[14px] border p-4" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black">Claude ile Araştır ve Doğrudan Kaydet</p>
+                <p className="mt-1 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+                  Promptu kopyalayıp Claude&apos;a yapıştırın — Claude gerçek MCP araçlarıyla ({selectedLead.company || selectedLead.name} için leadId: {selectedLead.id}) araştırmayı yapar ve onayınızla sonucu doğrudan HK Admin&apos;e kaydeder.
+                </p>
+              </div>
+              <AdminButton variant="primary" compact icon={<Copy size={14} />} onClick={() => copyLeadInstagramPrompt(selectedLead)}>
+                {leadPromptCopied ? "Kopyalandı ✓" : "Claude Araştırma Promptunu Kopyala"}
+              </AdminButton>
+            </div>
+            {!selectedLead.instagram && (
+              <p className="mt-3 rounded-[10px] border p-3 text-xs font-bold" style={{ borderColor: "#fde68a", background: "#fffbeb", color: "#92400e" }}>
+                Bu lead için Instagram kullanıcı adı HK Admin&apos;de kayıtlı değil — Claude araştırmasıyla bulunacak. Aşağıdaki manuel değerlendirmede de elle girebilirsiniz.
+              </p>
+            )}
           </div>
         )}
         <ManualEvaluationSection

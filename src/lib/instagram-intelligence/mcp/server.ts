@@ -15,7 +15,7 @@ import { ControlError, failure, sanitize, success, tools, toolByName, validateAr
 // their tools-list cache off server name+version, so a real version bump
 // gives a stronger signal to refresh than relying on "Refresh tools
 // list" alone.
-const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.11.0" };
+const SERVER_INFO = { name: "hk-dijital-instagram-intelligence", version: "1.12.0" };
 const SERVER_INSTRUCTIONS =
   "HK Dijital Marketing Intelligence tools (extends the original Instagram Intelligence connector — same " +
   "endpoint, same name, backward compatible). get_instagram_account/get_instagram_analysis/" +
@@ -61,7 +61,18 @@ const SERVER_INSTRUCTIONS =
   "and persists ONE ad_evaluations row holding both internalReport and clientReport together, then generates " +
   "and privately stores all four report files (internal/client PDF+DOCX) before confirming success, reading " +
   "the saved row back to verify; get_latest_ad_evaluation reads back a compact summary of the latest saved " +
-  "evaluation for a company/campaign. These tools never modify any real ad account, campaign, or budget.";
+  "evaluation for a company/campaign. These tools never modify any real ad account, campaign, or budget. " +
+  "get_lead_instagram_evaluation_context/save_lead_instagram_evaluation/get_lead_instagram_evaluations support " +
+  "Instagram Değerlendirme for a registered CRM lead (a prospect NOT yet an existing customer) — distinct from " +
+  "get_instagram_profile_audit_context/save_instagram_profile_audit above, which is only for an existing " +
+  "customer's own OAuth-connected Instagram. A lead has no connected account, so only public Instagram/web " +
+  "research applies; private Insights-only metrics (reach, impressions, profile visits, messages, leads, " +
+  "sales, revenue, story views) must never be fabricated for a lead. These three tools write into the exact " +
+  "same manual_evaluations row HK Admin's own \"+ Manuel Değerlendirme\" button already uses for the " +
+  "`instagram` module, so a row saved here shows up identically in HK Admin's own history/export screens. " +
+  "save_lead_instagram_evaluation must be called ONLY after the user explicitly says to save it — analyzing " +
+  "or discussing the lead's Instagram alone is never itself a save instruction, and it never converts the " +
+  "lead into a customer or modifies its actual Instagram account.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;
