@@ -1,5 +1,6 @@
 "use client";
 
+import { hasMarketingConsent } from "@/lib/tracking-consent";
 import { pushGaEvent } from "@/lib/ga-events";
 
 export const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
@@ -38,12 +39,12 @@ export function hasMetaPixel() {
 }
 
 export function trackMetaEvent(eventName: string, payload?: MetaPixelPayload) {
-  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  if (typeof window === "undefined" || typeof window.fbq !== "function" || !hasMarketingConsent() || !isPublicTrackedPath(window.location.pathname)) return;
   window.fbq("track", eventName, payload || {});
 }
 
 export function trackMetaCustomEvent(eventName: string, payload?: MetaPixelPayload) {
-  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  if (typeof window === "undefined" || typeof window.fbq !== "function" || !hasMarketingConsent() || !isPublicTrackedPath(window.location.pathname)) return;
   window.fbq("trackCustom", eventName, payload || {});
 }
 
@@ -59,7 +60,7 @@ export function trackMetaLead(payload?: MetaPixelPayload) {
   trackMetaEvent("Lead", payload);
 }
 
-export function trackMetaCtaClick(label: string, href?: string) {
+export function trackMetaCtaClick(label: string, href?: string, mirrorGa = true) {
   const lowerHref = String(href || "").toLocaleLowerCase("tr");
   const payload = { cta_label: label, cta_href: href || "" };
   trackMetaCustomEvent("HK_CTA_Click", payload);
@@ -71,24 +72,24 @@ export function trackMetaCtaClick(label: string, href?: string) {
   // button's own label text and destination URL, never form field values.
   const gaParams = { cta_label: label, cta_location: label, destination_type: href || "" };
   if (lowerHref.includes("wa.me") || lowerHref.includes("whatsapp")) {
-    pushGaEvent("whatsapp_click", gaParams);
+    if (mirrorGa) pushGaEvent("whatsapp_click", gaParams);
     trackMetaContact(payload);
     return;
   }
   if (lowerHref.includes("teklif") || lowerHref.includes("paket")) {
-    pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
+    if (mirrorGa) pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
     trackMetaEvent("InitiateCheckout", payload);
     return;
   }
   if (lowerHref.includes("iletisim")) {
-    pushGaEvent("select_content", { ...gaParams, content_type: "contact_cta" });
+    if (mirrorGa) pushGaEvent("select_content", { ...gaParams, content_type: "contact_cta" });
     trackMetaContact(payload);
     return;
   }
   if (lowerHref.includes("demo") || lowerHref.includes("digital-center")) {
-    pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
+    if (mirrorGa) pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
     trackMetaEvent("ViewContent", payload);
     return;
   }
-  pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
+  if (mirrorGa) pushGaEvent("select_content", { ...gaParams, content_type: "cta" });
 }

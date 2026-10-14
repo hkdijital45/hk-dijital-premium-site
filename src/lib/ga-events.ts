@@ -1,17 +1,18 @@
-// Thin, shared dataLayer push — consumed by both GA4-direct (gtag.js) and
-// Google Tag Manager, since gtag.js itself is just a dataLayer wrapper and
-// GTM listens on the same array. No dependency on which one is actually
-// loaded (TrackingPlaceholders.tsx decides that from the admin-configured
-// ids) — a push here is a no-op until a real container/tag is listening,
-// never a duplicate script load.
+import { hasAnalyticsConsent } from "./tracking-consent.ts";
 declare global {
   interface Window {
     dataLayer?: unknown[];
+    hkGaMode?: "gtm" | "direct";
+    gtag?: (...args: unknown[]) => void;
   }
 }
-
 export function pushGaEvent(name: string, params?: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: name, ...params });
+  if (typeof window === "undefined" || !hasAnalyticsConsent() || !window.hkGaMode) return;
+  if (window.hkGaMode === "direct") window.gtag?.("event", name, params || {});
+  else {
+    window.dataLayer = window.dataLayer || [];
+    // Clear the previous parameter object so GTM v2 variables cannot inherit it.
+    window.dataLayer.push({ event_params: null });
+    window.dataLayer.push({ event: name, event_params: params || {} });
+  }
 }

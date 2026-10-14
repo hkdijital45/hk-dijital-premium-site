@@ -1,61 +1,42 @@
 "use client";
 
-import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { isPublicTrackedPath, META_PIXEL_ID, trackMetaContact, trackMetaPageView } from "@/lib/meta-pixel";
+
+import { consentSnapshot, subscribeConsent } from "@/lib/tracking-consent";
 
 export function MetaPixel({ pixelId = META_PIXEL_ID }: { pixelId?: string }) {
   const pathname = usePathname();
-
+  const consent = useSyncExternalStore(subscribeConsent, consentSnapshot, () => "unset");
+  const lastPath = useRef<string | null>(null);
   useEffect(() => {
-    if (!pixelId || !pathname || !isPublicTrackedPath(pathname)) return;
-    const query = window.location.search.replace(/^\?/, "");
-    trackMetaPageView(query ? `${pathname}?${query}` : pathname);
-  }, [pathname, pixelId]);
-
+    if (!/^\d+$/.test(pixelId) || consent !== "11" || !pathname || !isPublicTrackedPath(pathname)) return;
+    if (!window.fbq) {
+      const queue: unknown[][] = [];
+      const fbq = Object.assign(function (...args: unknown[]) {
+        if (fbq.callMethod) fbq.callMethod(...args); else queue.push(args);
+      }, { queue, loaded: true, version: "2.0", callMethod: undefined as undefined | ((...args: unknown[]) => void), push: undefined as undefined | ((...args: unknown[]) => void) });
+      fbq.push = fbq;
+      window.fbq = fbq;
+      window._fbq = fbq;
+      window.fbq("init", pixelId);
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = "https://connect.facebook.net/en_US/fbevents.js";
+      document.head.appendChild(script);
+    }
+    if (lastPath.current !== pathname) { trackMetaPageView(pathname); lastPath.current = pathname; }
+  }, [pathname, pixelId, consent]);
   useEffect(() => {
-    if (!pixelId) return undefined;
+    if (!pixelId || consent !== "11") return;
     const onClick = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target.closest("a") : null;
       const href = target?.getAttribute("href") || "";
-      if (!href) return;
-      const normalized = href.toLocaleLowerCase("tr");
-      if (normalized.includes("wa.me") || normalized.includes("api.whatsapp") || normalized.includes("whatsapp")) {
-        trackMetaContact({ source: "whatsapp_link", link_url: href });
-      }
+      if (/wa\.me|api\.whatsapp|whatsapp/i.test(href)) trackMetaContact({ source: "whatsapp_link", link_url: href });
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [pixelId]);
-
-  if (!pixelId) return null;
-
-  return (
-    <>
-      <Script id="meta-pixel" strategy="afterInteractive">
-        {`
-          !function(f,b,e,v,n,t,s)
-          {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-          n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-          if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-          n.queue=[];t=b.createElement(e);t.async=!0;
-          t.src=v;s=b.getElementsByTagName(e)[0];
-          s.parentNode.insertBefore(t,s)}(window, document,'script',
-          'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${pixelId}');
-        `}
-      </Script>
-      <noscript>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${pixelId}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
-    </>
-  );
+  }, [pixelId, consent]);
+  return null;
 }

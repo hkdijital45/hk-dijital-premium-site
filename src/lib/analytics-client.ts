@@ -1,4 +1,5 @@
 "use client";
+import { hasAnalyticsConsent } from "./tracking-consent.ts";
 
 // Shared browser-side helper for posting first-party events to
 // /api/analytics/track. Failures here must never affect the page — no
@@ -38,7 +39,7 @@ function referrerSource(): "Direct" | "Organic" | "Facebook / Instagram" | "Goog
 }
 
 export function postAnalyticsEvent(eventName: FirstPartyEventName, pagePath?: string) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !hasAnalyticsConsent()) return;
   const sessionId = getSessionId();
   if (!sessionId) return;
   const body = JSON.stringify({

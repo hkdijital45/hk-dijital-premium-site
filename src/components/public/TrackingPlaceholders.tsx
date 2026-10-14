@@ -1,11 +1,11 @@
 "use client";
 
-import Script from "next/script";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { isPublicTrackedPath, trackMetaContact, trackMetaCtaClick, trackMetaCustomEvent, trackMetaEvent, trackMetaLead } from "@/lib/meta-pixel";
 import { postAnalyticsEvent } from "@/lib/analytics-client";
 import { pushGaEvent } from "@/lib/ga-events";
+import { consentSnapshot, subscribeConsent } from "@/lib/tracking-consent";
 
 type Props = {
   ids: {
@@ -73,80 +73,66 @@ export function trackEvent(name: string, payload?: Record<string, unknown>) {
     if (name.includes("package")) {
       trackMetaEvent("InitiateCheckout", { source: name, ...(payload as Record<string, string | number | boolean | null | undefined> | undefined) });
     }
-    trackMetaCtaClick(name, typeof payload?.href === "string" ? payload.href : undefined);
+    trackMetaCtaClick(name, typeof payload?.href === "string" ? payload.href : undefined, false);
     return;
   }
   trackMetaCustomEvent(`HK_${name}`, payload as Record<string, string | number | boolean | null | undefined> | undefined);
 }
 
-// Fires exactly one GA4 "page_view" per route — on first mount AND on every
-// client-side navigation (Next.js App Router doesn't trigger a full reload,
-// so gtag's own automatic pageview never fires again after the first one;
-// this effect is the single source of truth instead, which is why gtag is
-// configured below with `send_page_view: false`). The `lastPath` ref is the
-// de-dupe guard against React re-running the effect without the pathname
-// actually changing (e.g. a parent re-render) — without it a page could be
-// double-counted.
-function usePageViewTracking(enabled: boolean) {
+// Basic consent mode: no Google script is requested before analytics consent.
+export function TrackingPlaceholders({ ids }: Props) {
   const pathname = usePathname();
+  const consent = useSyncExternalStore(subscribeConsent, consentSnapshot, () => "unset");
   const lastPath = useRef<string | null>(null);
+  const previousPage = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pathname || !isPublicTrackedPath(pathname) || !consent.startsWith("1")) return;
+    const gtm = /^GTM-[A-Z0-9]+$/.test(ids.googleTagManager) ? ids.googleTagManager : "";
+    const ga = /^G-[A-Z0-9]+$/.test(ids.gaMeasurement) ? ids.gaMeasurement : "";
+    if (!gtm && !ga) return;
+    window.dataLayer = window.dataLayer || [];
+    // gtag requires an Arguments object, not a plain array.
+    // eslint-disable-next-line prefer-rest-params
+    window.gtag = window.gtag || function () { window.dataLayer!.push(arguments); };
+    if (!window.hkGaMode) {
+      window.gtag("consent", "default", { analytics_storage: "denied", ad_storage: "denied", ad_user_data: "denied", ad_personalization: "denied" });
+    }
+    window.gtag("consent", "update", { analytics_storage: "granted", ad_storage: consent === "11" ? "granted" : "denied", ad_user_data: consent === "11" ? "granted" : "denied", ad_personalization: consent === "11" ? "granted" : "denied" });
+    if (!window.hkGaMode) {
+      window.hkGaMode = gtm ? "gtm" : "direct";
+      const script = document.createElement("script");
+      script.async = true;
+      script.id = "hk-google-loader";
+      if (gtm) {
+        window.dataLayer.push({ "gtm.start": Date.now(), event: "gtm.js" });
+        script.src = `https://www.googletagmanager.com/gtm.js?id=${gtm}`;
+      } else {
+        window.gtag("js", new Date());
+        window.gtag("config", ga, { send_page_view: false });
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${ga}`;
+      }
+      document.head.appendChild(script);
+    }
+    // Query strings may contain form values or access tokens. Public route
+    // identity and referrers deliberately exclude query strings and hashes.
+    const location = window.location.origin + pathname;
+    if (lastPath.current !== pathname) {
+      let referrer = previousPage.current || "";
+      if (!referrer && document.referrer) { try { const u = new URL(document.referrer); referrer = u.origin + u.pathname; } catch {} }
+      pushGaEvent("page_view", { page_path: pathname, page_location: location, page_referrer: referrer, page_title: document.title });
+      previousPage.current = location;
+      lastPath.current = pathname;
+    }
+  }, [pathname, consent, ids.googleTagManager, ids.gaMeasurement]);
 
   useEffect(() => {
-    if (!enabled || !pathname) return;
-    if (!isPublicTrackedPath(pathname)) return;
-    const query = typeof window !== "undefined" ? window.location.search : "";
-    const fullPath = query ? `${pathname}${query}` : pathname;
-    if (lastPath.current === fullPath) return;
-    lastPath.current = fullPath;
-    pushGaEvent("page_view", { page_path: fullPath, page_location: typeof window !== "undefined" ? window.location.href : undefined });
-  }, [enabled, pathname]);
-}
-
-export function TrackingPlaceholders({ ids }: Props) {
-  const hasGtm = Boolean(ids.googleTagManager);
-  const hasGa4 = Boolean(ids.gaMeasurement);
-  usePageViewTracking(hasGtm || hasGa4);
-
-  if (!ids.metaPixel && !hasGtm && !hasGa4) return null;
-
-  return (
-    <>
-      {hasGtm && (
-        <>
-          <Script id="gtm-init" strategy="afterInteractive">
-            {`
-              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
-              var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-              j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-              })(window,document,'script','dataLayer','${ids.googleTagManager}');
-            `}
-          </Script>
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${ids.googleTagManager}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-              title="Google Tag Manager"
-            />
-          </noscript>
-        </>
-      )}
-      {/* Direct gtag.js only when no GTM container is configured — never
-          both at once, which would double-count page views/events. */}
-      {!hasGtm && hasGa4 && (
-        <>
-          <Script src={`https://www.googletagmanager.com/gtag/js?id=${ids.gaMeasurement}`} strategy="afterInteractive" />
-          <Script id="ga4-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${ids.gaMeasurement}', { send_page_view: false });
-            `}
-          </Script>
-        </>
-      )}
-    </>
-  );
+    const onClick = (event: MouseEvent) => {
+      const link = event.target instanceof Element ? event.target.closest("nav a") : null;
+      if (!(link instanceof HTMLAnchorElement) || !isPublicTrackedPath(window.location.pathname)) return;
+      pushGaEvent("navigation_click", { link_text: link.textContent?.trim().slice(0, 100), link_url: link.origin + link.pathname + link.hash, navigation_location: "header", page_path: window.location.pathname });
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  return null;
 }
