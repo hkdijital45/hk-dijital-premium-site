@@ -23,12 +23,13 @@ export async function GET(request: Request) {
   const createdTo = searchParams.get("createdTo") || undefined;
   const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 25, 1), 100);
   const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
+  const includeArchived = searchParams.get("includeArchived") === "true";
   if (companyId && !uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçersiz müşteri kimliği." }, { status: 400 });
   if (leadId && !uuidPattern.test(leadId)) return NextResponse.json({ error: "Geçersiz lead kimliği." }, { status: 400 });
   if (status && !isValidStatus(status)) return NextResponse.json({ error: "Geçersiz durum." }, { status: 400 });
 
   try {
-    const filters = { companyId, leadId, status: status as ProposalStatus | undefined, search, createdFrom, createdTo };
+    const filters = { companyId, leadId, status: status as ProposalStatus | undefined, search, createdFrom, createdTo, includeArchived };
     const [proposals, total] = await Promise.all([
       listProposals({ ...filters, limit, offset }),
       countProposals(filters)

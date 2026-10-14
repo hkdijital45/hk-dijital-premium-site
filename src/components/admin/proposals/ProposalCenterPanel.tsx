@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-filter-change pattern, same accepted precedent as ProposalModal.tsx/ManualEvaluationModal.tsx */
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Download, Copy as CopyIcon, GitBranch, Sparkles, Plus } from "lucide-react";
+import { Search, Download, Copy as CopyIcon, GitBranch, Sparkles, Plus, Archive, ArchiveRestore } from "lucide-react";
 import { AdminDataGrid, type AdminDataGridColumn } from "@/components/admin/workspace/AdminDataGrid";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
@@ -20,6 +20,7 @@ type ProposalRow = {
   sent_at: string | null;
   lead_id: string | null;
   company_id: string | null;
+  archived_at: string | null;
 };
 
 type LeadOption = {
@@ -54,6 +55,9 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
   const [page, setPage] = useState(0);
   const [openProposal, setOpenProposal] = useState<ProposalRow | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +65,7 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
     const params = new URLSearchParams();
     if (search.trim()) params.set("q", search.trim());
     if (status) params.set("status", status);
+    if (showArchived) params.set("includeArchived", "true");
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(page * PAGE_SIZE));
     fetch(`/api/admin/proposals/v2?${params.toString()}`)
@@ -73,7 +78,31 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
       .catch(() => { if (active) notify?.("Teklifler alınamadı.", "error"); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [search, status, page, notify]);
+  }, [search, status, page, showArchived, reloadTick, notify]);
+
+  async function archive(row: ProposalRow) {
+    setArchivingId(row.id);
+    try {
+      const res = await fetch(`/api/admin/proposals/v2/${row.id}/archive`, { method: "POST" });
+      const body = await res.json();
+      if (res.ok) { notify?.("Teklif arşivlendi.", "success"); setReloadTick((t) => t + 1); }
+      else notify?.(body.error || "Arşivlenemedi.", "error");
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  async function unarchive(row: ProposalRow) {
+    setArchivingId(row.id);
+    try {
+      const res = await fetch(`/api/admin/proposals/v2/${row.id}/archive`, { method: "DELETE" });
+      const body = await res.json();
+      if (res.ok) { notify?.("Teklif arşivden çıkarıldı.", "success"); setReloadTick((t) => t + 1); }
+      else notify?.(body.error || "Arşivden çıkarılamadı.", "error");
+    } finally {
+      setArchivingId(null);
+    }
+  }
 
   async function duplicate(row: ProposalRow) {
     const res = await fetch(`/api/admin/proposals/v2/${row.id}/duplicate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
@@ -112,7 +141,14 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
   const columns: AdminDataGridColumn<ProposalRow>[] = useMemo(() => [
     { key: "proposal_number", header: "Teklif No", render: (r) => <span className="font-black">{r.proposal_number}{r.version > 1 ? ` (v${r.version})` : ""}</span> },
     { key: "target_label", header: "İşletme / Lead", render: (r) => r.target_label },
-    { key: "status", header: "Durum", render: (r) => <AdminStatusBadge tone={r.status === "Kabul Edildi" ? "success" : r.status === "Reddedildi" || r.status === "Süresi Doldu" ? "danger" : "info"}>{r.status}</AdminStatusBadge> },
+    {
+      key: "status", header: "Durum", render: (r) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <AdminStatusBadge tone={r.status === "Kabul Edildi" ? "success" : r.status === "Reddedildi" || r.status === "Süresi Doldu" ? "danger" : "info"}>{r.status}</AdminStatusBadge>
+          {r.archived_at && <AdminStatusBadge tone="neutral">Arşivlendi</AdminStatusBadge>}
+        </div>
+      )
+    },
     { key: "created_at", header: "Oluşturulma", render: (r) => new Date(r.created_at).toLocaleDateString("tr-TR") },
     { key: "valid_until", header: "Geçerlilik", render: (r) => r.valid_until ? new Date(r.valid_until).toLocaleDateString("tr-TR") : "—" },
     {
@@ -124,11 +160,16 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
             <AdminButton variant="secondary" compact icon={<Download size={13} />} loading={downloadingId === `${r.id}-client-pdf`} onClick={() => exportDoc(r, "client", "pdf")}>PDF</AdminButton>
           )}
           {r.sent_at && <span title="Revizyon geçmişi mevcut"><GitBranch size={14} className="mt-2 text-slate-400" /></span>}
+          {r.archived_at ? (
+            <AdminButton variant="secondary" compact icon={<ArchiveRestore size={13} />} loading={archivingId === r.id} onClick={() => unarchive(r)}>Arşivden Çıkar</AdminButton>
+          ) : (
+            <AdminButton variant="secondary" compact icon={<Archive size={13} />} loading={archivingId === r.id} onClick={() => archive(r)}>Arşivle</AdminButton>
+          )}
         </div>
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [downloadingId]);
+  ], [downloadingId, archivingId]);
 
   return (
     <section className="grid gap-4">
@@ -146,6 +187,10 @@ export function ProposalCenterPanel({ notify, leads }: { notify?: (message: stri
             <option value="">Tüm Durumlar</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
+          <label className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}>
+            <input type="checkbox" checked={showArchived} onChange={(e) => { setShowArchived(e.target.checked); setPage(0); }} />
+            Arşivlenenleri Göster
+          </label>
           <AdminButton variant="secondary" compact icon={<Plus size={13} />} onClick={() => setManualOpen(true)}>Manuel Teklif Oluştur</AdminButton>
           <AdminButton variant="primary" compact icon={<Sparkles size={13} />} onClick={() => setLeadPickerOpen(true)}>Lead&apos;den Otomatik Teklif Oluştur</AdminButton>
         </div>

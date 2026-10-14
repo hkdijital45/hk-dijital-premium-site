@@ -36,6 +36,8 @@ export type ProposalRecord = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  archived_at: string | null;
+  archived_by: string | null;
 };
 
 export class ProposalNotFoundError extends Error {}
@@ -73,16 +75,28 @@ export type ListProposalsOptions = {
   companyId?: string; leadId?: string; status?: ProposalStatus;
   search?: string; createdFrom?: string; createdTo?: string;
   limit?: number; offset?: number;
+  /** Default false: archived proposals are excluded everywhere they'd
+   * otherwise show up as "the" active proposal for a lead/company — this
+   * is also what makes a freshly-opened "Teklif Motoru"/"Otomatik Teklif
+   * Hazırla" start a genuinely new, empty proposal once the old ones for
+   * that lead are archived, instead of reopening an archived draft's old
+   * form data. */
+  includeArchived?: boolean;
 };
 
-export async function listProposals(options: ListProposalsOptions = {}): Promise<ProposalRecord[]> {
-  const params = new URLSearchParams();
+function applyProposalFilters(params: URLSearchParams, options: ListProposalsOptions) {
   if (options.companyId) params.set("company_id", `eq.${options.companyId}`);
   if (options.leadId) params.set("lead_id", `eq.${options.leadId}`);
   if (options.status) params.set("status", `eq.${options.status}`);
   if (options.search) params.set("or", `(target_label.ilike.*${options.search}*,title.ilike.*${options.search}*,proposal_number.ilike.*${options.search}*)`);
   if (options.createdFrom) params.set("created_at", `gte.${options.createdFrom}`);
   if (options.createdTo) params.append("created_at", `lte.${options.createdTo}`);
+  if (!options.includeArchived) params.set("archived_at", "is.null");
+}
+
+export async function listProposals(options: ListProposalsOptions = {}): Promise<ProposalRecord[]> {
+  const params = new URLSearchParams();
+  applyProposalFilters(params, options);
   params.set("order", "created_at.desc");
   params.set("limit", String(options.limit || 50));
   if (options.offset) params.set("offset", String(options.offset));
@@ -97,15 +111,36 @@ export async function listProposals(options: ListProposalsOptions = {}): Promise
  * count using the count=exact Prefer and parse it from a 1-row fetch. */
 export async function countProposals(options: Omit<ListProposalsOptions, "limit" | "offset"> = {}): Promise<number> {
   const params = new URLSearchParams();
-  if (options.companyId) params.set("company_id", `eq.${options.companyId}`);
-  if (options.leadId) params.set("lead_id", `eq.${options.leadId}`);
-  if (options.status) params.set("status", `eq.${options.status}`);
-  if (options.search) params.set("or", `(target_label.ilike.*${options.search}*,title.ilike.*${options.search}*,proposal_number.ilike.*${options.search}*)`);
-  if (options.createdFrom) params.set("created_at", `gte.${options.createdFrom}`);
-  if (options.createdTo) params.append("created_at", `lte.${options.createdTo}`);
+  applyProposalFilters(params, options);
   params.set("select", "id");
   const rows = await supabaseRest<Array<{ id: string }>>(`${PROPOSALS_TABLE}?${params.toString()}`);
   return rows.length;
+}
+
+/** Reversible archiving — never a delete. Excludes a proposal from the
+ * default active list (listProposals/countProposals) and from
+ * openOrCreate's "is there already a draft for this lead/company"
+ * lookup, without touching the row's own content, status, or any
+ * related Lead/analysis data. unarchiveProposal always restores it
+ * exactly as it was. */
+export async function archiveProposal(id: string, archivedBy: string | null): Promise<ProposalRecord> {
+  const [row] = await supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ archived_at: new Date().toISOString(), archived_by: archivedBy })
+  });
+  if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
+  return row;
+}
+
+export async function unarchiveProposal(id: string): Promise<ProposalRecord> {
+  const [row] = await supabaseRest<ProposalRecord[]>(`${PROPOSALS_TABLE}?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ archived_at: null, archived_by: null })
+  });
+  if (!row) throw new ProposalNotFoundError("Teklif bulunamadı.");
+  return row;
 }
 
 export async function getProposal(id: string): Promise<ProposalRecord> {
