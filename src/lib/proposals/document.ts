@@ -6,6 +6,7 @@ import type { ProposalRecord } from "./store";
 import type { HkProposalV1, ProposalBudgetScenario, ProposalCompetitor } from "./schema";
 import { normalizeBusinessScope } from "./business-scope";
 import { formatTRY } from "./financials";
+import type { DocumentMetric, DocumentChart, DocumentTimelinePhase } from "@/lib/document-model";
 
 export type ProposalDocumentMode = "internal" | "client";
 
@@ -156,8 +157,42 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
       ["Sonraki Aylar Toplamı (KDV Dahil)", fin.formatted?.subsequentMonthTotalInclVat || "-"]
     ];
     if (fin.formatted?.contractTotalInclVat) rows.push(["Sözleşme Dönemi Toplamı (KDV Dahil)", fin.formatted.contractTotalInclVat]);
-    sections.push({ title: "Finansal Özet", table: { headers: ["Kalem", "Tutar"], rows } });
+    // Premium V3: the same deterministic numbers as cards + a composition
+    // chart. Ad budget (paid to the platform, untaxed) is always kept
+    // separate from HK Dijital's own fees — nothing here is recalculated.
+    const metrics: DocumentMetric[] = [];
+    if (fin.formatted?.firstMonthTotalInclVat) metrics.push({ label: "İlk Ay Toplamı (KDV Dahil)", value: fin.formatted.firstMonthTotalInclVat, tone: "accent" });
+    if (fin.formatted?.subsequentMonthTotalInclVat) metrics.push({ label: "Sonraki Aylar (KDV Dahil)", value: fin.formatted.subsequentMonthTotalInclVat });
+    if (fin.formatted?.totalMonthlyAdBudget) metrics.push({ label: "Aylık Reklam Bütçesi", value: fin.formatted.totalMonthlyAdBudget, note: "Platforma ödenir, KDV'ye tabi değil" });
+    if (fin.formatted?.contractTotalInclVat) metrics.push({ label: `Sözleşme Toplamı${fin.contractMonths ? ` (${fin.contractMonths} Ay)` : ""}`, value: fin.formatted.contractTotalInclVat });
+    const composition: DocumentChart["data"] = [
+      ...(Array.isArray(fin.adBudgetsByPlatform) ? fin.adBudgetsByPlatform.map((b) => ({ label: `${b.platform} bütçesi`, value: Number(b.monthlyBudget) })) : []),
+      ...(fin.agencyMonthlyFeeInclVat ? [{ label: "Ajans hizmet bedeli (KDV dahil)", value: Number(fin.agencyMonthlyFeeInclVat) }] : []),
+      ...(fin.serviceLinesMonthlyInclVat ? [{ label: "İşletme bazlı hizmetler (KDV dahil)", value: Number(fin.serviceLinesMonthlyInclVat) }] : []),
+      ...(fin.additionalServiceFeesInclVat ? [{ label: "Ek hizmetler (KDV dahil)", value: Number(fin.additionalServiceFeesInclVat) }] : [])
+    ];
+    sections.push({
+      title: "Finansal Özet",
+      intro: "Tutarlar teklif sihirbazında girilen ücret ve bütçelerden hesaplanmıştır. Reklam bütçesi doğrudan reklam platformuna ödenir ve HK Dijital hizmet bedelinden ayrı gösterilir.",
+      metrics,
+      charts: [{ type: "donut", title: "Aylık Maliyet Dağılımı (Kurulum Hariç)", valueFormat: "currency", data: composition, caption: "Her ay tekrar eden kalemlerin dağılımı; tek seferlik kurulum ücreti dahil değildir." }],
+      table: { headers: ["Kalem", "Tutar"], rows }
+    });
   }
+
+  // Ödeme koşulları ve süre — only what the proposal actually states.
+  const fees = ((record.questionnaire as { fees?: Record<string, unknown> } | undefined)?.fees || {}) as Record<string, unknown>;
+  const termRows: DocumentCell[][] = [];
+  const termText = (label: string, value: unknown) => { if (typeof value === "string" && value.trim()) termRows.push([label, value.trim()]); };
+  if (typeof fees.packageName === "string" && fees.packageName.trim()) termRows.push(["Paket", fees.packageName.trim()]);
+  if (Number(fees.contractDurationMonths) > 0) termRows.push(["Hizmet Süresi", `${Number(fees.contractDurationMonths)} ay`]);
+  termText("Ödeme Koşulları", fees.paymentTerms);
+  termText("Vergi", fees.taxes);
+  termText("İndirim", fees.discounts);
+  termText("Ek Hizmet Ücretleri", fees.additionalServiceFees);
+  termText("Kapsama Dahil Hizmetler", fees.includedServices);
+  termText("Kapsam Dışı Hizmetler", fees.excludedServices);
+  if (termRows.length) sections.push({ title: "Hizmet Süresi ve Ödeme Koşulları", table: { headers: ["Konu", "Açıklama"], rows: termRows } });
 
   if (Array.isArray(data.recommended_services) && data.recommended_services.length) {
     sections.push({ title: "Önerilen HK Dijital Hizmetleri", items: data.recommended_services.map(serviceLineText) });
@@ -168,7 +203,17 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
   }
 
   if (Array.isArray(data.roadmap_90_days) && data.roadmap_90_days.length) {
-    sections.push({ title: "90 Günlük Yol Haritası", items: data.roadmap_90_days.map((item) => `${item.phase ? `${cellText(item.phase)}: ` : ""}${cellText(item.action)}`) });
+    // Grouped into phases for a visual timeline when the data names phases;
+    // otherwise the original bullet list (content is never reworded).
+    const phases = new Map<string, string[]>();
+    for (const item of data.roadmap_90_days) {
+      const phase = item.phase ? cellText(item.phase) : "";
+      if (!phases.has(phase)) phases.set(phase, []);
+      phases.get(phase)!.push(cellText(item.action));
+    }
+    const timeline: DocumentTimelinePhase[] = [...phases.entries()].filter(([phase]) => phase).map(([label, items]) => ({ label, items }));
+    if (timeline.length >= 2 && timeline.length <= 8 && !phases.has("")) sections.push({ title: "90 Günlük Yol Haritası", timeline });
+    else sections.push({ title: "90 Günlük Yol Haritası", items: data.roadmap_90_days.map((item) => `${item.phase ? `${cellText(item.phase)}: ` : ""}${cellText(item.action)}`) });
   }
 
   if (mode === "internal") {
@@ -192,7 +237,8 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
     title: mode === "internal" ? `HK Dijital — Dahili Teklif Raporu (${record.proposal_number})` : `HK Dijital — Teklif (${record.proposal_number})`,
     customerName: record.target_label,
     period: new Date(record.created_at).toLocaleDateString("tr-TR"),
-    executiveSummary: (business?.description as string) || record.title || "",
+    // The bare record title ("Teklif") is already the cover title — never repeated as a fake summary.
+    executiveSummary: (business?.description as string) || "",
     sections,
     logo: true,
     confidentialLabel: mode === "internal" ? "Dahili Kullanım" : undefined,

@@ -69,16 +69,6 @@ export async function POST(request: Request) {
     site?.contact?.email ? `E-posta: ${site.contact.email}` : ""
   ].filter(Boolean).join("  ·  ");
 
-  const pricingLines = [
-    `Aylık Hizmet Bedeli: ${formatTRY(monthlyFee)} (KDV Hariç)`,
-    `KDV (%20): ${formatTRY(monthlyVat)}`,
-    `Aylık Toplam (KDV Dahil): ${formatTRY(monthlyTotal)}`,
-    "",
-    `Kurulum Bedeli: ${formatTRY(setupFee)} (KDV Hariç)`,
-    `KDV (%20): ${formatTRY(setupVat)}`,
-    `Kurulum Toplam (KDV Dahil): ${formatTRY(setupTotal)}`
-  ];
-  if (adBudget > 0) pricingLines.push("", `Önerilen Reklam Bütçesi: ${formatTRY(adBudget)} (reklam platformuna doğrudan ödenir, hizmet bedeline dahil değildir)`);
 
   const payload: DocumentPayload = {
     title: `Teklif — ${companyName}`,
@@ -89,13 +79,32 @@ export async function POST(request: Request) {
       { title: "Teklif Bilgileri", text: `Teklif No: ${proposalNumber}\nTarih: ${dateLabel}\nGeçerlilik: ${validityDays} gün (${validUntilLabel} tarihine kadar)` },
       { title: "Hizmet Kalemleri", items: services },
       { title: "Kapsam Dışı", items: excludedServices },
-      { title: "Ücretlendirme", text: pricingLines.join("\n") },
+      {
+        // Same figures as before, now as a clearly separated fee table:
+        // agency fees with VAT breakdown, advertising budget on its own row.
+        title: "Ücretlendirme",
+        metrics: [
+          { label: "Aylık Toplam (KDV Dahil)", value: formatTRY(monthlyTotal), tone: "accent" as const },
+          { label: "Kurulum Toplam (KDV Dahil)", value: formatTRY(setupTotal) },
+          ...(adBudget > 0 ? [{ label: "Önerilen Reklam Bütçesi", value: formatTRY(adBudget), note: "Platforma ödenir, hizmet bedeline dahil değil" }] : [])
+        ],
+        table: {
+          headers: ["Kalem", "KDV Hariç", "KDV (%20)", "KDV Dahil"],
+          rows: [
+            ["Aylık Hizmet Bedeli", formatTRY(monthlyFee), formatTRY(monthlyVat), formatTRY(monthlyTotal)],
+            ["Kurulum Bedeli", formatTRY(setupFee), formatTRY(setupVat), formatTRY(setupTotal)],
+            ...(adBudget > 0 ? [["Reklam Bütçesi (platforma ödenir)", formatTRY(adBudget), "—", "—"]] : [])
+          ]
+        }
+      },
       body.duration ? { title: "Süre", text: body.duration } : { title: "", items: [] },
       { title: "Aksiyon Planı", items: nextSteps },
       body.paymentNote ? { title: "Ödeme Koşulları", text: body.paymentNote } : { title: "", items: [] },
       body.notes ? { title: "Notlar", text: body.notes } : { title: "", items: [] }
     ].filter((section) => section.title),
-    footerNote: [`Bu teklif ${validUntilLabel} tarihine kadar geçerlidir.`, contactLines].filter(Boolean).join("  ·  ")
+    footerNote: [`Bu teklif ${validUntilLabel} tarihine kadar geçerlidir.`, contactLines].filter(Boolean).join("  ·  "),
+    logo: true,
+    metaLines: [`Firma: ${companyName}`, `Teklif No: ${proposalNumber}`, `Tarih: ${dateLabel}`, `Geçerlilik: ${validUntilLabel}`, ...(body.packageType ? [`Paket: ${body.packageType}`] : []), "Hazırlayan: HK Dijital"]
   };
 
   try {

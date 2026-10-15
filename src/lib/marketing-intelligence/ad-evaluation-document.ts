@@ -8,7 +8,8 @@
 // parentheses — client report only, per section 10's exact wording list.
 import type { AdEvaluationRecord, EvaluationReportText } from "./ad-evaluations";
 import { AD_EVALUATION_DECISION_LABELS } from "./ad-evaluations";
-import type { DocumentPayload, DocumentSection } from "@/lib/server/document-generator";
+import type { DocumentPayload, DocumentSection, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
+import { formatCurrencyTr, formatNumberTr, formatPercentTr } from "@/lib/report-design";
 import { formatReportTimestamp } from "@/lib/report-timestamp";
 import { normalizeLegacyTableBlock, parseMarkdownBlocks } from "./ad-evaluation-markdown";
 
@@ -115,6 +116,56 @@ function sectionsFrom(report: EvaluationReportText | undefined, mode: AdEvaluati
   return out;
 }
 
+type SnapshotEntity = { name?: string; spend?: number | null; results?: number | null };
+
+function finite(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Premium Report V3: KPI cards + comparison charts drawn ONLY from the
+ * frozen metrics_snapshot stored with this evaluation (real synced Meta
+ * data at generation time). A metric that is null/absent is omitted —
+ * never shown as 0. Exported for unit tests. */
+export function adEvaluationPerformanceSection(snapshot: Record<string, unknown> | null | undefined): DocumentSection | null {
+  const campaign = (snapshot?.campaign || null) as Record<string, unknown> | null;
+  if (!campaign) return null;
+  const metrics: DocumentMetric[] = [];
+  const add = (label: string, raw: unknown, format: (n: number) => string, note?: string) => {
+    const n = finite(raw);
+    if (n !== null) metrics.push({ label, value: format(n), note });
+  };
+  add("Harcanan Tutar", campaign.spend, formatCurrencyTr);
+  add("Erişim", campaign.reach, (n) => formatNumberTr(n, 0), "Reklamı gören farklı kişi");
+  add("Gösterim", campaign.impressions, (n) => formatNumberTr(n, 0));
+  add("Bağlantı Tıklaması", campaign.linkClicks ?? campaign.clicks, (n) => formatNumberTr(n, 0));
+  add("Bağlantı CTR", campaign.linkCtr, (n) => formatPercentTr(n, 2), "Tıklayanların gösterime oranı");
+  add("Bağlantı CPC", campaign.linkCpc, formatCurrencyTr, "Tıklama başına ortalama maliyet");
+  add("Sonuç", campaign.results, (n) => formatNumberTr(n, 0));
+  add("Sonuç Başına Maliyet", campaign.costPerResult, formatCurrencyTr);
+  add("Frekans", campaign.frequency, (n) => formatNumberTr(n, 2), "Kişi başı ortalama görüntülenme");
+
+  const charts: DocumentChart[] = [];
+  const ads = Array.isArray(snapshot?.ads) ? (snapshot!.ads as SnapshotEntity[]) : [];
+  const adsets = Array.isArray(snapshot?.adsets) ? (snapshot!.adsets as SnapshotEntity[]) : [];
+  const bySpend = (list: SnapshotEntity[]) => [...list].filter((e) => finite(e.spend) !== null).sort((a, b) => Number(b.spend) - Number(a.spend));
+  if (ads.length >= 2) {
+    charts.push({ type: "hbar", title: "Reklam Bazında Harcama", valueFormat: "currency", data: bySpend(ads).map((a) => ({ label: a.name || "Adsız reklam", value: finite(a.spend) })), caption: "Bütçenin hangi reklamlarda yoğunlaştığını gösterir; yüksek harcama tek başına başarı anlamına gelmez, sonuçlarla birlikte okunmalıdır." });
+    const withResults = ads.filter((a) => finite(a.results) !== null);
+    if (withResults.length >= 2) charts.push({ type: "hbar", title: "Reklam Bazında Sonuç", data: withResults.sort((a, b) => Number(b.results) - Number(a.results)).map((a) => ({ label: a.name || "Adsız reklam", value: finite(a.results) })), caption: "Meta'nın kampanya hedefine göre saydığı sonuçlar (ör. başlatılan mesajlaşma)." });
+  }
+  if (adsets.length >= 2) charts.push({ type: "donut", title: "Reklam Setlerine Göre Harcama Dağılımı", valueFormat: "currency", data: bySpend(adsets).map((a) => ({ label: a.name || "Adsız reklam seti", value: finite(a.spend) })), caption: "Toplam harcamanın reklam setlerine dağılımı." });
+
+  if (!metrics.length && !charts.length) return null;
+  return {
+    title: "Kampanya Performansı",
+    intro: "Bu bölümdeki rakamlar, değerlendirme hazırlanırken Meta'dan senkronize edilen gerçek kampanya verileridir; tahmin içermez.",
+    metrics,
+    charts
+  };
+}
+
 export function buildAdEvaluationDocumentPayload(companyName: string, campaignName: string, evaluation: AdEvaluationRecord, mode: AdEvaluationDocumentMode): DocumentPayload {
   const report = mode === "internal" ? evaluation.internal_report : evaluation.client_report;
   const sections: DocumentSection[] = [];
@@ -137,6 +188,9 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
     const items = splitIntoBulletLines(summary);
     sections.push({ title: mode === "internal" ? "Yönetici Özeti" : "Kısa Özet", items: mode === "client" ? items.map(annotateClient) : items });
   }
+
+  const performance = adEvaluationPerformanceSection(evaluation.metrics_snapshot);
+  if (performance) sections.unshift(performance);
 
   sections.push(...parsedSections);
 

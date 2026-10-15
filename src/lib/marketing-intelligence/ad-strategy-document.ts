@@ -6,6 +6,8 @@
 // from the record passed in (the caller is responsible for reading the
 // latest saved row first) — never from stale/cached data. Pure/no I/O.
 import { AD_STRATEGY_STATUS_LABELS, type AdStrategyRecord, type AdStrategyReport } from "./ad-strategies";
+import { formatCurrencyTr } from "@/lib/report-design";
+import type { DocumentMetric } from "@/lib/document-model";
 import type { DocumentPayload, DocumentSection, DocumentTable } from "@/lib/server/document-generator";
 
 export type AdStrategyDocumentMode = "internal" | "client";
@@ -47,7 +49,18 @@ export function buildAdStrategyDocumentPayload(companyName: string, strategy: Ad
   if (strategy.primary_goal) overview.push(`Ana Hedef: ${strategy.primary_goal}`);
   overview.push(...budgetLines(strategy));
   if (strategy.primary_kpi) overview.push(`Ana KPI: ${strategy.primary_kpi}`);
-  if (overview.length) sections.push({ title: "Genel Bakış", text: overview.join("\n") });
+  // Premium V3: planned (not actual) budget as cards + split chart, clearly labelled as a plan.
+  const metrics: DocumentMetric[] = [];
+  if (strategy.monthly_ad_budget) metrics.push({ label: "Planlanan Aylık Bütçe", value: formatCurrencyTr(Number(strategy.monthly_ad_budget)), tone: "accent" });
+  if (strategy.daily_budget_estimate) metrics.push({ label: "Günlük Tahmini Bütçe", value: formatCurrencyTr(Number(strategy.daily_budget_estimate)) });
+  if (strategy.primary_kpi) metrics.push({ label: "Ana KPI", value: String(strategy.primary_kpi) });
+  const split = [{ label: "Meta Ads", value: strategy.meta_budget ? Number(strategy.meta_budget) : null }, { label: "Google Ads", value: strategy.google_budget ? Number(strategy.google_budget) : null }];
+  if (overview.length) sections.push({
+    title: "Genel Bakış",
+    metrics,
+    charts: [{ type: "donut", title: "Planlanan Bütçe Dağılımı", valueFormat: "currency", data: split, caption: "Strateji kapsamında önerilen aylık bütçe dağılımıdır; gerçekleşen harcama değildir." }],
+    text: overview.join("\n")
+  });
 
   const campaignTable = campaignSequenceTable(strategy, mode);
   if (campaignTable) sections.push({ title: "Reklam Açılış Sırası", table: campaignTable });

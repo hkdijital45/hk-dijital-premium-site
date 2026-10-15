@@ -2,14 +2,14 @@ import "server-only";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PDFDocument, rgb, PDFName, PDFArray, PDFString } from "pdf-lib";
-import type { PDFPage } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
+import { rgb } from "pdf-lib";
 import { Document, Packer, Paragraph, HeadingLevel, TextRun, ImageRun, Table, TableRow, TableCell, WidthType, AlignmentType, ExternalHyperlink, VerticalAlign } from "docx";
 import PptxGenJS from "pptxgenjs";
 import type { ProfessionalReportPayload } from "@/lib/report-export";
-import { isDocumentLink, cellLabel } from "@/lib/document-model";
-import type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload } from "@/lib/document-model";
+import { isDocumentLink } from "@/lib/document-model";
+import type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload, DocumentMetric, DocumentChart, DocumentCallout, DocumentTimelinePhase, DocumentLogo, DocumentTone } from "@/lib/document-model";
+import { renderPremiumPdf } from "@/lib/server/premium-pdf";
+import { formatChartValue, sanitizeChartData } from "@/lib/report-design";
 
 // Canonical document generation service — the single place every real
 // Word/PDF/PowerPoint export in the app goes through, so there is one
@@ -31,7 +31,7 @@ import type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, Docume
 // viewer) must never be defined in it. Re-exported below so every
 // existing `from "@/lib/server/document-generator"` import of these
 // types keeps working unchanged.
-export type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload };
+export type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload, DocumentMetric, DocumentChart, DocumentCallout, DocumentTimelinePhase, DocumentLogo, DocumentTone };
 
 export function toDocumentPayload(report: ProfessionalReportPayload): DocumentPayload {
   return {
@@ -61,36 +61,7 @@ export const LOGO_PATH = join(process.cwd(), "public", "branding", "hk-dijital-l
 export const HK_GOLD = rgb(0.749, 0.639, 0.243); // matches --hk-gold in globals.css
 export const HK_INK = rgb(0.106, 0.114, 0.133); // matches --hk-text-primary (dark ink on light document pages)
 export const HK_MUTED = rgb(0.373, 0.4, 0.447);
-const HK_DANGER = rgb(0.706, 0.204, 0.204);
 export const HK_BORDER = rgb(0.902, 0.894, 0.863);
-const STATUS_GREEN = rgb(0.086, 0.541, 0.282);
-const STATUS_AMBER = rgb(0.706, 0.482, 0.047);
-const STATUS_RED = rgb(0.706, 0.204, 0.204);
-const STATUS_GRAY = rgb(0.455, 0.467, 0.49);
-const STATUS_BLUE = rgb(0.102, 0.412, 0.706);
-const HK_LINK = rgb(0.102, 0.412, 0.706);
-
-// Real clickable PDF link — a URI-action Annotation dict registered
-// directly in the page's Annots array. pdf-lib has no built-in helper for
-// this (no addLink() on PDFPage); this is the documented low-level
-// recipe. The full `url` is embedded in the annotation's /A /URI entry
-// untouched — never the shortened label text that's actually drawn.
-function addLinkAnnotation(page: PDFPage, url: string, rect: [number, number, number, number]) {
-  const context = page.doc.context;
-  const annotationRef = context.register(
-    context.obj({
-      Type: "Annot",
-      Subtype: "Link",
-      Rect: rect,
-      Border: [0, 0, 0],
-      A: context.obj({ Type: "Action", S: "URI", URI: PDFString.of(url) })
-    })
-  );
-  const existing = page.node.lookup(PDFName.of("Annots"));
-  const annots = existing instanceof PDFArray ? existing : context.obj([]);
-  annots.push(annotationRef);
-  page.node.set(PDFName.of("Annots"), annots);
-}
 
 // Reklam Değerlendirme's controlled status vocabulary (🟢 İyi / 🟡 İzle /
 // 🔴 Aksiyon Gerekebilir / ⚪ Referans Yok / 🔵 Veri Yetersiz) rendered as
@@ -109,20 +80,6 @@ function addLinkAnnotation(page: PDFPage, url: string, rect: [number, number, nu
 // status vocabulary from Reklam Değerlendirme's own, both recognized by
 // the same Durum-column accent so neither report family needs its own
 // color logic.
-function statusColorFor(cellText: string): ReturnType<typeof rgb> | null {
-  if (/Aksiyon Gerekebilir/i.test(cellText)) return STATUS_RED;
-  if (/Veri Yetersiz/i.test(cellText)) return STATUS_BLUE;
-  if (/Referans Yok/i.test(cellText)) return STATUS_GRAY;
-  if (/İzle\b/i.test(cellText)) return STATUS_AMBER;
-  if (/İyi\b/i.test(cellText)) return STATUS_GREEN;
-  if (/Doğrulandı/i.test(cellText)) return STATUS_GREEN;
-  if (/Kontrol edildi/i.test(cellText)) return STATUS_GREEN;
-  if (/Muhtemel/i.test(cellText)) return STATUS_AMBER;
-  if (/Doğrulanamadı/i.test(cellText)) return STATUS_GRAY;
-  if (/Bulunamadı/i.test(cellText)) return STATUS_GRAY;
-  return null;
-}
-
 function statusColorHexFor(cellText: string): string | null {
   if (/Aksiyon Gerekebilir/i.test(cellText)) return "B43434";
   if (/Veri Yetersiz/i.test(cellText)) return "1A69B4";
@@ -159,224 +116,12 @@ function stripStatusEmoji(cellText: string): string {
   return cellText.replace(/^[\s]*[🟢🟡🔴⚪🔵✓⚠]+[\s]*/u, "").trim();
 }
 
-// Root cause of the long-standing "truncated/overflowing URL" bug: this
-// only ever split on whitespace. A URL has no spaces, so a single token
-// wider than the column/page simply never wrapped — pdf-lib draws text
-// with no clipping, so it silently ran past the margin or into the next
-// table cell. charSplit below is the fallback for exactly that one token
-// (a normal word never reaches it, since real words are never this wide).
-function charSplit(word: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
-  const lines: string[] = [];
-  let current = "";
-  for (const ch of word) {
-    const candidate = current + ch;
-    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
-      lines.push(current);
-      current = ch;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-function wrapText(text: string, font: import("pdf-lib").PDFFont, size: number, maxWidth: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else if (font.widthOfTextAtSize(candidate, size) > maxWidth) {
-      // The word ALONE (no preceding content) is already wider than the
-      // column — a long unbroken token (URL, long slug). Split it at the
-      // character level instead of drawing it past the boundary.
-      const pieces = charSplit(word, font, size, maxWidth);
-      lines.push(...pieces.slice(0, -1));
-      current = pieces[pieces.length - 1] || "";
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
+/** Every PDF in the app renders through the HK Dijital Premium Report
+ * System (premium-pdf.ts): dual-logo cover, Inter typography, KPI cards,
+ * charts, branded tables, page numbering. Same DocumentPayload contract as
+ * before, so no report builder had to change to get the new design. */
 export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffer> {
-  const pdf = await PDFDocument.create();
-  pdf.registerFontkit(fontkit);
-  const fontBytes = readFileSync(GEIST_FONT_PATH);
-  const font = await pdf.embedFont(fontBytes, { subset: true });
-
-  const pageWidth = 595.28; // A4
-  const pageHeight = 841.89;
-  const margin = 56;
-  const contentWidth = pageWidth - margin * 2;
-
-  let page = pdf.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
-
-  function newPageIfNeeded(minSpace: number) {
-    if (y < margin + minSpace) {
-      page = pdf.addPage([pageWidth, pageHeight]);
-      y = pageHeight - margin;
-    }
-  }
-
-  function drawHeading(text: string, size = 18) {
-    newPageIfNeeded(40);
-    page.drawText(text, { x: margin, y, size, font, color: HK_INK });
-    y -= size + 10;
-  }
-
-  function drawSubheading(text: string, size = 13) {
-    newPageIfNeeded(30);
-    page.drawText(text, { x: margin, y, size, font, color: HK_GOLD });
-    y -= size + 8;
-  }
-
-  function drawParagraph(text: string, size = 10.5, color = HK_INK) {
-    const lines = wrapText(text, font, size, contentWidth);
-    for (const line of lines) {
-      newPageIfNeeded(size + 6);
-      page.drawText(line, { x: margin, y, size, font, color });
-      y -= size + 6;
-    }
-    y -= 4;
-  }
-
-  function drawBullet(text: string, size = 10.5) {
-    const lines = wrapText(text, font, size, contentWidth - 16);
-    lines.forEach((line, index) => {
-      newPageIfNeeded(size + 6);
-      const prefix = index === 0 ? "•  " : "    ";
-      page.drawText(`${prefix}${line}`, { x: margin, y, size, font, color: HK_INK });
-      y -= size + 6;
-    });
-  }
-
-  function drawTable(table: DocumentTable, size = 9.5) {
-    const columnWidth = contentWidth / table.headers.length;
-    const statusColumnIndex = table.headers.findIndex(isStatusColumnHeader);
-    function rowHeight(cells: DocumentCell[]) {
-      return Math.max(...cells.map((cell) => wrapText(cellLabel(cell), font, size, columnWidth - 10).length), 1) * (size + 4) + 6;
-    }
-    function drawRow(cells: DocumentCell[], bold: boolean) {
-      const height = rowHeight(cells);
-      newPageIfNeeded(height + 4);
-      const top = y;
-      cells.forEach((cell, i) => {
-        const link = isDocumentLink(cell) ? cell : null;
-        const cellText = cellLabel(cell);
-        // Status accent (section 17): colored dot + colored text, status
-        // text itself is always kept verbatim regardless — color is
-        // never the only signal of meaning.
-        const statusColor = !bold && !link && i === statusColumnIndex ? statusColorFor(cellText) : null;
-        const textColor = link ? HK_LINK : statusColor || (bold ? HK_INK : HK_MUTED);
-        const textX = margin + i * columnWidth + (statusColor ? 12 : 4);
-        if (statusColor) page.drawCircle({ x: margin + i * columnWidth + 5, y: top - size / 2 + 1, size: 3, color: statusColor });
-        const displayCell = statusColor ? stripStatusEmoji(cellText) : cellText;
-        const cellWidth = columnWidth - (statusColor ? 18 : 10);
-        const cellLines = wrapText(displayCell, font, size, cellWidth);
-        cellLines.forEach((line, li) => {
-          const lineY = top - li * (size + 4);
-          page.drawText(line, { x: textX, y: lineY, size, font, color: textColor });
-          if (link) {
-            // Underline (the visible "this is a link" affordance) + the
-            // actual clickable Rect, sized to the real drawn text — never
-            // the full column width, so the clickable/visible areas match.
-            const lineWidth = font.widthOfTextAtSize(line, size);
-            page.drawLine({ start: { x: textX, y: lineY - 1.5 }, end: { x: textX + lineWidth, y: lineY - 1.5 }, thickness: 0.6, color: HK_LINK });
-            addLinkAnnotation(page, link.url, [textX, lineY - 2, textX + lineWidth, lineY + size]);
-          }
-        });
-      });
-      y = top - height;
-      page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.5, color: HK_BORDER });
-    }
-    newPageIfNeeded(rowHeight(table.headers) + 4);
-    drawRow(table.headers, true);
-    for (const row of table.rows) drawRow(row, false);
-    y -= 6;
-  }
-
-  // Premium corporate letterhead — one charcoal band spanning the full
-  // page width, logo and dynamic report title living ON it (the band IS
-  // the design; never an isolated black rectangle floating behind an
-  // otherwise-white logo). A thin gold accent line separates it from the
-  // white document body below.
-  const HEADER_HEIGHT = 60;
-  page.drawRectangle({ x: 0, y: pageHeight - HEADER_HEIGHT, width: pageWidth, height: HEADER_HEIGHT, color: HK_INK });
-  page.drawRectangle({ x: 0, y: pageHeight - HEADER_HEIGHT - 3, width: pageWidth, height: 3, color: HK_GOLD });
-
-  if (payload.logo) {
-    try {
-      const logoBytes = readFileSync(LOGO_PATH);
-      const logoImage = await pdf.embedPng(logoBytes);
-      const logoSize = 36;
-      page.drawImage(logoImage, { x: margin, y: pageHeight - HEADER_HEIGHT / 2 - logoSize / 2, width: logoSize, height: logoSize });
-    } catch {
-      // Logo asset missing — letterhead band still renders without it.
-    }
-  }
-
-  // "HK Dijital — Ön İnceleme Raporu" -> "HK DİJİTAL | ÖN İNCELEME RAPORU"
-  // — one dynamic band title reflecting the actual report type, never a
-  // hardcoded generic label.
-  const bandTitle = `HK DİJİTAL  |  ${payload.title.replace(/^HK Dijital\s*[—-]\s*/i, "").toLocaleUpperCase("tr")}`;
-  const bandTitleSize = 12;
-  const bandTitleWidth = font.widthOfTextAtSize(bandTitle, bandTitleSize);
-  const bandTitleX = Math.max(margin + 52, pageWidth - margin - bandTitleWidth);
-  page.drawText(bandTitle, { x: bandTitleX, y: pageHeight - HEADER_HEIGHT / 2 - bandTitleSize / 2 + 2, size: bandTitleSize, font, color: rgb(1, 1, 1) });
-
-  y = pageHeight - HEADER_HEIGHT - 28;
-
-  if (payload.confidentialLabel) {
-    page.drawText(payload.confidentialLabel.toLocaleUpperCase("tr"), { x: margin, y, size: 10, font, color: HK_DANGER });
-    y -= 18;
-  }
-
-  drawHeading(payload.title, 20);
-  if (payload.metaLines?.length) {
-    for (const line of payload.metaLines) drawParagraph(line, 11, HK_MUTED);
-  } else {
-    drawParagraph(`${payload.customerName} · ${payload.period}`, 11, HK_MUTED);
-  }
-  y -= 6;
-  page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 1, color: HK_BORDER });
-  y -= 20;
-
-  if (payload.executiveSummary) {
-    drawSubheading("Yönetici Özeti");
-    drawParagraph(payload.executiveSummary);
-  }
-
-  for (const section of payload.sections) {
-    if (!section.items?.length && !section.text && !section.table) continue;
-    if (section.spacingBefore) y -= section.spacingBefore;
-    if (section.minSpaceBefore) newPageIfNeeded(section.minSpaceBefore);
-    drawSubheading(section.title, section.titleSize || 13);
-    if (section.text) drawParagraph(section.text);
-    for (const item of section.items || []) drawBullet(item);
-    if (section.table) drawTable(section.table);
-    y -= 6;
-  }
-
-  if (payload.footerNote) {
-    newPageIfNeeded(30);
-    drawParagraph(payload.footerNote, 9, HK_MUTED);
-  }
-
-  const pages = pdf.getPages();
-  pages.forEach((p, index) => {
-    p.drawText(`HK Dijital · ${index + 1}/${pages.length}`, { x: pageWidth - margin - 90, y: 28, size: 8, font, color: HK_MUTED });
-  });
-
-  const bytes = await pdf.save();
-  return Buffer.from(bytes);
+  return renderPremiumPdf(payload);
 }
 
 function buildDocxTable(table: DocumentTable): Table {
@@ -411,6 +156,42 @@ function buildDocxTable(table: DocumentTable): Table {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [headerRow, ...bodyRows] });
 }
 
+// Word counterparts of the Premium Report System blocks — the same real
+// values the PDF shows, as plain tables/paragraphs (Word gets the data,
+// not a picture of a chart).
+function docxMetricsTable(metrics: DocumentMetric[]): Table {
+  return buildDocxTable({ headers: ["Gösterge", "Değer", "Not"], rows: metrics.filter((m) => m.label && m.value).map((m) => [m.label, m.value, m.note || ""]) });
+}
+
+function docxChartBlocks(chart: DocumentChart): Array<Paragraph | Table> {
+  const data = sanitizeChartData(chart.data, chart.type);
+  if (!data) return [];
+  const blocks: Array<Paragraph | Table> = [
+    new Paragraph({ spacing: { before: 120, after: 60 }, children: [new TextRun({ text: chart.title, bold: true, color: "10243A" })] }),
+    buildDocxTable({ headers: ["Kalem", "Değer"], rows: data.map((d) => [d.label, formatChartValue(d.value, chart.valueFormat || "number")]) })
+  ];
+  if (chart.caption) blocks.push(new Paragraph({ spacing: { before: 60, after: 120 }, children: [new TextRun({ text: chart.caption, italics: true, color: "5E6B78", size: 18 })] }));
+  return blocks;
+}
+
+function docxCallout(callout: DocumentCallout): Paragraph[] {
+  return [new Paragraph({
+    spacing: { before: 120, after: 160 },
+    shading: { fill: "EEF8F7" },
+    children: [
+      ...(callout.title ? [new TextRun({ text: `${callout.title} `, bold: true, color: "0B7B76" })] : []),
+      new TextRun({ text: callout.text })
+    ]
+  })];
+}
+
+function docxTimeline(phases: DocumentTimelinePhase[]): Paragraph[] {
+  return phases.flatMap((phase) => [
+    new Paragraph({ spacing: { before: 100, after: 40 }, children: [new TextRun({ text: phase.label, bold: true, color: "10243A" })] }),
+    ...phase.items.map((item) => new Paragraph({ text: item, bullet: { level: 0 }, spacing: { after: 40 } }))
+  ]);
+}
+
 export async function generateDocxBuffer(payload: DocumentPayload): Promise<Buffer> {
   const children: Array<Paragraph | Table> = [];
 
@@ -435,12 +216,23 @@ export async function generateDocxBuffer(payload: DocumentPayload): Promise<Buff
     }
   }
   const bandTitle = `HK DİJİTAL  |  ${payload.title.replace(/^HK Dijital\s*[—-]\s*/i, "").toLocaleUpperCase("tr")}`;
+  const clientLogo: DocumentLogo | null | undefined = payload.clientLogo;
   headerCells.push(new TableCell({
-    width: { size: logoEmbedded ? 80 : 100, type: WidthType.PERCENTAGE },
+    width: { size: (logoEmbedded ? 80 : 100) - (clientLogo ? 20 : 0), type: WidthType.PERCENTAGE },
     shading: { fill: HEADER_FILL },
     verticalAlign: VerticalAlign.CENTER,
     children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: bandTitle, bold: true, color: "FFFFFF", size: 24 })] })]
   }));
+  if (clientLogo?.png?.length) {
+    // Verified client logo on a white cell, proportions preserved (max 110×46 px).
+    const scale = Math.min(110 / clientLogo.width, 46 / clientLogo.height, 1);
+    headerCells.push(new TableCell({
+      width: { size: 20, type: WidthType.PERCENTAGE },
+      shading: { fill: "FFFFFF" },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ data: Buffer.from(clientLogo.png), transformation: { width: Math.round(clientLogo.width * scale), height: Math.round(clientLogo.height * scale) }, type: "png" })] })]
+    }));
+  }
   children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: [new TableRow({ children: headerCells })] }));
   children.push(new Paragraph({ text: "", spacing: { after: 200 } }));
 
@@ -469,18 +261,27 @@ export async function generateDocxBuffer(payload: DocumentPayload): Promise<Buff
     children.push(new Paragraph({ text: "Yönetici Özeti", heading: HeadingLevel.HEADING_1, spacing: { before: 200, after: 100 } }));
     children.push(new Paragraph({ text: payload.executiveSummary, spacing: { after: 200 } }));
   }
+  if (payload.headlineMetrics?.length) {
+    children.push(docxMetricsTable(payload.headlineMetrics));
+    children.push(new Paragraph({ text: "", spacing: { after: 150 } }));
+  }
 
   for (const section of payload.sections) {
-    if (!section.items?.length && !section.text && !section.table) continue;
+    if (!section.items?.length && !section.text && !section.table && !section.metrics?.length && !section.charts?.length && !section.callout && !section.timeline?.length) continue;
     children.push(new Paragraph({ text: section.title, heading: HeadingLevel.HEADING_1, spacing: { before: 240, after: 100 } }));
+    if (section.intro) children.push(new Paragraph({ children: [new TextRun({ text: section.intro, italics: true, color: "5E6B78" })], spacing: { after: 100 } }));
+    if (section.metrics?.length) { children.push(docxMetricsTable(section.metrics)); children.push(new Paragraph({ text: "", spacing: { after: 100 } })); }
+    for (const chart of section.charts || []) children.push(...docxChartBlocks(chart));
     if (section.text) children.push(new Paragraph({ text: section.text, spacing: { after: 150 } }));
     for (const item of section.items || []) {
       children.push(new Paragraph({ text: item, bullet: { level: 0 }, spacing: { after: 60 } }));
     }
+    if (section.timeline?.length) children.push(...docxTimeline(section.timeline));
     if (section.table) {
       children.push(buildDocxTable(section.table));
       children.push(new Paragraph({ text: "", spacing: { after: 150 } }));
     }
+    if (section.callout) children.push(...docxCallout(section.callout));
   }
 
   if (payload.footerNote) {

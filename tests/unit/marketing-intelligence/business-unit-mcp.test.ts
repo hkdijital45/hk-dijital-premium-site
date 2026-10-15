@@ -19,5 +19,5 @@ test("business-aware MCP tools accept optional businessUnitId; required inputs u
     assert.equal((schema.required || []).includes("businessUnitId"), false, `${name} must not require businessUnitId`);
   }
   assert.deepEqual(byName.save_lead_instagram_evaluation.inputSchema.required, ["leadId"]);
-  assert.equal(tools.length, 43);
+  assert.equal(tools.length, 45);
 });

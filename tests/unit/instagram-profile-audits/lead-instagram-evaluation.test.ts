@@ -31,7 +31,7 @@ test("MCP REGRESSION — the 3 Lead Instagram Değerlendirme tools are registere
   for (const name of ["get_lead_instagram_evaluation_context", "save_lead_instagram_evaluation", "get_lead_instagram_evaluations"]) {
     assert.equal(names.filter((n: string) => n === name).length, 1, `${name} must be registered exactly once`);
   }
-  assert.equal(names.length, 43);
+  assert.equal(names.length, 45); // +get_company_logo_status, +discover_company_logo (Premium Report System V3)
 });
 
 test("MCP REGRESSION — get_lead_instagram_evaluation_context and get_lead_instagram_evaluations are READ_ONLY, save_lead_instagram_evaluation is WRITE_SAFE", async () => {

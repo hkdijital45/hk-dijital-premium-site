@@ -13,6 +13,7 @@ import { getAdEvaluationById, updateAdEvaluationStoragePaths, type AdEvaluationR
 import { buildAdEvaluationDocumentPayload, type AdEvaluationDocumentMode } from "./ad-evaluation-document";
 import { generatePdfBuffer, generateDocxBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
 import { adEvaluationStoragePath, uploadAdEvaluationFile } from "./ad-evaluation-storage";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 const PATH_FIELD: Record<string, keyof AdEvaluationRecord> = {
   "internal-pdf": "internal_pdf_path", "internal-docx": "internal_docx_path",
@@ -43,10 +44,11 @@ export async function generateAllAdEvaluationReports(companyId: string, evaluati
     { mode: "client", format: "pdf" }, { mode: "client", format: "docx" }
   ];
 
+  const clientLogo = await resolveReportClientLogo({ companyId });
   for (const { mode, format } of combos) {
     const pathField = PATH_FIELD[`${mode}-${format}`];
     if (evaluation[pathField] && !options.force) continue;
-    const payload = buildAdEvaluationDocumentPayload(companyName, campaignName, evaluation, mode);
+    const payload = { ...buildAdEvaluationDocumentPayload(companyName, campaignName, evaluation, mode), clientLogo };
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
     const fileName = `${mode === "internal" ? "internal-report" : "client-report"}.${format}`;
     // Deterministic per-evaluation path (never includes a version/time

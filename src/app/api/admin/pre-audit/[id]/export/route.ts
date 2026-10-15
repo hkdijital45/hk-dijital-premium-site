@@ -4,6 +4,7 @@ import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { getPreAuditReportById } from "@/lib/pre-audit/reports";
 import { buildPreAuditDocumentPayload, buildPreAuditFileName } from "@/lib/pre-audit/document";
 import { generateDocxBuffer, generatePdfBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 // Branded PDF/DOCX export for a single, already-saved Ön İnceleme report.
 // EXPORT = RENDER, never research: no AI call, no MCP call, no new
@@ -31,6 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const companyDisplayName = await resolveCompanyDisplayName(report.company_id, report.lead_id, report.title);
     const payload = buildPreAuditDocumentPayload(report, companyDisplayName);
+    payload.clientLogo = await resolveReportClientLogo({ companyId: report.company_id, leadId: report.lead_id, businessUnitId: report.business_unit_id || null });
     const filename = buildPreAuditFileName(report, companyDisplayName, format);
 
     const buffer = format === "pdf" ? await generatePdfBuffer(payload) : await generateDocxBuffer(payload);

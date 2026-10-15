@@ -2,7 +2,8 @@ import "server-only";
 
 import type { PreAuditReport } from "@/lib/pre-audit/types";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
-import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell } from "@/lib/server/document-generator";
+import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
+import { formatNumberTr as formatNumberTrDigits } from "@/lib/report-design";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
 import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
 
@@ -464,6 +465,49 @@ function buildInternalOnlySections(report: PreAuditReport): DocumentSection[] {
   return sections;
 }
 
+function finiteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\s*\d+([.,]\d+)?\s*$/.test(value)) return Number(value.replace(",", "."));
+  return null;
+}
+
+function pick(obj: unknown, ...keys: string[]): number | null {
+  if (!isPlainObject(obj)) return null;
+  for (const key of keys) {
+    const direct = finiteNumber(obj[key]);
+    if (direct !== null) return direct;
+  }
+  return null;
+}
+
+/** Premium V3 headline cards — only publicly observable figures that the
+ * saved report states as plain numbers at a known key (Google rating /
+ * review count, Instagram followers). Anything else stays in the text;
+ * nothing is parsed out of prose or estimated. Exported for tests. */
+export function preAuditHeadlineMetrics(report: PreAuditReport): DocumentMetric[] {
+  const out: DocumentMetric[] = [];
+  const maps = report.maps_analysis as Record<string, unknown>;
+  const google = report.google_analysis as Record<string, unknown>;
+  const social = report.social_analysis as Record<string, unknown>;
+  const rating = pick(maps, "rating", "googleRating") ?? pick(google, "rating", "googleRating");
+  const reviews = pick(maps, "reviewCount", "reviewsCount", "reviews") ?? pick(google, "reviewCount", "reviewsCount");
+  if (rating !== null && rating > 0 && rating <= 5) out.push({ label: "Google Puanı", value: `${formatNumberTrDigits(rating, 1)} / 5`, note: reviews !== null ? `${formatNumberTrDigits(reviews, 0)} yorum` : undefined });
+  const followers = pick(isPlainObject(social) ? social.instagram : null, "followers") ?? pick(social, "instagramFollowers", "followers");
+  if (followers !== null) out.push({ label: "Instagram Takipçi", value: formatNumberTrDigits(followers, 0) });
+  return out;
+}
+
+/** INTERNAL only (budget_plan never reaches a client document): a donut of
+ * the plan's own per-channel monthly amounts, labelled as a proposal. */
+export function preAuditBudgetChart(report: PreAuditReport): DocumentChart | null {
+  if (!isPlainObject(report.budget_plan)) return null;
+  const data = Object.entries(report.budget_plan)
+    .filter(([key]) => /meta|facebook|instagram|google|tiktok|youtube|remarketing|yeniden/i.test(key) && !/total|toplam|daily|günlük|gunluk/i.test(key))
+    .map(([key, value]) => ({ label: prettifyKey(key), value: finiteNumber(value) }));
+  if (data.filter((d) => d.value !== null && d.value > 0).length < 2) return null;
+  return { type: "donut", title: "Önerilen Aylık Bütçe Dağılımı", valueFormat: "currency", data, caption: "Ön incelemede önerilen dağılımdır; gerçekleşen harcama değildir." };
+}
+
 /** Source of truth for BOTH PDF and DOCX — one payload, two renderers
  * (generatePdfBuffer/generateDocxBuffer), so the two formats can never
  * drift into different content. */
@@ -484,6 +528,12 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
   // underlying report data happens to hold.
   const sections = buildClientSections(report, isInternal);
   if (isInternal) {
+    const budgetChart = preAuditBudgetChart(report);
+    if (budgetChart) {
+      const index = sections.findIndex((section) => section.title === "Bütçe Planı");
+      const chartSection: DocumentSection = { title: "Bütçe Planı — Dağılım", charts: [budgetChart] };
+      if (index >= 0) sections.splice(index + 1, 0, chartSection); else sections.push(chartSection);
+    }
     const internalSections = buildInternalOnlySections(report);
     if (internalSections.length) sections.push(...internalSections);
   }
@@ -493,6 +543,7 @@ export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisp
     customerName: companyDisplayName,
     period: createdLabel,
     executiveSummary: textValue(report.executive_summary || ""),
+    headlineMetrics: preAuditHeadlineMetrics(report),
     sections,
     footerNote: isInternal
       ? "HK Dijital · Dahili Kullanım · Müşteriyle Paylaşılmaz"

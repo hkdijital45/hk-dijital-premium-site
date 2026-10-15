@@ -2,7 +2,8 @@
 /* eslint-disable react-hooks/set-state-in-effect -- fetch-on-mount pattern, same accepted precedent as ManualEvaluationSection.tsx */
 
 import { useCallback, useEffect, useState } from "react";
-import { Building2, GitBranch, Link2, Pencil, Search, Unlink, X } from "lucide-react";
+import { Building2, GitBranch, ImageIcon, Link2, Pencil, Search, Unlink, X } from "lucide-react";
+import { CompanyLogoPanel } from "@/components/admin/business-relationships/CompanyLogoPanel";
 import {
   ENTITY_TYPE_LABELS,
   RELATIONSHIP_LABELS,
@@ -36,6 +37,7 @@ export function BusinessRelationshipsPanel({ owner, ownerName, onChanged, allowC
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState("");
+  const [logoFor, setLogoFor] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,6 +245,9 @@ export function BusinessRelationshipsPanel({ owner, ownerName, onChanged, allowC
                 {business.entity.type === "unit" && (
                   <button type="button" onClick={() => openMode({ kind: "edit", business })} className="hk-button hk-button-neutral hk-button-compact"><Pencil size={13} /> Düzenle</button>
                 )}
+                {business.entity.type === "unit" && (
+                  <button type="button" onClick={() => setLogoFor(logoFor === business.entity.id ? "" : business.entity.id)} className="hk-button hk-button-neutral hk-button-compact"><ImageIcon size={13} /> Logo</button>
+                )}
                 {confirmUnlink === business.relationshipId ? (
                   <>
                     <button type="button" disabled={busy} onClick={() => send("DELETE", null, `${business.name} bağlantısı kaldırıldı (kayıt silinmedi).`, `/api/admin/business-relationships?relationshipId=${business.relationshipId}`)} className="hk-button hk-button-danger hk-button-compact">Bağlantıyı Kaldır</button>
@@ -254,6 +259,7 @@ export function BusinessRelationshipsPanel({ owner, ownerName, onChanged, allowC
               </div>
             </div>
             {business.description && <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--admin-text-secondary)" }}>{business.description}</p>}
+            {logoFor === business.entity.id && business.entity.type === "unit" && <CompanyLogoPanel owner={{ type: "unit", id: business.entity.id }} compact />}
           </div>
         ))}
       </div>

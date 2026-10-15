@@ -6,6 +6,7 @@ import { getAdEvaluationById, updateAdEvaluationStoragePaths, AdEvaluationNotFou
 import { buildAdEvaluationDocumentPayload, type AdEvaluationDocumentMode } from "@/lib/marketing-intelligence/ad-evaluation-document";
 import { generatePdfBuffer, generateDocxBuffer, safeFileNameSegment, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
 import { adEvaluationStoragePath, uploadAdEvaluationFile, signAdEvaluationFileUrl } from "@/lib/marketing-intelligence/ad-evaluation-storage";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 const PATH_FIELD: Record<string, keyof AdEvaluationRecord> = {
   "internal-pdf": "internal_pdf_path", "internal-docx": "internal_docx_path",
@@ -51,6 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const campaignName = campaigns[0]?.name || evaluation.meta_campaign_id || "Kampanya";
 
     const payload = buildAdEvaluationDocumentPayload(companyName, campaignName, evaluation, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
 
     const fileName = `${mode === "internal" ? "internal-report" : "client-report"}.${format}`;
@@ -94,6 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const campaignName = campaigns[0]?.name || evaluation.meta_campaign_id || "Kampanya";
 
     const payload = buildAdEvaluationDocumentPayload(companyName, campaignName, evaluation, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
 
     const fileName = `${mode === "internal" ? "internal-report" : "client-report"}.${format}`;
