@@ -47,6 +47,12 @@ jobs:
     name: Playwright (public + credential-gated coverage)
     runs-on: ubuntu-latest
     needs: validate
+    env:
+      # Test-only, non-dialable number (no TR area code 000) so the public
+      # WhatsApp CTAs render and homepage-redesign.spec.ts can assert they all
+      # point to one configured number. NEXT_PUBLIC_* is inlined at build time,
+      # so it is set for the whole job (build + test). Never used in production.
+      NEXT_PUBLIC_WHATSAPP_NUMBER: "900000000001"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

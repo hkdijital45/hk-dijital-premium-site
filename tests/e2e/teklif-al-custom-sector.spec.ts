@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * /teklif-al (Paket Öneri Robotu) — "Diğer" custom business-sector requirement.
+ * /teklif-al (Dijital Pazarlama Ön Analizi) — "Diğer" custom business-sector requirement.
  * Public route, no auth required. Covers reveal/validation of the manual sector
  * field, category switching, back/forward persistence, the resolved category
  * reaching the /api/leads payload, and the /api/leads server-side rejection of
@@ -19,21 +19,30 @@ async function interceptLeadSubmission(page: Page) {
   return () => capturedBody;
 }
 
-async function completeStepsThroughRecommendation(page: Page) {
+// The wizard is the 7-step Dijital Pazarlama Ön Analizi (İşletme → Hedef →
+// Platform → Bütçe → İhtiyaç → Analiz → İletişim). The old package
+// recommendation step ("Paketi Öner" / "Bilgilerimi Bırakayım") was removed
+// on purpose — teklif-al-platform-multiselect.spec.ts and
+// teklif-al-custom-sector-differentiation.spec.ts assert those labels are
+// absent — so this walks the same real path a visitor takes today.
+async function completeStepsThroughAnalysis(page: Page) {
   await page.getByRole("button", { name: "Daha Fazla Mesaj" }).click();
   await page.getByTestId("platform-card-meta").click();
   await page.getByTestId("platform-continue").click();
   await page.getByRole("button", { name: "5.000-20.000 TL" }).click();
-  await page.getByRole("button", { name: "Paketi Öner" }).click();
-  await page.getByRole("button", { name: "Bilgilerimi Bırakayım" }).click();
+  await expect(page.getByRole("heading", { name: "Operasyon İhtiyacınız" })).toBeVisible();
+  await page.getByRole("button", { name: "Analizi Görüntüle" }).click();
+  await expect(page.getByRole("heading", { name: "Dijital Pazarlama Ön Analiziniz" })).toBeVisible();
+  await page.getByRole("button", { name: "İletişim Bilgilerine Geç" }).click();
+  await expect(page.getByRole("heading", { name: "Analizinizi Tamamlayın" })).toBeVisible();
 }
 
 async function fillContactAndSubmit(page: Page) {
   await page.getByLabel(/Ad Soyad/).fill("Test Kullanıcı");
   await page.getByLabel(/Firma Adı/).fill("Test Firma");
   await page.getByLabel(/E-posta/).fill("test@example.com");
-  await page.getByLabel(/Telefon/).fill("5551234567");
-  await page.getByRole("button", { name: /Gönder|Bırakayım|Teklif/ }).last().click();
+  await page.getByRole("textbox", { name: /Telefon/ }).fill("5551234567");
+  await page.getByRole("button", { name: "Analizimi Gönder" }).click();
 }
 
 test.describe("/teklif-al - İşletme Türü adımı: özel sektör", () => {
@@ -110,7 +119,7 @@ test.describe("/teklif-al - İşletme Türü adımı: özel sektör", () => {
     await page.getByRole("button", { name: /Diğer/ }).click();
     await page.getByLabel("İşletme sektörünüzü yazın").fill("  Güzellik   Merkezi  ");
     await page.getByRole("button", { name: "Devam" }).click();
-    await completeStepsThroughRecommendation(page);
+    await completeStepsThroughAnalysis(page);
     await fillContactAndSubmit(page);
     await expect.poll(() => getBody()).not.toBeNull();
     expect(getBody()?.businessType).toBe("Güzellik Merkezi");
@@ -120,7 +129,7 @@ test.describe("/teklif-al - İşletme Türü adımı: özel sektör", () => {
     const getBody = await interceptLeadSubmission(page);
     await page.goto("/teklif-al", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "Sağlık" }).click();
-    await completeStepsThroughRecommendation(page);
+    await completeStepsThroughAnalysis(page);
     await fillContactAndSubmit(page);
     await expect.poll(() => getBody()).not.toBeNull();
     expect(getBody()?.businessType).toBe("Sağlık");
