@@ -105,6 +105,7 @@ import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavig
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
 import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
 import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
+import { CompanyLogoPanel } from "@/components/admin/business-relationships/CompanyLogoPanel";
 import { RELATIONSHIP_LABELS, type LinkedBusiness } from "@/lib/business-relationships-shared";
 
 // Every var(--admin-*) token (surface, text, border colors) is only ever
@@ -6741,6 +6742,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
     setAnalysisMessage("PDF Audit oluşturuluyor...");
     try {
       await downloadAuditPdf({
+        leadId: lead.id,
         businessName: lead.company || lead.name,
         source: lead.source || "CRM",
         leadScore: { score: lead.lead_heat_score, temperature: Number(lead.lead_heat_score || 0) >= 80 ? "Sıcak" : Number(lead.lead_heat_score || 0) >= 50 ? "Ilık" : "Soğuk" },
@@ -6751,7 +6753,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
           { platform: "Instagram", username: lead.instagram, profileUrl: lead.instagram }
         ].filter((item) => item.username || item.profileUrl),
         outputs: [
-          { action: "Executive Summary", text: lead.ai_analysis?.text || lead.message || lead.notes || "CRM kaydından oluşturulan mini audit.", ai: lead.ai_analysis },
+          { action: "Yönetici Özeti", text: lead.ai_analysis?.text || lead.message || lead.notes || "CRM kaydından oluşturulan mini audit.", ai: lead.ai_analysis },
           { action: "Düzeltilmesi Gerekenler", text: lead.local_opportunity_notes || lead.notes || lead.message || "" },
           { action: "Teklif Hazırlama", text: `Starter: 10.000 TL\nPro: 15.000 TL\nPremium: 25.000 TL` }
         ],
@@ -6839,6 +6841,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       </div>
       <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
       {!String(lead.id).startsWith("lead-") && <BusinessRelationshipsPanel owner={{ type: "lead", id: lead.id }} ownerName={lead.company || lead.name} onChanged={setLinkedBusinesses} />}
+      {!String(lead.id).startsWith("lead-") && <CompanyLogoPanel owner={{ type: "lead", id: lead.id }} />}
       <div className="mt-4 rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
         <p className="text-xs font-black uppercase tracking-[.14em]" style={{ color: "var(--admin-text-secondary)" }}>Görüşme Sonucu</p>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -15638,7 +15641,7 @@ function AnalysisResultCard({ kind, item, form, aiMeta, saved, saving, message, 
         ai: aiMeta,
         platforms: [{ platform: isMeta ? item.platform || "Facebook / Instagram" : "Google", username: item.name, profileUrl: item.adUrl || item.metaAdLibraryUrl || item.website || item.googleSearchUrl }],
         outputs: [
-          { action: "Executive Summary", text: item.summary || item.adActivitySignal || item.googleBusinessPresence, ai: aiMeta },
+          { action: "Yönetici Özeti", text: item.summary || item.adActivitySignal || item.googleBusinessPresence, ai: aiMeta },
           { action: "Düzeltilmesi Gerekenler", text: item.ctaAnalysis || item.opportunityNote || item.adActivitySignal || "" },
           { action: "Meta Reklam Stratejisi", text: item.creativeAnalysis || item.summary || "" },
           { action: "Google Reklam Stratejisi", text: Array.isArray(item.keywordOpportunities) ? item.keywordOpportunities.join("\n") : item.adActivitySignal || "" },

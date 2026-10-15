@@ -13,6 +13,7 @@ import { CustomerAnalyticsPanel } from "./CustomerAnalyticsPanel";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
+import { CompanyLogoPanel } from "@/components/admin/business-relationships/CompanyLogoPanel";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -814,6 +815,7 @@ export function CustomerProfileModal({
             {/* Bağlı markalar / lead döneminde eklenen işletmeler. Fiziksel
                 şubeler yukarıdaki mevcut "Şubeler" sistemiyle yönetilir. */}
             <BusinessRelationshipsPanel owner={{ type: "company", id: company.id }} ownerName={company.name} allowCreateBranch={false} title="Bağlı Markalar ve İşletme İlişkileri" />
+            <CompanyLogoPanel owner={{ type: "company", id: company.id }} />
           </section>
           <section className="mt-5 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

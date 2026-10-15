@@ -86,12 +86,13 @@ export const tools: Tool[] = [
   },
   {
     name: "save_pre_audit_report",
-    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). A genuinely NEW research pass (first analysis, or a deliberate re-audit later) should omit both reportId and analysisGroupId — this always inserts a new row, preserving report history. To UPDATE an existing report in place instead (user says 'bu raporu güncelle'/'yeniden kontrol et'/'refresh this report' about a report you already have) pass reportId — the id from a prior save's response or from get_latest_pre_audit_report's `latest.id` — and this overwrites that exact row (same id, same report_type required) rather than creating a duplicate. Pass analysisGroupId (returned by a prior save in the same research pass, without reportId) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling from that same pass; if a row already exists for that analysisGroupId+report_type, it is updated in place too, so an accidental retry never creates a duplicate. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
+    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). A genuinely NEW research pass (first analysis, or a deliberate re-audit later) should omit both reportId and analysisGroupId — this always inserts a new row, preserving report history. To UPDATE an existing report in place instead (user says 'bu raporu güncelle'/'yeniden kontrol et'/'refresh this report' about a report you already have) pass reportId — the id from a prior save's response or from get_latest_pre_audit_report's `latest.id` — and this overwrites that exact row (same id, same report_type required) rather than creating a duplicate. Pass analysisGroupId (returned by a prior save in the same research pass, without reportId) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling from that same pass; if a row already exists for that analysisGroupId+report_type, it is updated in place too, so an accidental retry never creates a duplicate. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged. Optional companyLogoUrl (+ companyLogoSource = the official page it was found on): the company's official logo image URL found during research; it is stored as a PENDING_REVIEW logo candidate for this business (companyLogoVerificationStatus is accepted for compatibility but ignored — only an HK Admin user can verify a logo). The result then includes companyLogo.status.",
     permission: "WRITE_SAFE",
     inputSchema: {
       type: "object",
       properties: {
-        companyId, leadId: text, businessUnitId: text, analysisGroupId: text, reportId: text, reportType: text, title: text, status: text, reportDate: dateField,
+        companyId, leadId: text, businessUnitId: text, analysisGroupId: text, reportId: text, reportType: text,
+        companyLogoUrl: text, companyLogoSource: text, companyLogoVerificationStatus: text, title: text, status: text, reportDate: dateField,
         executiveSummary: text,
         digitalPresence: obj, googleAnalysis: obj, mapsAnalysis: obj, websiteAnalysis: obj, seoAnalysis: obj, socialAnalysis: obj,
         metaAdsAnalysis: obj, googleAdsAnalysis: obj, marketAnalysis: obj, competitorAnalysis: obj, swot: obj,
@@ -266,6 +267,21 @@ export const tools: Tool[] = [
     description: "Get a registered CRM lead's Instagram Değerlendirme history (the same rows HK Admin's own Instagram Değerlendirme history list shows for this lead). Without `id`, returns a compact list (id, title, status, created_at) ordered newest first, limited by `limit` (default 10, max 50). With `id`, returns that one full record (all saved fields, derived metrics, notes, and the preserved Claude analysis text) — verified to actually belong to this leadId, never another lead's or a non-instagram-module row. Without businessUnitId the list contains only the main business's evaluations; pass businessUnitId to list a linked branch/related brand's own history. Returns not_found if no evaluations exist yet or the id doesn't belong to this lead. Read-only.",
     permission: "READ_ONLY",
     inputSchema: { type: "object", properties: { leadId: text, businessUnitId: text, id: text, limit }, required: ["leadId"], additionalProperties: false }
+  },
+  // --- Firma Logosu (Premium Report System V3). PDF covers show a client
+  // logo next to HK Dijital's ONLY when it is VERIFIED; these tools never
+  // let a caller mark a logo verified or replace an approved one. ---
+  {
+    name: "get_company_logo_status",
+    description: "Get the logo status of exactly one business: pass one of leadId, companyId or businessUnitId (a linked branch/related brand from relatedBusinesses). Returns status VERIFIED ('Doğrulandı' — used on PDF report covers), PENDING_REVIEW ('Onay Bekliyor' — a candidate waiting for an HK Admin user to approve), NOT_FOUND ('Bulunamadı') or NONE, plus the recorded website and candidate sources. Read-only.",
+    permission: "READ_ONLY",
+    inputSchema: { type: "object", properties: { leadId: text, companyId: text, businessUnitId: text }, required: [], additionalProperties: false }
+  },
+  {
+    name: "discover_company_logo",
+    description: "Find and store a candidate logo for exactly one business (one of leadId, companyId, businessUnitId). Without logoUrl, the server reads ONLY that business's own recorded website (robots.txt respected, private networks blocked) and stores the logo the site itself publishes; it is auto-VERIFIED only when it comes from the site's Organization structured data and the declared organisation matches the business, otherwise PENDING_REVIEW. With logoUrl (an official logo image URL you found during research — PNG/JPEG/WebP, never SVG, never a generic search-engine image or a guessed profile photo; pass sourcePageUrl = the official page it was found on) the image is downloaded, validated and stored as PENDING_REVIEW — a person approves it in HK Admin before it can appear in any PDF. Never replaces an already approved logo, never duplicates the same image, never creates leads or customers. Only call when the user asks to find/save the company logo or as part of an explicitly approved report save.",
+    permission: "WRITE_SAFE",
+    inputSchema: { type: "object", properties: { leadId: text, companyId: text, businessUnitId: text, logoUrl: text, sourcePageUrl: text }, required: [], additionalProperties: false }
   }
 ];
 
@@ -627,7 +643,17 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
           sales_notes: str(args.salesNotes), sales_script: str(args.salesScript), instagram_dm: str(args.instagramDm),
           whatsapp_initial: str(args.whatsappInitial), whatsapp_with_pdf: str(args.whatsappWithPdf), objections: args.objections
         });
-        return await savePreAuditReport(payload, str(args.analysisGroupId), str(args.reportId));
+        const saved = await savePreAuditReport(payload, str(args.analysisGroupId), str(args.reportId));
+        // Optional companyLogoUrl: stored as a PENDING_REVIEW candidate only
+        // (a caller-supplied "verified" status is never trusted). Best-effort:
+        // a logo problem never fails the already-saved report.
+        const logoUrl = str(args.companyLogoUrl);
+        if (!logoUrl) return saved;
+        const { submitLogoCandidateFromUrl } = await import("@/lib/business-logos");
+        const owner = payload.business_unit_id ? { type: "unit" as const, id: payload.business_unit_id } : saved.lead_id ? { type: "lead" as const, id: saved.lead_id } : { type: "company" as const, id: saved.company_id as string };
+        const companyLogo = await submitLogoCandidateFromUrl(owner, logoUrl, str(args.companyLogoSource) || null, null)
+          .catch((error: unknown) => ({ status: "NOT_SAVED", message: error instanceof Error ? error.message : "Logo kaydedilemedi." }));
+        return { ...saved, companyLogo };
       } catch (error) {
         if (error instanceof PreAuditValidationError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         if (error instanceof PreAuditCompanyNotFoundError) throw new ControlError("NOT_FOUND", error.message, 404);
@@ -941,9 +967,50 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
       }
     }
 
+    case "get_company_logo_status": {
+      const { getLogoStatus } = await import("@/lib/business-logos");
+      const owner = logoOwnerFromArgs(args);
+      try {
+        const summary = await getLogoStatus(owner);
+        return {
+          status: summary.status, label: summary.label, website: summary.website,
+          usedOnReportCovers: summary.status === "VERIFIED",
+          primary: summary.primary ? { id: summary.primary.id, source: summary.primary.sourceLabel, sourceUrl: summary.primary.source_url } : summary.legacyBrandingLogoUrl ? { source: "Müşteri marka varlıkları (manuel yükleme)" } : null,
+          candidates: summary.candidates.map((c) => ({ id: c.id, status: c.status, source: c.sourceLabel, sourceUrl: c.source_url }))
+        };
+      } catch (error) {
+        throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+    case "discover_company_logo": {
+      const { discoverLogoFromWebsite, submitLogoCandidateFromUrl, BusinessLogoError } = await import("@/lib/business-logos");
+      const { LogoImageError } = await import("@/lib/server/logo-image");
+      const { SafeFetchError } = await import("@/lib/server/safe-fetch");
+      const owner = logoOwnerFromArgs(args);
+      try {
+        if (typeof args.logoUrl === "string" && args.logoUrl) {
+          return await submitLogoCandidateFromUrl(owner, args.logoUrl, typeof args.sourcePageUrl === "string" ? args.sourcePageUrl : null, null);
+        }
+        return await discoverLogoFromWebsite(owner, null);
+      } catch (error) {
+        if (error instanceof LogoImageError || error instanceof SafeFetchError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
+        if (error instanceof BusinessLogoError) throw new ControlError("NOT_FOUND", error.message, 404);
+        throw (await toKnownControlError(error)) ?? error;
+      }
+    }
+
     default:
       throw new ControlError("UNKNOWN_TOOL", "Unknown tool.", 404);
   }
+}
+
+function logoOwnerFromArgs(args: Record<string, unknown>): { type: "lead" | "company" | "unit"; id: string } {
+  const pairs: Array<["lead" | "company" | "unit", unknown]> = [["unit", args.businessUnitId], ["lead", args.leadId], ["company", args.companyId]];
+  const given = pairs.filter(([, v]) => typeof v === "string" && v);
+  if (given.length !== 1) throw new ControlError("INVALID_ARGUMENTS", "Tam olarak bir tane leadId, companyId veya businessUnitId verin.", 400);
+  const [type, id] = given[0];
+  if (!/^[0-9a-f-]{36}$/i.test(String(id))) throw new ControlError("INVALID_ARGUMENTS", "Geçersiz kimlik.", 400);
+  return { type, id: String(id) };
 }
 
 export { toolByName, validateArguments };

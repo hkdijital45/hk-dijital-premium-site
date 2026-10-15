@@ -72,7 +72,11 @@ const SERVER_INSTRUCTIONS =
   "`instagram` module, so a row saved here shows up identically in HK Admin's own history/export screens. " +
   "save_lead_instagram_evaluation must be called ONLY after the user explicitly says to save it — analyzing " +
   "or discussing the lead's Instagram alone is never itself a save instruction, and it never converts the " +
-  "lead into a customer or modifies its actual Instagram account.";
+  "lead into a customer or modifies its actual Instagram account. " +
+  "get_company_logo_status/discover_company_logo manage a business's logo for PDF report covers: only a VERIFIED " +
+  "logo is ever printed next to HK Dijital's; discover_company_logo either reads the business's own recorded " +
+  "website or stores an official logo URL you found as PENDING_REVIEW for a person to approve — it never " +
+  "verifies a logo on your word, never replaces an approved logo and never uses generic search-engine images.";
 
 function toolResult(payload: { success: boolean; data: unknown; error: unknown }) {
   const clean = sanitize(payload) as Record<string, unknown>;

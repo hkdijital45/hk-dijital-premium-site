@@ -3,7 +3,8 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { recordActivity } from "@/lib/activity-log";
 import { uploadGeneratedDocument } from "@/lib/customer-assets";
-import { buildDocumentFileName, DOCUMENT_MIME_TYPES, generatePdfBuffer, type DocumentPayload } from "@/lib/server/document-generator";
+import { buildDocumentFileName, DOCUMENT_MIME_TYPES, generatePdfBuffer, type DocumentPayload, type DocumentMetric } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 import { getAllProviderKpis } from "@/lib/analytics-center/kpi";
 import { queryContentMetrics } from "@/lib/analytics-center/metrics-store";
 import { PROVIDER_LABELS } from "@/lib/analytics-center/capabilities";
@@ -11,6 +12,20 @@ import { buildProviderInsights, buildGoogleAdsInsights, buildGoogleBusinessInsig
 import { ANALYTICS_PROVIDERS } from "@/lib/analytics-center/types";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import type { AnalyticsProvider, KpiCardValue } from "@/lib/analytics-center/types";
+
+/** Premium V3 KPI card: same numbers as formatKpiLine, Turkish formatting
+ * (%12,5 / 1.250 TL), change vs previous period as the note. */
+function kpiCard(kpi: KpiCardValue): DocumentMetric | null {
+  if (kpi.value === null) return null;
+  const value = kpi.unit === "currency" ? `${kpi.value.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL` : kpi.unit === "percent" ? `%${kpi.value.toLocaleString("tr-TR", { maximumFractionDigits: 1 })}` : kpi.value.toLocaleString("tr-TR", { maximumFractionDigits: 0 });
+  const change = kpi.changePercent;
+  return {
+    label: kpi.label,
+    value,
+    note: change !== null ? `Önceki döneme göre ${change >= 0 ? "+" : "−"}%${Math.abs(change).toLocaleString("tr-TR", { maximumFractionDigits: 1 })}` : undefined,
+    tone: change === null || change === 0 ? "neutral" : change > 0 ? "positive" : "negative"
+  };
+}
 
 function formatKpiLine(kpi: KpiCardValue): string {
   if (kpi.value === null) return `${kpi.label}: veri yok`;
@@ -66,7 +81,8 @@ export async function POST(request: Request) {
       const insightLines = provider === "google_ads" ? buildGoogleAdsInsights(kpis) : provider === "google_business_profile" ? buildGoogleBusinessInsights(kpis) : buildProviderInsights(provider, kpis);
       sections.push({
         title: PROVIDER_LABELS[provider],
-        items: [...withData.map(formatKpiLine), ...insightLines]
+        metrics: withData.map(kpiCard).filter((m): m is DocumentMetric => m !== null).slice(0, 8),
+        items: insightLines.length ? insightLines : withData.map(formatKpiLine)
       });
     }
 
@@ -85,6 +101,7 @@ export async function POST(request: Request) {
       footerNote: "Bu rapor HK Dijital Analiz & Raporlama Merkezi tarafından, bağlı platformların resmi API verilerinden otomatik olarak oluşturulmuştur."
     };
 
+    payload.clientLogo = await resolveReportClientLogo({ companyId });
     const pdfBuffer = await generatePdfBuffer(payload);
     const fileName = buildDocumentFileName(company.name, "Analiz Raporu", "pdf");
     const uploaded = await uploadGeneratedDocument(companyId, Buffer.from(pdfBuffer), fileName, DOCUMENT_MIME_TYPES.pdf);

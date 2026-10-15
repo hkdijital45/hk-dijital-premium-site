@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getSiteContent } from "@/lib/content";
 import { auditPdfFilename, generateMiniAuditPdf } from "@/lib/pdf-audit";
 import { requireModuleAccess } from "@/lib/permissions";
 
@@ -14,10 +13,12 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    const content = await getSiteContent();
+    // logoUrl/profileImageUrl from the request are no longer fetched: the
+    // HK Dijital logo is the bundled official asset and a client logo is
+    // only ever a VERIFIED one resolved server-side from leadId.
     const payload = {
       ...body,
-      logoUrl: body.logoUrl || content.brand?.logoUrl || content.brand?.footerLogoUrl || "",
+      leadId: typeof body.leadId === "string" ? body.leadId : undefined,
       date: body.date || new Date().toISOString().slice(0, 10)
     };
     const buffer = await generateMiniAuditPdf(payload);
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       throw new Error("PDF oluşturulamadı. Geçersiz PDF verisi alındı.");
     }
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": String(buffer.length),

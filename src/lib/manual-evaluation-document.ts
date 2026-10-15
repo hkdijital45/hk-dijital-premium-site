@@ -1,6 +1,7 @@
 import "server-only";
 
-import type { DocumentPayload, DocumentSection } from "@/lib/server/document-generator";
+import type { DocumentPayload, DocumentSection, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
+import { formatNumberTr } from "@/lib/report-design";
 import { MODULE_FIELD_GROUPS, MODULE_LABELS, type ManualEvaluationRecord } from "@/lib/manual-evaluations-shared";
 
 export type ManualEvaluationDocumentMode = "internal" | "client";
@@ -18,7 +19,10 @@ export function buildManualEvaluationDocumentPayload(targetName: string, evaluat
       .map((field) => {
         const raw = evaluation.data[field.key];
         if (raw === undefined || raw === null || raw === "") return null;
-        const value = field.unit ? `${raw} ${field.unit}` : String(raw);
+        // Turkish number formatting for numeric entries (3120 -> 3.120); text stays as typed.
+        const numeric = typeof raw === "number" || (typeof raw === "string" && /^-?\d+([.,]\d+)?$/.test(raw.trim()) && !/^0\d/.test(raw.trim()));
+        const shown = numeric ? formatNumberTr(Number(String(raw).replace(",", "."))) : String(raw);
+        const value = field.unit ? `${shown} ${field.unit}` : shown;
         return [field.label, value];
       })
       .filter((row): row is [string, string] => row !== null);
@@ -27,6 +31,27 @@ export function buildManualEvaluationDocumentPayload(targetName: string, evaluat
   }
 
   const metricEntries = Object.values(evaluation.derived_metrics || {});
+  // Premium V3: the computed metrics as KPI cards (values come from
+  // derived_metrics, which the server recomputes from real input on save).
+  const headlineMetrics: DocumentMetric[] = metricEntries
+    .filter((m) => typeof m.value === "number" && Number.isFinite(m.value))
+    .slice(0, 8)
+    .map((m) => ({ label: m.label, value: `${m.unit === "%" ? "%" : ""}${formatNumberTr(m.value)}${m.unit && m.unit !== "%" ? ` ${m.unit}` : ""}` }));
+
+  // Instagram: content-format mix, only from counts that were actually entered.
+  const charts: DocumentChart[] = [];
+  if (evaluation.module === "instagram") {
+    const count = (key: string) => {
+      const raw = evaluation.data[key];
+      if (raw === undefined || raw === null || raw === "") return null;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    };
+    const mix = [["Reels", count("reelsCount")], ["Karusel", count("carouselCount")], ["Tek Görsel", count("staticPostCount")], ["Hikâye", count("storyCount")]] as const;
+    charts.push({ type: "donut", title: "İçerik Formatı Dağılımı", data: mix.map(([label, value]) => ({ label, value })), caption: "İncelenen dönemde paylaşılan içeriklerin formatlara dağılımı (girilen sayılara göre)." });
+  }
+  if (charts.length) sections.unshift({ title: "İçerik Karması", charts });
+
   if (metricEntries.length > 0) {
     sections.push({
       title: "Hesaplanan Metrikler",
@@ -62,8 +87,9 @@ export function buildManualEvaluationDocumentPayload(targetName: string, evaluat
     customerName: targetName,
     period: evaluation.data.analysisStartDate && evaluation.data.analysisEndDate ? `${evaluation.data.analysisStartDate} – ${evaluation.data.analysisEndDate}` : new Date(evaluation.created_at).toLocaleDateString("tr-TR"),
     executiveSummary: evaluation.title || `${MODULE_LABELS[evaluation.module]} değerlendirmesi.`,
+    headlineMetrics,
     sections,
-    logo: mode === "client",
+    logo: true,
     confidentialLabel: mode === "internal" ? "DAHİLİ KULLANIM" : undefined
   };
 }

@@ -1,7 +1,39 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { reportHighlights } from "./report-metrics";
 import { buildActionPlan, calculateHKIntelligenceScore, calculateHealthScore, formatCurrency, formatNumber, getLeadTracking, getWorkLogItems } from "./report-insights";
-import { generateDocxBuffer, generatePdfBuffer, type DocumentPayload } from "@/lib/server/document-generator";
+import { generateDocxBuffer, generatePdfBuffer, type DocumentPayload, type DocumentMetric } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
+import { formatCurrencyTr, formatNumberTr, formatPercentTr } from "@/lib/report-design";
+
+/** KPI cards for a performance report — only metrics that are actually
+ * present on the stored report (a missing metric is omitted, never shown
+ * as 0). */
+export function reportHeadlineMetrics(metrics: Record<string, unknown> | null | undefined): DocumentMetric[] {
+  if (!metrics || typeof metrics !== "object") return [];
+  const num = (...keys: string[]) => {
+    for (const key of keys) {
+      const raw = metrics[key];
+      if (raw === null || raw === undefined || raw === "") continue;
+      const value = Number(raw);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+  const out: DocumentMetric[] = [];
+  const spend = num("spent", "spend");
+  if (spend !== null) out.push({ label: "Harcama", value: formatCurrencyTr(spend) });
+  const impressions = num("impressions");
+  if (impressions !== null) out.push({ label: "Gösterim", value: formatNumberTr(impressions, 0) });
+  const reach = num("reach");
+  if (reach !== null) out.push({ label: "Erişim", value: formatNumberTr(reach, 0) });
+  const clicks = num("clicks");
+  if (clicks !== null) out.push({ label: "Tıklama", value: formatNumberTr(clicks, 0) });
+  const ctr = num("ctr");
+  if (ctr !== null) out.push({ label: "Tıklama Oranı (CTR)", value: formatPercentTr(ctr, 2) });
+  const conversions = num("leads", "conversions");
+  if (conversions !== null) out.push({ label: "Dönüşüm / Lead", value: formatNumberTr(conversions, 0) });
+  return out;
+}
 
 const SECTION_HEADINGS = ["Öne Çıkan Metrikler", "Lead / WhatsApp Takibi", "Yapay Zekâ Destekli Yorum", "Önümüzdeki 7 Gün Planı", "Ajans Notları ve Güncellemeler"];
 
@@ -28,6 +60,7 @@ function toDocumentPayload(content: string[], report: any, company: any): Docume
     customerName: company?.name || "-",
     period: report.period || `${report.start_date || "-"} - ${report.end_date || "-"}`,
     executiveSummary: summaryLines.join("\n"),
+    headlineMetrics: reportHeadlineMetrics(report?.metrics),
     sections,
     footerNote: "Sonuçlar sektör, bütçe, hedef kitle, teklif ve rekabet durumuna göre değişebilir."
   };
@@ -215,6 +248,7 @@ export async function generateReportExport(format: ExportFormat, report: any, co
 </Workbook>`;
     return { buffer: Buffer.from(`\uFEFF${xml}`, "utf8"), contentType: "application/vnd.ms-excel; charset=utf-8", extension: "xls" };
   }
+  payload.clientLogo = await resolveReportClientLogo({ companyId: company?.id || report?.company_id || null });
   if (format === "word") {
     return { buffer: await generateDocxBuffer(payload), contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extension: "docx" };
   }

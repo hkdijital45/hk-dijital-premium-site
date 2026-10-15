@@ -5,6 +5,7 @@ import { supabaseRest } from "@/lib/supabase";
 import { getCreativeReportById, AdCreativeReportNotFoundError } from "@/lib/marketing-intelligence/ad-creative-reports";
 import { buildCreativeReportDocumentPayload, type CreativeReportDocumentMode } from "@/lib/marketing-intelligence/ad-creative-report-document";
 import { generatePdfBuffer, generateDocxBuffer, safeFileNameSegment, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 // Always exports the exact currently-saved row (re-read by id+companyId
 // right here) — never a cached/stale response. Reuses the canonical
@@ -29,6 +30,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const companyName = companies[0]?.name || "Müşteri";
 
     const payload = buildCreativeReportDocumentPayload(companyName, report, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
 
     const slug = safeFileNameSegment(companyName).toLocaleLowerCase("en");

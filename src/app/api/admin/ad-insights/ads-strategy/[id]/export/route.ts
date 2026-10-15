@@ -5,6 +5,7 @@ import { supabaseRest } from "@/lib/supabase";
 import { getAdStrategyById, AdStrategyNotFoundError } from "@/lib/marketing-intelligence/ad-strategies";
 import { buildAdStrategyDocumentPayload, type AdStrategyDocumentMode } from "@/lib/marketing-intelligence/ad-strategy-document";
 import { generatePdfBuffer, generateDocxBuffer, safeFileNameSegment, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 // Always exports the EXACT currently-saved row (re-read from the DB by
 // id+companyId right here) — never a cached/stale/previous Claude
@@ -31,6 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const companyName = companies[0]?.name || "Müşteri";
 
     const payload = buildAdStrategyDocumentPayload(companyName, strategy, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
 
     const slug = safeFileNameSegment(companyName).toLocaleLowerCase("en");

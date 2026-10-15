@@ -5,6 +5,7 @@ import { supabaseRest } from "@/lib/supabase";
 import { getManualEvaluation, ManualEvaluationNotFoundError } from "@/lib/manual-evaluations";
 import { buildManualEvaluationDocumentPayload, type ManualEvaluationDocumentMode } from "@/lib/manual-evaluation-document";
 import { generatePdfBuffer, generateDocxBuffer, safeFileNameSegment, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 
 // Direct-download export (no storage persistence — a manual evaluation's
 // report is cheap to regenerate on demand, unlike the ad-evaluation flow's
@@ -21,15 +22,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const evaluation = await getManualEvaluation(id);
     let targetName = evaluation.target_label || "Değerlendirme";
-    if (evaluation.company_id) {
+    if (evaluation.business_unit_id) {
+      // A branch/related brand's evaluation carries its OWN name — never the parent lead's/customer's.
+      const units = await supabaseRest<Array<{ name: string }>>(`business_units?id=eq.${encodeURIComponent(evaluation.business_unit_id)}&select=name&limit=1`).catch(() => []);
+      targetName = units[0]?.name || targetName;
+    } else if (evaluation.company_id) {
       const companies = await supabaseRest<Array<{ name: string }>>(`companies?id=eq.${encodeURIComponent(evaluation.company_id)}&select=name&limit=1`).catch(() => []);
       targetName = companies[0]?.name || targetName;
     } else if (evaluation.lead_id) {
-      const leads = await supabaseRest<Array<{ name: string }>>(`leads?id=eq.${encodeURIComponent(evaluation.lead_id)}&select=name&limit=1`).catch(() => []);
-      targetName = leads[0]?.name || targetName;
+      const leads = await supabaseRest<Array<{ company: string | null; name: string | null }>>(`leads?id=eq.${encodeURIComponent(evaluation.lead_id)}&select=company,name&limit=1`).catch(() => []);
+      targetName = leads[0]?.company || leads[0]?.name || targetName;
     }
 
     const payload = buildManualEvaluationDocumentPayload(targetName, evaluation, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId: evaluation.company_id, leadId: evaluation.lead_id, businessUnitId: evaluation.business_unit_id || null });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
 
     const slug = safeFileNameSegment(targetName).toLocaleLowerCase("en");

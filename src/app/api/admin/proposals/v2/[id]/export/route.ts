@@ -3,6 +3,7 @@ import { requireModuleAccess } from "@/lib/permissions";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { getProposal, ProposalNotFoundError } from "@/lib/proposals/store";
 import { buildProposalDocumentPayload, buildProposalFileName, type ProposalDocumentMode } from "@/lib/proposals/document";
+import { resolveReportClientLogo } from "@/lib/business-logos";
 import { generatePdfBuffer, generateDocxBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
 
 // Real document generation via the same shared corporate engine every
@@ -22,6 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const proposal = await getProposal(id);
     const payload = buildProposalDocumentPayload(proposal, mode);
+    payload.clientLogo = await resolveReportClientLogo({ companyId: proposal.company_id, leadId: proposal.lead_id });
     const buffer = format === "docx" ? await generateDocxBuffer(payload) : await generatePdfBuffer(payload);
     const filename = buildProposalFileName(proposal, mode, format);
     return new NextResponse(buffer as unknown as BodyInit, {
