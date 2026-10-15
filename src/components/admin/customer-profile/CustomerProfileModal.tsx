@@ -12,6 +12,7 @@ import { CustomerAIInsightsPanel } from "./CustomerAIInsightsPanel";
 import { CustomerAnalyticsPanel } from "./CustomerAnalyticsPanel";
 import { AdminTabs } from "@/components/admin/ui/AdminTabs";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
+import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
 
 const paidStatuses = ["Ödendi", "Tahsil Edildi"];
 
@@ -810,6 +811,9 @@ export function CustomerProfileModal({
               {!branches.length && <p className="rounded-[14px] border border-dashed border-[var(--admin-border)] bg-[var(--admin-surface-soft)] p-4 text-sm text-[var(--admin-text-muted)]">Bu müşteri için henüz şube yok. İlk şubeyi ekleyerek şube bazlı rapor ve reklam takibine başlayabilirsin.</p>}
             </div>
             {branchMessage && <p className="mt-3 rounded-[12px] border border-cyan-200 bg-cyan-50 p-3 text-sm font-bold text-cyan-800">{branchMessage}</p>}
+            {/* Bağlı markalar / lead döneminde eklenen işletmeler. Fiziksel
+                şubeler yukarıdaki mevcut "Şubeler" sistemiyle yönetilir. */}
+            <BusinessRelationshipsPanel owner={{ type: "company", id: company.id }} ownerName={company.name} allowCreateBranch={false} title="Bağlı Markalar ve İşletme İlişkileri" />
           </section>
           <section className="mt-5 rounded-[18px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">

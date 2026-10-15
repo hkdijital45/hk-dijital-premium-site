@@ -16,6 +16,7 @@ type Props = {
   module: ManualEvaluationModule;
   companyId?: string | null;
   leadId?: string | null;
+  businessUnitId?: string | null;
   targetLabel?: string;
   existing?: ManualEvaluationRecord | null;
   /** Read-only-source prefill (e.g. a selected CRM lead's known fields) for
@@ -27,7 +28,7 @@ type Props = {
   onSaved: (evaluation: ManualEvaluationRecord) => void;
 };
 
-export function ManualEvaluationModal({ module, companyId, leadId, targetLabel, existing, prefillData, onClose, onSaved }: Props) {
+export function ManualEvaluationModal({ module, companyId, leadId, businessUnitId, targetLabel, existing, prefillData, onClose, onSaved }: Props) {
   const groups = MODULE_FIELD_GROUPS[module];
   const [title, setTitle] = useState(existing?.title || "");
   const [data, setData] = useState<Record<string, unknown>>(existing?.data || prefillData || {});
@@ -64,7 +65,7 @@ export function ManualEvaluationModal({ module, companyId, leadId, targetLabel, 
         body: JSON.stringify(
           saved
             ? { title, data, notes, status }
-            : { module, companyId: companyId || null, leadId: leadId || null, targetLabel: targetLabel || "", title, data, notes, status }
+            : { module, companyId: companyId || null, leadId: leadId || null, businessUnitId: businessUnitId || null, targetLabel: targetLabel || "", title, data, notes, status }
         )
       });
       const body = await res.json();
