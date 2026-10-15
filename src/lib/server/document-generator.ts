@@ -1,5 +1,6 @@
 import "server-only";
 
+import { withAutomaticCharts } from "@/lib/report-auto-charts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { rgb } from "pdf-lib";
@@ -121,7 +122,8 @@ function stripStatusEmoji(cellText: string): string {
  * charts, branded tables, page numbering. Same DocumentPayload contract as
  * before, so no report builder had to change to get the new design. */
 export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffer> {
-  return renderPremiumPdf(payload);
+  // V3.2: validated charts from the report's own structured tables.
+  return renderPremiumPdf(withAutomaticCharts(payload));
 }
 
 function buildDocxTable(table: DocumentTable): Table {

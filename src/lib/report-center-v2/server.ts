@@ -14,6 +14,7 @@ import { supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { formatDateTr } from "@/lib/report-design";
 import type { DocumentPayload, DocumentSection } from "@/lib/document-model";
+import { withAutomaticCharts } from "@/lib/report-auto-charts";
 import { REPORT_TYPE_BY_KEY, type ReportOwnerType, type ReportTypeDefinition, type ReportTypeKey, type ReportVariant } from "./catalog";
 
 export class ReportCenterError extends Error {
@@ -609,7 +610,7 @@ export async function loadReport(type: ReportTypeKey, sourceId: string, owner: R
 /** Payload for the on-screen viewer: identical content to the PDF, minus
  * binary logo bytes. */
 export function viewerPayload(payload: DocumentPayload): Omit<DocumentPayload, "clientLogo"> & { sections: DocumentSection[] } {
-  const { clientLogo: _logo, ...rest } = payload;
+  const { clientLogo: _logo, ...rest } = withAutomaticCharts(payload);
   return rest;
 }
 

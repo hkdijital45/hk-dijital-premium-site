@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
-import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
+import { getSafeSupabaseError } from "@/lib/supabase";
+import { resolveReportDisplayName } from "@/lib/report-identity";
 import { getPreAuditReportById } from "@/lib/pre-audit/reports";
 import { buildPreAuditDocumentPayload, buildPreAuditFileName } from "@/lib/pre-audit/document";
 import { generateDocxBuffer, generatePdfBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
@@ -30,7 +31,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const report = await getPreAuditReportById(id);
     if (!report) return NextResponse.json({ error: "Rapor bulunamadı." }, { status: 404 });
 
-    const companyDisplayName = await resolveCompanyDisplayName(report.company_id, report.lead_id, report.title);
+    // Branch / related-brand reports are named, footed, filed and logo'd as
+    // that business (business_unit_id), never as the parent lead/customer.
+    const companyDisplayName = await resolveReportDisplayName({ businessUnitId: report.business_unit_id || null, companyId: report.company_id, leadId: report.lead_id }, report.title);
     const payload = buildPreAuditDocumentPayload(report, companyDisplayName);
     payload.clientLogo = await resolveReportClientLogo({ companyId: report.company_id, leadId: report.lead_id, businessUnitId: report.business_unit_id || null });
     const filename = buildPreAuditFileName(report, companyDisplayName, format);
@@ -48,21 +51,4 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const message = format === "pdf" ? "PDF oluşturulamadı." : "Word belgesi oluşturulamadı.";
     return NextResponse.json({ error: `${message} ${getSafeSupabaseError(error).detail}` }, { status: 500 });
   }
-}
-
-async function resolveCompanyDisplayName(companyId: string | null, leadId: string | null, fallbackTitle: string): Promise<string> {
-  try {
-    if (companyId) {
-      const rows = await supabaseRest<Array<{ name: string }>>(`companies?id=eq.${encodeURIComponent(companyId)}&select=name&limit=1`);
-      if (rows[0]?.name) return rows[0].name;
-    }
-    if (leadId) {
-      const rows = await supabaseRest<Array<{ company: string | null; name: string | null }>>(`leads?id=eq.${encodeURIComponent(leadId)}&select=company,name&limit=1`);
-      const lead = rows[0];
-      if (lead?.company || lead?.name) return lead.company || lead.name || fallbackTitle;
-    }
-  } catch {
-    // Falls through to the report's own title — never blocks export on a lookup failure.
-  }
-  return fallbackTitle || "Firma";
 }

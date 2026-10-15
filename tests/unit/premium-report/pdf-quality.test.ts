@@ -96,7 +96,11 @@ for (const n of [5, 10, 20, 40]) {
       const pages = pagesText(buffer, count);
       const all = pages.join("\n");
       assert.doesNotMatch(all, /bölüm daha/i, "the contents must never be summarized as '… ve N bölüm daha'");
-      const tocPageNumbers = pages.map((t, i) => (i === 0 || /RAPOR İÇERİĞİ \(DEVAM\)/.test(t) ? i + 1 : 0)).filter(Boolean);
+      // V3.2 cover-first: page 1 is the cover only, contents start on page 2.
+      assert.doesNotMatch(pages[0], /İçindekiler|RAPOR İÇERİĞİ|RAPOR BİLGİLERİ|YÖNETİCİ ÖZETİ|S01Q/, "the cover carries no contents, info card or report text");
+      assert.match(pages[1], /İçindekiler/, "the table of contents starts on page 2");
+      const tocPageNumbers = pages.map((t, i) => (/İçindekiler|İÇİNDEKİLER \(DEVAM\)/.test(t) ? i + 1 : 0)).filter(Boolean);
+      assert.deepEqual(tocPageNumbers, tocPageNumbers.map((_, i) => i + 2), "contents pages are consecutive from page 2");
       const tocText = tocPageNumbers.map((p) => pages[p - 1]).join("\n");
       const codes = sections.map((s) => s.title.slice(0, 4));
       for (const code of codes) assert.ok(tocText.includes(code), `${code} must appear in the table of contents`);
