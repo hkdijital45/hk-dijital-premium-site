@@ -19,6 +19,7 @@ import { InstagramProfileAuditPanel } from "@/components/admin/customer-profile/
 import { ManualEvaluationSection } from "@/components/admin/manual-evaluations/ManualEvaluationSection";
 import { BusinessSelector, IndependentBusinessPicker, type SelectedBusiness } from "@/components/admin/business-relationships/BusinessSelector";
 import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
+import { BusinessAdScopePanel } from "@/components/admin/business-relationships/BusinessAdScopePanel";
 import type { BusinessEntityRef, BusinessUnitRecord } from "@/lib/business-relationships-shared";
 
 const ranges = [
@@ -197,7 +198,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
   const refreshBusinesses = useCallback(() => setBusinessRefreshKey((value) => value + 1), []);
 
   function selectBusiness(business: SelectedBusiness | null) {
-    if (!business) { setBusinessSelection(null); return; }
+    if (!business) { setBusinessSelection(null); setData(null); return; }
     // A linked existing lead/customer is its own record with its own
     // history — switch the evaluation target to it instead of mixing it
     // into the current owner's reports.
@@ -209,6 +210,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
       return;
     }
     setBusinessSelection({ ownerKey, business });
+    setData(null); // never keep showing the previous business's analysis
   }
 
   function selectMode(mode: "customer" | "lead" | "manual") {
@@ -271,7 +273,16 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
       notify?.("Önce müşteri seçin.", "warning");
       return;
     }
+    // A linked branch/brand: read-only analysis of its verified campaigns.
+    // Snapshot saving / AI commentary stay customer-level so a business's
+    // numbers are never stored as the customer's.
+    const scopedUnitId = targetMode === "customer" && selectedBusiness?.entity.type === "unit" ? selectedBusiness.entity.id : "";
+    if (scopedUnitId && method !== "GET") {
+      notify?.("Kayıt ve AI yorumu müşteri düzeyinde çalışır. İşletme bazlı analiz için yalnızca 'Analizi Çalıştır' kullanılabilir.", "warning");
+      return;
+    }
     const params = new URLSearchParams({ companyId, range, platform, from, to, campaignType, status: statusFilter, analysisLevel });
+    if (scopedUnitId) params.set("businessUnitId", scopedUnitId);
     setLoading(path);
     try {
       const response = method === "GET"
@@ -518,7 +529,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
       )}
       {selectedBusiness && (
         <p className="mt-2 rounded-[10px] border p-2.5 text-xs font-bold" style={{ borderColor: "#a5f3fc", background: "#ecfeff", color: "#155e75" }}>
-          Seçili işletme: <strong>{selectedBusiness.name}</strong>{selectedBusiness.instagram ? ` · Instagram: ${selectedBusiness.instagram}` : " · Instagram kayıtlı değil"}. Yeni manuel değerlendirmeler bu işletmeye kaydedilir; {ownerName} geçmişiyle karışmaz.{targetMode === "customer" ? " Bağlı reklam hesabı verileri (Reklam Doktoru, Strateji, Kreatif) müşteri hesabı düzeyinde okunmaya devam eder." : ""}
+          Seçili işletme: <strong>{selectedBusiness.name}</strong>{selectedBusiness.instagram ? ` · Instagram: ${selectedBusiness.instagram}` : " · Instagram kayıtlı değil"}. Yeni manuel değerlendirmeler bu işletmeye kaydedilir; {ownerName} geçmişiyle karışmaz.{selectedBusiness.entity.type === "unit" ? ` Claude/MCP için businessUnitId: ${selectedBusiness.entity.id}` : ""}{targetMode === "customer" ? " Bağlı reklam hesabı verileri (Reklam Doktoru, Strateji, Kreatif) müşteri hesabı düzeyinde okunmaya devam eder." : ""}
         </p>
       )}
     </div>
@@ -576,9 +587,12 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     {activeTab === "candidate-evaluation" && (
       <div className="grid gap-4">
         <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-          Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir; yukarıdaki müşteri seçiminden bağımsız çalışır.
+          Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir. Yukarıda seçilen müşteri/lead ve işletme (şube/bağlı marka) otomatik seçilir; her işletmenin değerlendirme geçmişi ayrı listelenir.
         </div>
-        <CandidateEvaluationBrowser allCompanies={content.companies || []} />
+        <CandidateEvaluationBrowser
+          allCompanies={content.companies || []}
+          focus={ownerRef && ownerRef.type !== "unit" ? { key: `${ownerRef.type}:${ownerRef.id}${selectedBusiness?.entity.type === "unit" ? `|${selectedBusiness.entity.id}` : ""}` } : null}
+        />
         <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
       </div>
     )}
@@ -643,6 +657,16 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     <div hidden={activeTab !== "doctor"}>
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için yukarıdan aktif bir müşteri seçin." />}
 
+    {selectedCompany && selectedBusiness?.entity.type === "unit" && (
+      <BusinessAdScopePanel companyId={selectedCompany.id} businessUnitId={selectedBusiness.entity.id} businessName={selectedBusiness.name} onChanged={() => setData(null)} />
+    )}
+    {data?.scope && (
+      <p className="mb-3 rounded-[10px] border p-2.5 text-xs font-bold" style={data.scope.level === "business" ? { borderColor: "#a5f3fc", background: "#ecfeff", color: "#155e75" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>
+        {data.scope.level === "business"
+          ? `İşletme düzeyi metrikler: ${data.scope.businessName} · ${data.scope.verifiedCampaigns} doğrulanmış kampanya${data.scope.sharedCampaigns ? ` · ${data.scope.sharedCampaigns} kampanya başka işletmeyle ortak (kampanya toplamı gösterilir)` : ""}. Meta ve Google ayrı filtrelenir.`
+          : `Müşteri düzeyi metrikler: ${selectedCompany?.name || "müşteri"} hesabındaki tüm kampanyalar.`}
+      </p>
+    )}
     {selectedCompany && (
       <section className="mb-5 rounded-[18px] border p-5 sm:p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
         <div>

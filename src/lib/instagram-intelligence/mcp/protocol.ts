@@ -80,18 +80,18 @@ export const tools: Tool[] = [
   // --- Ön İnceleme Merkezi: pre-sale digital research context / save / read ---
   {
     name: "get_pre_audit_context",
-    description: "Get the canonical HK Dijital company or lead context required before researching or preparing a pre-audit report. Use this first to identify and verify the correct business. Accepts companyId and/or companyName for an existing customer/prospect company, OR leadId for a Müşteri Keşfi discovery candidate not yet a company (leadId is unambiguous, no name search needed). Never internet research — only existing HK Dijital data (business profile, integration summary where applicable, lead/customer status, prior pre-audit count and latest date). For a leadId call, the response also includes a `lead` object (instagram, phone, district, source, sourceDetail — null when genuinely empty, never fabricated) and a `preparation` object (the admin's Ön İncelemeye Hazırla notes: status, socialObservations, businessNotes, advertisingStatus, potentialReason, focusNotes, competitorReference — null if no preparation row exists yet for this lead). Both are company-call-only absent (never present for a companyId/companyName call). Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name.",
+    description: "Get the canonical HK Dijital company or lead context required before researching or preparing a pre-audit report. Use this first to identify and verify the correct business. Accepts companyId and/or companyName for an existing customer/prospect company, OR leadId for a Müşteri Keşfi discovery candidate not yet a company (leadId is unambiguous, no name search needed). Never internet research — only existing HK Dijital data (business profile, integration summary where applicable, lead/customer status, prior pre-audit count and latest date). For a leadId call, the response also includes a `lead` object (instagram, phone, district, source, sourceDetail — null when genuinely empty, never fabricated) and a `preparation` object (the admin's Ön İncelemeye Hazırla notes: status, socialObservations, businessNotes, advertisingStatus, potentialReason, focusNotes, competitorReference — null if no preparation row exists yet for this lead). Both are company-call-only absent (never present for a companyId/companyName call). Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, businessUnitId: text }, required: [], additionalProperties: false }
   },
   {
     name: "save_pre_audit_report",
-    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). A genuinely NEW research pass (first analysis, or a deliberate re-audit later) should omit both reportId and analysisGroupId — this always inserts a new row, preserving report history. To UPDATE an existing report in place instead (user says 'bu raporu güncelle'/'yeniden kontrol et'/'refresh this report' about a report you already have) pass reportId — the id from a prior save's response or from get_latest_pre_audit_report's `latest.id` — and this overwrites that exact row (same id, same report_type required) rather than creating a duplicate. Pass analysisGroupId (returned by a prior save in the same research pass, without reportId) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling from that same pass; if a row already exists for that analysisGroupId+report_type, it is updated in place too, so an accidental retry never creates a duplicate. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction.",
+    description: "Save an explicitly approved pre-audit / sales intelligence report to the verified HK Dijital company or lead. Pass exactly one of companyId (existing company) or leadId (a Müşteri Keşfi discovery candidate pre-review — saving here automatically completes that lead's pre-review queue status, the only status this tool ever changes). Supports report_type INTERNAL_REPORT (HK Dijital's own use — sales notes, script, objections, DM/WhatsApp drafts) and CLIENT_REPORT (clean, presentable version — internal-only fields are always stripped server-side regardless of what is sent). A genuinely NEW research pass (first analysis, or a deliberate re-audit later) should omit both reportId and analysisGroupId — this always inserts a new row, preserving report history. To UPDATE an existing report in place instead (user says 'bu raporu güncelle'/'yeniden kontrol et'/'refresh this report' about a report you already have) pass reportId — the id from a prior save's response or from get_latest_pre_audit_report's `latest.id` — and this overwrites that exact row (same id, same report_type required) rather than creating a duplicate. Pass analysisGroupId (returned by a prior save in the same research pass, without reportId) to link a CLIENT_REPORT to its INTERNAL_REPORT sibling from that same pass; if a row already exists for that analysisGroupId+report_type, it is updated in place too, so an accidental retry never creates a duplicate. Only use after the user explicitly asks to save or transfer the report to HK Dijital — analyzing, researching, or drafting alone is never itself a save instruction. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "WRITE_SAFE",
     inputSchema: {
       type: "object",
       properties: {
-        companyId, leadId: text, analysisGroupId: text, reportId: text, reportType: text, title: text, status: text, reportDate: dateField,
+        companyId, leadId: text, businessUnitId: text, analysisGroupId: text, reportId: text, reportType: text, title: text, status: text, reportDate: dateField,
         executiveSummary: text,
         digitalPresence: obj, googleAnalysis: obj, mapsAnalysis: obj, websiteAnalysis: obj, seoAnalysis: obj, socialAnalysis: obj,
         metaAdsAnalysis: obj, googleAdsAnalysis: obj, marketAnalysis: obj, competitorAnalysis: obj, swot: obj,
@@ -104,9 +104,9 @@ export const tools: Tool[] = [
   },
   {
     name: "get_latest_pre_audit_report",
-    description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet. To update this report instead of creating a new one, pass the returned `latest.id` as reportId to save_pre_audit_report.",
+    description: "Get the latest saved pre-audit report for a verified HK Dijital company or lead, including the related internal/client report versions from the same research pass when available. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate. Optional reportType filters to only INTERNAL_REPORT or only CLIENT_REPORT. Returns not_found (never a fake placeholder) if no report exists yet. To update this report instead of creating a new one, pass the returned `latest.id` as reportId to save_pre_audit_report. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, reportType: text, businessUnitId: text }, required: [], additionalProperties: false }
   },
 
   // --- Aday Değerlendirme (Candidate Evaluation): "is this prospect worth
@@ -116,18 +116,18 @@ export const tools: Tool[] = [
   // table (candidate_evaluations), never collapsed into pre_audit_reports. ---
   {
     name: "get_candidate_evaluation_context",
-    description: "Get the canonical HK Dijital company or lead context required before a MÜŞTERİ ADAYI DEĞERLENDİRME (candidate/prospect qualification — NOT a full Ön İnceleme pre-sales audit; use get_pre_audit_context for that). Accepts companyId and/or companyName for an existing company, OR leadId for a Müşteri Keşfi discovery candidate or manually-created lead not yet a company. For a leadId call, the response includes a `lead` object (instagram, phone, district, source, sourceDetail, googleMapsUrl, googleRating — null when genuinely empty, never fabricated). Returns prior evaluationCount and the latest evaluation's date/title/recommendation if any exist. Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name. Read-only.",
+    description: "Get the canonical HK Dijital company or lead context required before a MÜŞTERİ ADAYI DEĞERLENDİRME (candidate/prospect qualification — NOT a full Ön İnceleme pre-sales audit; use get_pre_audit_context for that). Accepts companyId and/or companyName for an existing company, OR leadId for a Müşteri Keşfi discovery candidate or manually-created lead not yet a company. For a leadId call, the response includes a `lead` object (instagram, phone, district, source, sourceDetail, googleMapsUrl, googleRating — null when genuinely empty, never fabricated). Returns prior evaluationCount and the latest evaluation's date/title/recommendation if any exist. Returns an ambiguous result with candidates instead of silently guessing when more than one company matches by name. Read-only. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, businessUnitId: text }, required: [], additionalProperties: false }
   },
   {
     name: "save_candidate_evaluation",
-    description: "Save an explicitly approved MÜŞTERİ ADAYI DEĞERLENDİRME (candidate/prospect qualification) report — whether this business is worth pursuing. This is NOT the Ön İnceleme pre-sales audit (use save_pre_audit_report for that); never write a candidate evaluation into pre_audit_reports or vice versa. Pass exactly one of companyId or leadId. A genuinely new evaluation (first qualification, or a deliberate re-evaluation later) should omit reportId — this always inserts a new row, preserving evaluation history. To update an existing evaluation in place (user says 'bu değerlendirmeyi güncelle') pass reportId (from a prior save or get_latest_candidate_evaluation's `id`). Fields: title, reportDate (YYYY-MM-DD), recommendation (free text decision, e.g. 'Takip Edilmeli'/'Takip Edilmemeli'/'Belirsiz'), priority (free text, e.g. 'Yüksek'/'Orta'/'Düşük'), score (0-100 integer — OMIT entirely if the evaluation genuinely produces no score; never invent one), strengths/weaknesses/digitalOpportunities (string arrays), suggestedNextAction (text), reportContent (the full evaluation write-up), sources (array). Never fabricate data not actually available about the business. Saving here NEVER creates a customer record and never changes the lead's sales-pipeline status (unlike save_pre_audit_report, which completes the pre-review queue — this tool is upstream of that and changes nothing else). Only use after the user explicitly asks to save — analyzing or discussing alone is never itself a save instruction.",
+    description: "Save an explicitly approved MÜŞTERİ ADAYI DEĞERLENDİRME (candidate/prospect qualification) report — whether this business is worth pursuing. This is NOT the Ön İnceleme pre-sales audit (use save_pre_audit_report for that); never write a candidate evaluation into pre_audit_reports or vice versa. Pass exactly one of companyId or leadId. A genuinely new evaluation (first qualification, or a deliberate re-evaluation later) should omit reportId — this always inserts a new row, preserving evaluation history. To update an existing evaluation in place (user says 'bu değerlendirmeyi güncelle') pass reportId (from a prior save or get_latest_candidate_evaluation's `id`). Fields: title, reportDate (YYYY-MM-DD), recommendation (free text decision, e.g. 'Takip Edilmeli'/'Takip Edilmemeli'/'Belirsiz'), priority (free text, e.g. 'Yüksek'/'Orta'/'Düşük'), score (0-100 integer — OMIT entirely if the evaluation genuinely produces no score; never invent one), strengths/weaknesses/digitalOpportunities (string arrays), suggestedNextAction (text), reportContent (the full evaluation write-up), sources (array). Never fabricate data not actually available about the business. Saving here NEVER creates a customer record and never changes the lead's sales-pipeline status (unlike save_pre_audit_report, which completes the pre-review queue — this tool is upstream of that and changes nothing else). Only use after the user explicitly asks to save — analyzing or discussing alone is never itself a save instruction. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "WRITE_SAFE",
     inputSchema: {
       type: "object",
       properties: {
-        companyId, leadId: text, reportId, title: text, reportDate: dateField,
+        companyId, leadId: text, businessUnitId: text, reportId, title: text, reportDate: dateField,
         recommendation: text, priority: text, score: { type: "integer", minimum: 0, maximum: 100 },
         strengths: arr, weaknesses: arr, digitalOpportunities: arr, suggestedNextAction: text, reportContent: text, sources: arr
       },
@@ -137,9 +137,9 @@ export const tools: Tool[] = [
   },
   {
     name: "get_latest_candidate_evaluation",
-    description: "Get the latest saved Aday Değerlendirme (candidate evaluation) report for a verified HK Dijital company or lead. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate/manual lead. Returns not_found (never a fake placeholder) if no evaluation exists yet. To update this report instead of creating a new one, pass the returned `id` as reportId to save_candidate_evaluation. Read-only.",
+    description: "Get the latest saved Aday Değerlendirme (candidate evaluation) report for a verified HK Dijital company or lead. Accepts companyId (and companyName as a fallback) for a company, or leadId for a Müşteri Keşfi discovery candidate/manual lead. Returns not_found (never a fake placeholder) if no evaluation exists yet. To update this report instead of creating a new one, pass the returned `id` as reportId to save_candidate_evaluation. Read-only. Optional businessUnitId (from relatedBusinesses in the context response) targets one linked branch/related brand of that lead/company: identity, history and the saved report then belong to that business only (server-verified link; never re-attributes an existing report). Omit it for the main business — behaviour is then unchanged.",
     permission: "READ_ONLY",
-    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text }, required: [], additionalProperties: false }
+    inputSchema: { type: "object", properties: { companyId, companyName: text, leadId: text, businessUnitId: text }, required: [], additionalProperties: false }
   },
 
   // --- Instagram Profil Optimizasyonu: read-only real context + explicit-
@@ -593,14 +593,17 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
     }
 
     case "get_pre_audit_context": {
-      const { getPreAuditCompanyContext, getPreAuditLeadContext } = await import("@/lib/pre-audit/reports");
+      const { getPreAuditCompanyContext, getPreAuditLeadContext, scopePreAuditContextToBusiness, PreAuditBusinessUnitError } = await import("@/lib/pre-audit/reports");
       try {
-        if (typeof args.leadId === "string" && args.leadId) return await getPreAuditLeadContext(args.leadId);
-        return await getPreAuditCompanyContext(
-          typeof args.companyId === "string" ? args.companyId : undefined,
-          typeof args.companyName === "string" ? args.companyName : undefined
-        );
+        const base = typeof args.leadId === "string" && args.leadId
+          ? await getPreAuditLeadContext(args.leadId)
+          : await getPreAuditCompanyContext(
+            typeof args.companyId === "string" ? args.companyId : undefined,
+            typeof args.companyName === "string" ? args.companyName : undefined
+          );
+        return await scopePreAuditContextToBusiness(base, typeof args.businessUnitId === "string" && args.businessUnitId ? args.businessUnitId : undefined);
       } catch (error) {
+        if (error instanceof PreAuditBusinessUnitError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         throw (await toKnownControlError(error)) ?? error;
       }
     }
@@ -611,6 +614,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         const payload = validatePreAuditReport({
           company_id: str(args.companyId),
           lead_id: str(args.leadId),
+          business_unit_id: str(args.businessUnitId),
           report_type: args.reportType,
           title: str(args.title), status: str(args.status), report_date: str(args.reportDate),
           executive_summary: str(args.executiveSummary),
@@ -642,7 +646,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         }
         if (!leadId && !companyId) throw new ControlError("INVALID_ARGUMENTS", "companyId, companyName veya leadId zorunludur.", 400);
         const reportType = args.reportType === "INTERNAL_REPORT" || args.reportType === "CLIENT_REPORT" ? args.reportType : undefined;
-        const result = await getLatestPreAuditReport(companyId, reportType, leadId);
+        const result = await getLatestPreAuditReport(companyId, reportType, leadId, typeof args.businessUnitId === "string" && args.businessUnitId ? args.businessUnitId : undefined);
         return result || { status: "not_found" };
       } catch (error) {
         throw (await toKnownControlError(error)) ?? error;
@@ -650,14 +654,17 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
     }
 
     case "get_candidate_evaluation_context": {
-      const { getCandidateEvaluationCompanyContext, getCandidateEvaluationLeadContext } = await import("@/lib/candidate-evaluation/reports");
+      const { getCandidateEvaluationCompanyContext, getCandidateEvaluationLeadContext, scopeCandidateContextToBusiness, CandidateEvaluationBusinessUnitError } = await import("@/lib/candidate-evaluation/reports");
       try {
-        if (typeof args.leadId === "string" && args.leadId) return await getCandidateEvaluationLeadContext(args.leadId);
-        return await getCandidateEvaluationCompanyContext(
-          typeof args.companyId === "string" ? args.companyId : undefined,
-          typeof args.companyName === "string" ? args.companyName : undefined
-        );
+        const base = typeof args.leadId === "string" && args.leadId
+          ? await getCandidateEvaluationLeadContext(args.leadId)
+          : await getCandidateEvaluationCompanyContext(
+            typeof args.companyId === "string" ? args.companyId : undefined,
+            typeof args.companyName === "string" ? args.companyName : undefined
+          );
+        return await scopeCandidateContextToBusiness(base, typeof args.businessUnitId === "string" && args.businessUnitId ? args.businessUnitId : undefined);
       } catch (error) {
+        if (error instanceof CandidateEvaluationBusinessUnitError) throw new ControlError("INVALID_ARGUMENTS", error.message, 400);
         throw (await toKnownControlError(error)) ?? error;
       }
     }
@@ -668,6 +675,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
         const payload = validateCandidateEvaluation({
           company_id: str(args.companyId),
           lead_id: str(args.leadId),
+          business_unit_id: str(args.businessUnitId),
           title: str(args.title), report_date: str(args.reportDate),
           recommendation: str(args.recommendation), priority: str(args.priority),
           score: typeof args.score === "number" ? args.score : undefined,
@@ -692,7 +700,7 @@ export async function execute(name: string, args: Record<string, unknown>): Prom
           companyId = context.business.id;
         }
         if (!leadId && !companyId) throw new ControlError("INVALID_ARGUMENTS", "companyId, companyName veya leadId zorunludur.", 400);
-        const result = await getLatestCandidateEvaluation(companyId, leadId);
+        const result = await getLatestCandidateEvaluation(companyId, leadId, typeof args.businessUnitId === "string" && args.businessUnitId ? args.businessUnitId : undefined);
         return result || { status: "not_found" };
       } catch (error) {
         throw (await toKnownControlError(error)) ?? error;

@@ -8,6 +8,8 @@ import {
   PRE_AUDIT_TABLE, PRE_AUDIT_REPORT_TYPES, PRE_AUDIT_INTERNAL_ONLY_FIELDS, LEAD_PRE_REVIEW_STATUS,
   type PreAuditReport, type PreAuditReportListItem, type PreAuditReportType
 } from "./types";
+import { assertUnitLinkedTo, getBusinessUnit, listLinkedBusinesses, BusinessRelationshipNotFoundError } from "@/lib/business-relationships";
+import { BusinessRelationshipValidationError, type BusinessEntityRef } from "@/lib/business-relationships-shared";
 
 type CompanyRow = { id: string; name: string; sector: string | null; city: string | null; website: string | null; lifecycle_stage: string | null };
 type LeadRow = { id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null; city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null; status: string | null; company_id: string | null; source: string | null; source_detail: string | null };
@@ -31,7 +33,65 @@ export type PreAuditCompanyContext = {
     status: string; socialObservations: string; businessNotes: string;
     advertisingStatus: string; potentialReason: string; focusNotes: string; competitorReference: string;
   } | null;
+  // İşletme ve Şube Yönetimi: linked branches/related brands of this
+  // lead/customer (empty when none), and — when businessUnitId was passed —
+  // the exact business this pre-audit is about. When selectedBusiness is
+  // set, company/lead/preAuditCount/latestPreAudit above describe THAT
+  // business, never the main business.
+  relatedBusinesses?: Array<{ businessUnitId: string | null; linkedLeadId: string | null; linkedCompanyId: string | null; relationship: string; name: string; instagram: string | null; website: string | null }>;
+  selectedBusiness?: { businessUnitId: string; name: string; instagram: string | null; website: string | null; phone: string | null; address: string | null; description: string | null; mainBusinessName: string } | null;
 } | { status: "ambiguous"; candidates: Array<{ id: string; name: string }> } | { status: "not_found" };
+
+export class PreAuditBusinessUnitError extends Error {}
+
+/** Narrows a resolved lead/customer context to one linked branch/related
+ * brand: identity fields come from the business_unit itself and the
+ * history counts only that unit's own reports. Without businessUnitId the
+ * context is returned unchanged plus the (additive) relatedBusinesses
+ * list. A businessUnitId that is not linked to this lead/customer is
+ * rejected — a report can never borrow another business's identity. */
+export async function scopePreAuditContextToBusiness(ctx: PreAuditCompanyContext, businessUnitId?: string): Promise<PreAuditCompanyContext> {
+  if (ctx.status !== "resolved") return ctx;
+  const owner: BusinessEntityRef = { type: ctx.entity === "lead" ? "lead" : "company", id: ctx.company.id };
+  const linked = await listLinkedBusinesses(owner).catch((error) => {
+    if (businessUnitId) throw error;
+    return []; // additive context only — never break the main-business flow
+  });
+  const relatedBusinesses = linked.map((item) => ({
+    businessUnitId: item.entity.type === "unit" ? item.entity.id : null,
+    linkedLeadId: item.entity.type === "lead" ? item.entity.id : null,
+    linkedCompanyId: item.entity.type === "company" ? item.entity.id : null,
+    relationship: item.direction === "parent" ? `parent:${item.relationshipType}` : item.relationshipType,
+    name: item.name,
+    instagram: item.instagram,
+    website: item.website
+  }));
+  if (!businessUnitId) return { ...ctx, relatedBusinesses, selectedBusiness: null };
+
+  try {
+    await assertUnitLinkedTo(businessUnitId, owner);
+  } catch (error) {
+    if (error instanceof BusinessRelationshipNotFoundError || error instanceof BusinessRelationshipValidationError) throw new PreAuditBusinessUnitError(error.message);
+    throw error;
+  }
+  const unit = await getBusinessUnit(businessUnitId);
+  const ownerColumn = ctx.entity === "lead" ? "lead_id" : "company_id";
+  const priorReports = await supabaseRest<Array<{ report_date: string; title: string; analysis_group_id: string }>>(
+    `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&${ownerColumn}=eq.${encodeURIComponent(ctx.company.id)}&business_unit_id=eq.${encodeURIComponent(unit.id)}&order=report_date.desc,created_at.desc&limit=50`
+  );
+  return {
+    ...ctx,
+    company: { ...ctx.company, name: unit.name, website: unit.website, city: unit.city || ctx.company.city },
+    lead: ctx.lead ? { ...ctx.lead, instagram: unit.instagram, phone: unit.phone } : ctx.lead,
+    // Prep notes and integrations belong to the main business — never handed over as the unit's.
+    preparation: ctx.preparation === undefined ? undefined : null,
+    integrations: undefined,
+    preAuditCount: new Set(priorReports.map((r) => r.analysis_group_id)).size,
+    latestPreAudit: priorReports[0] ? { reportDate: priorReports[0].report_date, title: priorReports[0].title } : null,
+    relatedBusinesses,
+    selectedBusiness: { businessUnitId: unit.id, name: unit.name, instagram: unit.instagram, website: unit.website, phone: unit.phone, address: unit.address, description: unit.description, mainBusinessName: ctx.company.name }
+  };
+}
 
 /** Lead-scoped equivalent of getPreAuditCompanyContext — used for a
  * discovery candidate that is not (yet, or ever) a public.companies row.
@@ -46,7 +106,7 @@ export async function getPreAuditLeadContext(leadId: string): Promise<PreAuditCo
 
   const [priorReports, preparationRows] = await Promise.all([
     supabaseRest<Array<{ report_date: string; title: string; analysis_group_id: string }>>(
-      `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&lead_id=eq.${lead.id}&order=report_date.desc,created_at.desc&limit=50`
+      `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&lead_id=eq.${lead.id}&business_unit_id=is.null&order=report_date.desc,created_at.desc&limit=50`
     ),
     // Ön İncelemeye Hazırla's own prep notes for this exact lead — never
     // another lead's row (lead_id is the only filter, and it is always
@@ -127,7 +187,7 @@ export async function getPreAuditCompanyContext(companyId?: string, companyName?
   const [{ getCustomerIntegrations }, priorReports] = await Promise.all([
     import("@/lib/marketing-intelligence/customers"),
     supabaseRest<Array<{ report_date: string; title: string; analysis_group_id: string }>>(
-      `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&company_id=eq.${company.id}&order=report_date.desc,created_at.desc&limit=50`
+      `${PRE_AUDIT_TABLE}?select=report_date,title,analysis_group_id&company_id=eq.${company.id}&business_unit_id=is.null&order=report_date.desc,created_at.desc&limit=50`
     )
   ]);
   const integrations = await getCustomerIntegrations(company.id).catch(() => undefined);
@@ -150,7 +210,7 @@ export async function getPreAuditCompanyContext(companyId?: string, companyName?
   };
 }
 
-export type SavePreAuditReportInput = Partial<PreAuditReport> & { company_id?: string; lead_id?: string; report_type: PreAuditReportType };
+export type SavePreAuditReportInput = Partial<PreAuditReport> & { company_id?: string; lead_id?: string; business_unit_id?: string; report_type: PreAuditReportType };
 
 export class PreAuditValidationError extends Error {}
 export class PreAuditCompanyNotFoundError extends Error {}
@@ -230,10 +290,23 @@ export async function savePreAuditReport(
     }
   }
 
+  // İşletme ve Şube Yönetimi: optional attribution to a linked branch /
+  // related brand — verified server-side against the resolved owner.
+  const resolvedUnitId = typeof input.business_unit_id === "string" && input.business_unit_id ? input.business_unit_id : null;
+  if (resolvedUnitId) {
+    try {
+      await assertUnitLinkedTo(resolvedUnitId, resolvedLeadId ? { type: "lead", id: resolvedLeadId } : { type: "company", id: resolvedCompanyId as string });
+    } catch (error) {
+      if (error instanceof BusinessRelationshipNotFoundError || error instanceof BusinessRelationshipValidationError) throw new PreAuditValidationError(`business_unit_id doğrulanamadı: ${error.message}`);
+      throw error;
+    }
+  }
+
   const isClient = input.report_type === "CLIENT_REPORT";
   const row: Record<string, unknown> = {
     company_id: resolvedCompanyId,
     lead_id: resolvedLeadId,
+    ...(resolvedUnitId ? { business_unit_id: resolvedUnitId } : {}),
     analysis_group_id: analysisGroupId || undefined,
     report_type: input.report_type,
     report_date: typeof input.report_date === "string" && input.report_date ? input.report_date : new Date().toISOString().slice(0, 10)
@@ -251,17 +324,19 @@ export async function savePreAuditReport(
   // rather than insert a duplicate for.
   let targetId: string | null = null;
   if (reportId) {
-    const existing = await supabaseRest<Array<{ id: string; report_type: PreAuditReportType; company_id: string | null; lead_id: string | null }>>(
-      `${PRE_AUDIT_TABLE}?select=id,report_type,company_id,lead_id&id=eq.${encodeURIComponent(reportId)}&limit=1`
+    const existing = await supabaseRest<Array<{ id: string; report_type: PreAuditReportType; company_id: string | null; lead_id: string | null; business_unit_id: string | null }>>(
+      `${PRE_AUDIT_TABLE}?select=id,report_type,company_id,lead_id,business_unit_id&id=eq.${encodeURIComponent(reportId)}&limit=1`
     );
     const match = existing[0];
     if (!match) throw new PreAuditValidationError(`reportId doğrulanamadı: ${reportId} bulunamadı.`);
     if (match.report_type !== input.report_type) throw new PreAuditValidationError(`reportId (${reportId}) bir ${match.report_type} raporu — report_type=${input.report_type} ile güncellenemez.`);
     if (match.company_id !== resolvedCompanyId || match.lead_id !== resolvedLeadId) throw new PreAuditValidationError("reportId, verilen company_id/lead_id ile eşleşmiyor.");
+    // An existing report is never re-attributed to a different business.
+    if ((match.business_unit_id || null) !== resolvedUnitId) throw new PreAuditValidationError("reportId başka bir işletmeye (ana işletme / şube / bağlı marka) ait — işletme ataması değiştirilemez.");
     targetId = match.id;
   } else if (analysisGroupId) {
     const existing = await supabaseRest<Array<{ id: string }>>(
-      `${PRE_AUDIT_TABLE}?select=id&analysis_group_id=eq.${encodeURIComponent(analysisGroupId)}&report_type=eq.${encodeURIComponent(input.report_type)}&limit=1`
+      `${PRE_AUDIT_TABLE}?select=id&analysis_group_id=eq.${encodeURIComponent(analysisGroupId)}&report_type=eq.${encodeURIComponent(input.report_type)}&business_unit_id=${resolvedUnitId ? `eq.${encodeURIComponent(resolvedUnitId)}` : "is.null"}&limit=1`
     );
     if (existing[0]) targetId = existing[0].id;
   }
@@ -290,8 +365,9 @@ export async function savePreAuditReport(
   };
 }
 
-export async function getLatestPreAuditReport(companyId?: string, reportType?: PreAuditReportType, leadId?: string) {
-  const filter = reportType ? `&report_type=eq.${reportType}` : "";
+export async function getLatestPreAuditReport(companyId?: string, reportType?: PreAuditReportType, leadId?: string, businessUnitId?: string) {
+  // Main business by default; a linked branch/brand only when asked for explicitly.
+  const filter = `${reportType ? `&report_type=eq.${reportType}` : ""}&business_unit_id=${businessUnitId ? `eq.${encodeURIComponent(businessUnitId)}` : "is.null"}`;
   let scope = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : `company_id=eq.${encodeURIComponent(companyId || "")}`;
   let rows = await supabaseRest<PreAuditReport[]>(
     `${PRE_AUDIT_TABLE}?select=*&${scope}${filter}&order=report_date.desc,created_at.desc&limit=1`
@@ -322,9 +398,10 @@ export async function getLatestPreAuditReport(companyId?: string, reportType?: P
   return { latest, group };
 }
 
-export async function listPreAuditReports(companyId?: string, search?: string, limit = 200, leadId?: string): Promise<PreAuditReportListItem[]> {
+export async function listPreAuditReports(companyId?: string, search?: string, limit = 200, leadId?: string, businessUnitId?: string): Promise<PreAuditReportListItem[]> {
   const filters = [
-    "select=id,company_id,lead_id,analysis_group_id,report_type,title,status,report_date,recommended_package,created_at,updated_at",
+    "select=id,company_id,lead_id,business_unit_id,analysis_group_id,report_type,title,status,report_date,recommended_package,created_at,updated_at",
+    businessUnitId ? `business_unit_id=eq.${encodeURIComponent(businessUnitId)}` : "",
     companyId ? `company_id=eq.${encodeURIComponent(companyId)}` : "",
     leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : "",
     search?.trim() ? `title=ilike.*${encodeURIComponent(search.trim())}*` : "",

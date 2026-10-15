@@ -63,7 +63,7 @@ export function GenericValue({ value }: { value: unknown }) {
   return <p className="text-sm">{String(value)}</p>;
 }
 
-export type CandidateEvaluationListItem = { id: string; company_id: string | null; lead_id: string | null; title: string; report_date: string; recommendation: string; priority: string; score: number | null; created_at: string; updated_at: string };
+export type CandidateEvaluationListItem = { id: string; company_id: string | null; lead_id: string | null; business_unit_id?: string | null; title: string; report_date: string; recommendation: string; priority: string; score: number | null; created_at: string; updated_at: string };
 
 /** Full-detail render for one candidate_evaluations row — only the fields
  * that actually have data, never an empty placeholder. */
@@ -97,7 +97,16 @@ type Entity = { key: string; name: string; count: number; latestDate: string };
  * any customer-only selector/list elsewhere in the app; a prospect
  * appearing here never makes it a customer.
  */
-export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies?: Array<{ id: string; name?: string; company_name?: string }> }) {
+// Entity keys: "company:<id>" / "lead:<id>" for the main business, plus
+// "|<businessUnitId>" for a linked branch/related brand — so each
+// business's evaluations are listed separately, never merged.
+function parseEntityKey(key: string) {
+  const [base, unitId = ""] = key.split("|");
+  const [kind, id] = base.split(":");
+  return { kind, id, unitId };
+}
+
+export function CandidateEvaluationBrowser({ allCompanies = [], focus }: { allCompanies?: Array<{ id: string; name?: string; company_name?: string }>; focus?: { key: string } | null }) {
   const [reports, setReports] = useState<CandidateEvaluationListItem[] | null>(null);
   const [selectedKey, setSelectedKey] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -107,6 +116,11 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [latestDetail, setLatestDetail] = useState<Record<string, unknown> | null>(null);
   const [latestDetailLoading, setLatestDetailLoading] = useState(false);
+
+  // Reklam Doktoru Pro's selected customer/lead/business drives the selection.
+  useEffect(() => {
+    if (focus?.key) { setSelectedKey(focus.key); setExpandedId(null); }
+  }, [focus?.key]);
 
   useEffect(() => {
     fetch("/api/admin/candidate-evaluation").then((r) => r.json()).then((body) => setReports(body.reports || [])).catch(() => setReports([]));
@@ -118,9 +132,9 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
   // sector/source simply isn't rendered, never fabricated.
   useEffect(() => {
     if (!selectedKey) { setOverview(null); return; }
-    const [kind, id] = selectedKey.split(":");
+    const { kind, id, unitId } = parseEntityKey(selectedKey);
     setOverviewLoading(true);
-    const params = kind === "company" ? `companyId=${encodeURIComponent(id)}` : `leadId=${encodeURIComponent(id)}`;
+    const params = `${kind === "company" ? `companyId=${encodeURIComponent(id)}` : `leadId=${encodeURIComponent(id)}`}${unitId ? `&businessUnitId=${encodeURIComponent(unitId)}` : ""}`;
     fetch(`/api/admin/candidate-evaluation/context?${params}`)
       .then((r) => r.json())
       .then((body) => setOverview(body.status === "resolved" ? body : null))
@@ -132,8 +146,9 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
     if (!reports) return [];
     const map = new Map<string, Entity>();
     for (const r of reports) {
-      const key = r.company_id ? `company:${r.company_id}` : r.lead_id ? `lead:${r.lead_id}` : null;
-      if (!key) continue;
+      const baseKey = r.company_id ? `company:${r.company_id}` : r.lead_id ? `lead:${r.lead_id}` : null;
+      if (!baseKey) continue;
+      const key = r.business_unit_id ? `${baseKey}|${r.business_unit_id}` : baseKey;
       const company = r.company_id ? allCompanies.find((c) => c.id === r.company_id) : null;
       const name = company?.name || company?.company_name || r.title || "İsimsiz aday";
       const reportDate = r.report_date || r.created_at;
@@ -150,9 +165,9 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
 
   const selectedReports = useMemo(() => {
     if (!reports || !selectedKey) return [];
-    const [kind, id] = selectedKey.split(":");
+    const { kind, id, unitId } = parseEntityKey(selectedKey);
     return reports
-      .filter((r) => (kind === "company" ? r.company_id === id : r.lead_id === id))
+      .filter((r) => (kind === "company" ? r.company_id === id : r.lead_id === id) && (r.business_unit_id || "") === unitId)
       .sort((a, b) => (b.report_date || b.created_at).localeCompare(a.report_date || a.created_at));
   }, [reports, selectedKey]);
 
@@ -200,7 +215,8 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
           style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text-primary)" }}
         >
           <option value="">İşletme/aday seçin ({entities.length})</option>
-          {entities.map((e) => <option key={e.key} value={e.key}>{e.name} ({e.count})</option>)}
+          {selectedKey && !entities.some((e) => e.key === selectedKey) && <option value={selectedKey}>{overview?.business?.name || "Seçili işletme"} (0)</option>}
+          {entities.map((e) => <option key={e.key} value={e.key}>{e.name}{parseEntityKey(e.key).unitId ? " · bağlı işletme" : ""} ({e.count})</option>)}
         </select>
       </div>
 
@@ -211,6 +227,7 @@ export function CandidateEvaluationBrowser({ allCompanies = [] }: { allCompanies
         <div className="hk-card p-4">
           <p className="text-xs font-black uppercase tracking-[.1em]" style={{ color: "var(--admin-text-muted)" }}>İşletme Bilgisi</p>
           <p className="mt-1 text-sm font-black">{overview.business?.name}</p>
+          {overview.selectedBusiness && <p className="mt-0.5 text-xs font-bold" style={{ color: "#0e7490" }}>{overview.selectedBusiness.mainBusinessName} işletmesine bağlı · ayrı değerlendirme geçmişi{overview.selectedBusiness.instagram ? ` · ${overview.selectedBusiness.instagram}` : ""}</p>}
           <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
             {overview.business?.sector && <span>Sektör: {overview.business.sector}</span>}
             {overview.lead?.source && <span>Kaynak: {overview.lead.source}</span>}

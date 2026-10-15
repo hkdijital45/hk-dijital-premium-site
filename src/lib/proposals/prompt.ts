@@ -5,6 +5,8 @@
 import { HK_PROPOSAL_SCHEMA_VERSION, type ProposalCompetitor } from "./schema";
 import { sanitizeCompetitorsForPrompt } from "./competitors";
 
+import type { ProposalBusinessScopeItem, ProposalBusinessServiceLine } from "@/lib/proposals/business-scope";
+
 export type ProposalQuestionnaire = {
   business: {
     name?: string; sector?: string; subsector?: string; city?: string; district?: string;
@@ -35,6 +37,10 @@ export type ProposalQuestionnaire = {
     existingPerformance?: string; competitors?: string; specialRestrictions?: string;
   };
   research: { notes?: string; competitorUrls?: string[]; websiteUrls?: string[]; instagramUrls?: string[]; sourceReferences?: string[] };
+  // Teklif kapsamı (İşletme ve Şube Yönetimi) — optional; absent on every
+  // proposal created before multi-business support.
+  businessScope?: ProposalBusinessScopeItem[];
+  businessServiceLines?: ProposalBusinessServiceLine[];
   // User-supplied competitor knowledge gathered during the wizard, BEFORE
   // Claude's own research — real businesses the staff member already
   // knows about, never a placeholder/fabricated entry (same
@@ -64,6 +70,9 @@ export function buildProposalClaudePrompt(q: ProposalQuestionnaire, targetLabel:
     "ROL: Kıdemli Dijital Pazarlama Stratejisti, Google Ads Uzmanı, Meta Ads Uzmanı, Yerel Pazar Araştırma Analisti, Sosyal Medya Stratejisti, Dönüşüm Optimizasyonu Uzmanı ve Ajans Ticari Direktörü olarak davran.",
     "",
     `İŞLETME: ${targetLabel}`,
+    ...(q.businessScope && q.businessScope.length > 1
+      ? [`TEKLİF KAPSAMI (birden fazla işletme): ${q.businessScope.map((item) => `${item.name}${item.role === "main" ? " (ana işletme)" : item.role === "related_brand" ? " (bağlı marka — ayrı marka kimliği)" : item.role === "branch" ? " (şube)" : " (işletme grubu)"}${item.instagram ? ` ${item.instagram}` : ""}`).join("; ")}. Her işletmenin verilerini ayrı değerlendir; birinin verisini diğerine atfetme.`]
+      : []),
     "",
     section("İŞLETME BİLGİLERİ", Object.entries(q.business || {})),
     section("SEÇİLEN REKLAM PLATFORMLARI", [["Platformlar", q.platforms]]),

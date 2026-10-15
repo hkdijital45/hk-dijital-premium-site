@@ -3,7 +3,7 @@ import "server-only";
 import { supabaseRest } from "@/lib/supabase";
 import type { HkProposalV1 } from "./schema";
 import type { ProposalQuestionnaire } from "./prompt";
-import type { ProposalFinancialsResult } from "./financials";
+import { financialsFromQuestionnaire, type ProposalFinancialsResult } from "./financials";
 
 export const PROPOSALS_TABLE = "proposals";
 
@@ -232,7 +232,11 @@ export async function updateProposal(id: string, patch: UpdateProposalInput): Pr
   const body: Record<string, unknown> = {};
   if (patch.title !== undefined) body.title = patch.title;
   if (patch.status !== undefined) body.status = patch.status;
-  if (patch.questionnaire !== undefined) body.questionnaire = { ...existing.questionnaire, ...patch.questionnaire };
+  if (patch.questionnaire !== undefined) {
+    body.questionnaire = { ...existing.questionnaire, ...patch.questionnaire };
+    // Keep stored financials in sync with the saved questionnaire (server-side, deterministic).
+    if (patch.financials === undefined) body.financials = financialsFromQuestionnaire(body.questionnaire as Parameters<typeof financialsFromQuestionnaire>[0]);
+  }
   if (patch.data !== undefined) body.data = { ...existing.data, ...patch.data };
   if (patch.financials !== undefined) body.financials = patch.financials;
   if (patch.validUntil !== undefined) body.valid_until = patch.validUntil;

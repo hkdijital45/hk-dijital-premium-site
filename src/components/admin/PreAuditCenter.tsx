@@ -7,7 +7,8 @@ import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/lib/pre-audit/types";
 import { isArchivedPreAuditReport } from "@/lib/pre-audit/report-actions";
-import { leadDisplayName, buildClaudePrompt, buildCandidateEvaluationPrompt } from "@/lib/pre-audit/lead-prompts";
+import { leadDisplayName, buildClaudePrompt, buildCandidateEvaluationPrompt, type PromptBusiness } from "@/lib/pre-audit/lead-prompts";
+import { BusinessSelector, type SelectedBusiness } from "@/components/admin/business-relationships/BusinessSelector";
 import { CandidateEvaluationDetail } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
 
 const REJECTION_REASONS = [
@@ -235,7 +236,17 @@ function ReportDetail({ report, onSendOffer, onReject, onExport, exportBusy }: {
   );
 }
 
-function QueueLeadRow({ lead, isRejected, onCopyPrompt, onCopyCandidatePrompt, onReject }: { lead: QueueLead; isRejected?: boolean; onCopyPrompt?: (lead: QueueLead) => void; onCopyCandidatePrompt?: (lead: QueueLead) => void; onReject?: (lead: QueueLead) => void }) {
+function toPromptBusiness(business: SelectedBusiness | null): PromptBusiness | null {
+  if (!business || business.entity.type !== "unit") return null;
+  return { businessUnitId: business.entity.id, name: business.name, instagram: business.instagram, website: business.website, phone: business.phone, address: business.address };
+}
+
+function QueueLeadRow({ lead, isRejected, onCopyPrompt, onCopyCandidatePrompt, onReject }: { lead: QueueLead; isRejected?: boolean; onCopyPrompt?: (lead: QueueLead, business?: PromptBusiness | null) => void; onCopyCandidatePrompt?: (lead: QueueLead, business?: PromptBusiness | null) => void; onReject?: (lead: QueueLead) => void }) {
+  // İşletme ve Şube Yönetimi: linked branches/brands are loaded only when
+  // asked for (one request per opened row, not per queue item).
+  const [showBusinesses, setShowBusinesses] = useState(false);
+  const [business, setBusiness] = useState<SelectedBusiness | null>(null);
+  const promptBusiness = toPromptBusiness(business);
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -254,17 +265,28 @@ function QueueLeadRow({ lead, isRejected, onCopyPrompt, onCopyCandidatePrompt, o
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
+          {!isRejected && (onCopyPrompt || onCopyCandidatePrompt) && (
+            <AdminButton variant="secondary" compact icon={<Building2 size={13} />} onClick={() => setShowBusinesses((value) => !value)}>{showBusinesses ? "İşletme Seçimini Gizle" : "Bağlı İşletmeler"}</AdminButton>
+          )}
           {!isRejected && onCopyCandidatePrompt && (
-            <AdminButton variant="secondary" compact icon={<Sparkles size={13} />} onClick={() => onCopyCandidatePrompt(lead)}>Adayı Değerlendir Promptunu Kopyala</AdminButton>
+            <AdminButton variant="secondary" compact icon={<Sparkles size={13} />} onClick={() => onCopyCandidatePrompt(lead, promptBusiness)}>Adayı Değerlendir Promptunu Kopyala</AdminButton>
           )}
           {!isRejected && onCopyPrompt && (
-            <AdminButton variant="ai" compact icon={<Copy size={13} />} onClick={() => onCopyPrompt(lead)}>Ön İnceleme Promptunu Kopyala</AdminButton>
+            <AdminButton variant="ai" compact icon={<Copy size={13} />} onClick={() => onCopyPrompt(lead, promptBusiness)}>Ön İnceleme Promptunu Kopyala</AdminButton>
           )}
           {!isRejected && onReject && (
             <AdminButton variant="danger" compact onClick={() => onReject(lead)}>İptal</AdminButton>
           )}
         </div>
       </div>
+      {showBusinesses && (
+        <div className="mt-2">
+          <BusinessSelector owner={{ type: "lead", id: lead.id }} ownerName={leadDisplayName(lead)} selectedId={business?.entity.id || ""} onSelect={setBusiness} />
+          <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
+            {promptBusiness ? `Promptlar ${promptBusiness.name} için hazırlanır; rapor bu işletmeye kaydedilir.` : "Bağlı işletme seçilmezse promptlar ana işletme için hazırlanır. Bağlı işletme yoksa yukarıda seçenek görünmez."}
+          </p>
+        </div>
+      )}
     </Card>
   );
 }
@@ -509,9 +531,9 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
     } catch { /* clipboard denied — nothing to fall back to here */ }
   }
 
-  async function copyClaudePromptForLead(lead: QueueLead) {
+  async function copyClaudePromptForLead(lead: QueueLead, business?: PromptBusiness | null) {
     try {
-      await navigator.clipboard.writeText(buildClaudePrompt(lead));
+      await navigator.clipboard.writeText(buildClaudePrompt(lead, business));
       setPromptLead(lead);
       fetch(`/api/admin/pre-audit/lead/${lead.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_in_progress" }) }).then(load).catch(() => {});
     } catch {
@@ -523,9 +545,9 @@ export function PreAuditCenter({ initialTab, initialLeadId }: { initialTab?: Tab
   // Ön İnceleme pre-review queue status, since Adayı Değerlendir is not
   // part of that pipeline — a candidate evaluation can happen before,
   // instead of, or without ever triggering an Ön İnceleme.
-  async function copyCandidateEvaluationPromptForLead(lead: QueueLead) {
+  async function copyCandidateEvaluationPromptForLead(lead: QueueLead, business?: PromptBusiness | null) {
     try {
-      await navigator.clipboard.writeText(buildCandidateEvaluationPrompt(lead));
+      await navigator.clipboard.writeText(buildCandidateEvaluationPrompt(lead, business));
       setPromptLead(lead);
     } catch {
       setActionMessage("Panoya kopyalanamadı.");

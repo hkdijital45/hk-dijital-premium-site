@@ -459,7 +459,8 @@ export async function getAdInsightsData({
   platform = "all",
   customFrom = "",
   customTo = "",
-  analyze = false
+  analyze = false,
+  businessScope
 }: {
   companyId: string;
   range?: AdInsightRange;
@@ -467,6 +468,10 @@ export async function getAdInsightsData({
   customFrom?: string;
   customTo?: string;
   analyze?: boolean;
+  /** İşletme ve Şube Yönetimi: restrict to one linked business's VERIFIED
+   * campaigns (business_ad_campaign_links). Customer-level snapshots are
+   * never used for a business. */
+  businessScope?: { name: string; links: Array<{ platform: "meta" | "google"; campaign_key: string }>; sharedKeys: string[] };
 }) {
   const dateRange = adInsightDateRange(range, customFrom, customTo);
   if (!hasSupabaseConfig()) {
@@ -510,7 +515,7 @@ export async function getAdInsightsData({
     };
   }
 
-  const [companyRows, integrations, campaignMetrics, adMetrics, snapshots] = await Promise.all([
+  const [companyRows, integrations, campaignMetricsAll, adMetricsAll, snapshotsAll] = await Promise.all([
     supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(companyId)}&select=*&limit=1`),
     supabaseRest<any[]>(`ad_integrations?company_id=eq.${encodeURIComponent(companyId)}&select=*&order=updated_at.desc`).catch(() => []),
     supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${dateRange.from}&date=lte.${dateRange.to}&select=*&order=date.desc`).catch(() => []),
@@ -519,11 +524,16 @@ export async function getAdInsightsData({
   ]);
 
   const { dedupeMetaMetricSnapshots } = await import("@/lib/marketing-intelligence/meta-metrics-aggregation");
-  const company = companyRows[0] || {};
+  const { filterRowsToVerifiedCampaigns } = await import("@/lib/business-ad-scope-shared");
+  const scoped = <T extends Record<string, unknown>>(rows: T[]) => (businessScope ? filterRowsToVerifiedCampaigns(rows, businessScope.links) : rows);
+  const campaignMetrics = scoped(campaignMetricsAll);
+  const adMetrics = scoped(adMetricsAll);
+  const snapshots = businessScope ? [] : snapshotsAll;
+  const company = businessScope ? { ...(companyRows[0] || {}), name: businessScope.name } : companyRows[0] || {};
   const meta = integrations.find((item) => item.provider === "meta") || {};
   const google = integrations.find((item) => item.provider === "google") || {};
   const previous = previousPeriod(dateRange);
-  const previousRowsRaw = await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${previous.from}&date=lte.${previous.to}&select=*&order=date.desc`).catch(() => []);
+  const previousRowsRaw = scoped(await supabaseRest<any[]>(`campaign_metrics?company_id=eq.${encodeURIComponent(companyId)}&date=gte.${previous.from}&date=lte.${previous.to}&select=*&order=date.desc`).catch(() => []));
   // Reklam Doktoru's own query (date range only, no date_range_label
   // scoping like Reklam Değerlendirme's resolver) can pull multiple
   // cumulative sync snapshots of the SAME campaign/ad set/ad + period —
@@ -569,11 +579,14 @@ export async function getAdInsightsData({
     }).catch(() => ({ text: fallback.admin }));
     analysis = { admin: result.text || fallback.admin, customer: fallback.customer };
   }
-  const sourceType = rows.length ? "Son senkron veri" : snapshots.length ? "Kayıtlı analiz" : "Demo veri";
+  const sourceType = rows.length ? "Son senkron veri" : snapshots.length ? "Kayıtlı analiz" : businessScope ? "Doğrulanmış kampanyalarda bu dönemde veri yok" : "Demo veri";
   return {
-    status: rows.length ? "live" : "demo",
+    status: rows.length ? "live" : businessScope ? "no_data" : "demo",
     dateRange,
     sourceType,
+    scope: businessScope
+      ? { level: "business" as const, businessName: businessScope.name, verifiedCampaigns: businessScope.links.length, sharedCampaigns: businessScope.sharedKeys.length }
+      : { level: "customer" as const },
     company,
     connection: {
       metaBusinessId: meta.business_id || meta.settings?.business_id || "",

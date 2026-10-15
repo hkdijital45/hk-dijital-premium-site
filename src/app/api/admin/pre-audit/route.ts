@@ -17,10 +17,11 @@ export async function GET(request: Request) {
   const companyId = url.searchParams.get("companyId") || undefined;
   const leadId = url.searchParams.get("leadId") || undefined;
   const search = url.searchParams.get("q") || undefined;
+  const businessUnitId = url.searchParams.get("businessUnitId") || undefined;
 
   try {
     const [reports, summary, pending, inReview, rejected] = await Promise.all([
-      listPreAuditReports(companyId, search, 200, leadId),
+      listPreAuditReports(companyId, search, 200, leadId, businessUnitId && /^[0-9a-f-]{36}$/i.test(businessUnitId) ? businessUnitId : undefined),
       getPreAuditSummary(),
       listPreReviewQueue(LEAD_PRE_REVIEW_STATUS.PENDING),
       listPreReviewQueue(LEAD_PRE_REVIEW_STATUS.IN_REVIEW),

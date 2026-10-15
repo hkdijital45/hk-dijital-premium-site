@@ -9,6 +9,7 @@ export type CandidateEvaluationReport = {
   id: string;
   company_id: string | null;
   lead_id: string | null;
+  business_unit_id?: string | null;
   title: string;
   report_date: string;
 
@@ -29,4 +30,4 @@ export type CandidateEvaluationReport = {
 export type CandidateEvaluationListItem = Pick<
   CandidateEvaluationReport,
   "id" | "company_id" | "lead_id" | "title" | "report_date" | "recommendation" | "priority" | "score" | "created_at" | "updated_at"
->;
+> & { business_unit_id?: string | null };

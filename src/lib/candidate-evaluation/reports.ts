@@ -5,6 +5,8 @@
 // a genuinely separate report family, not a variant of Ön İnceleme.
 import { supabaseRest } from "@/lib/supabase";
 import { CANDIDATE_EVALUATION_TABLE, type CandidateEvaluationReport, type CandidateEvaluationListItem } from "./types";
+import { assertUnitLinkedTo, getBusinessUnit, listLinkedBusinesses, BusinessRelationshipNotFoundError } from "@/lib/business-relationships";
+import { BusinessRelationshipValidationError, type BusinessEntityRef } from "@/lib/business-relationships-shared";
 
 type CompanyRow = { id: string; name: string; sector: string | null; city: string | null; website: string | null; lifecycle_stage: string | null };
 type LeadRow = { id: string; company: string | null; name: string | null; sector: string | null; business_type: string | null; city: string | null; district: string | null; website: string | null; phone: string | null; instagram: string | null; status: string | null; company_id: string | null; source: string | null; source_detail: string | null; google_maps_url: string | null; google_rating: number | null };
@@ -16,6 +18,11 @@ export type CandidateEvaluationContext = {
   evaluationCount: number;
   latestEvaluation: { reportDate: string; title: string; recommendation: string } | null;
   lead?: { instagram: string | null; phone: string | null; district: string | null; source: string | null; sourceDetail: string | null; googleMapsUrl: string | null; googleRating: number | null };
+  // İşletme ve Şube Yönetimi (additive): linked branches/brands, and the
+  // selected one when businessUnitId was passed — then business/lead/
+  // evaluationCount/latestEvaluation above describe THAT business only.
+  relatedBusinesses?: Array<{ businessUnitId: string | null; linkedLeadId: string | null; linkedCompanyId: string | null; relationship: string; name: string; instagram: string | null; website: string | null }>;
+  selectedBusiness?: { businessUnitId: string; name: string; instagram: string | null; website: string | null; phone: string | null; address: string | null; description: string | null; mainBusinessName: string } | null;
 } | { status: "ambiguous"; candidates: Array<{ id: string; name: string }> } | { status: "not_found" };
 
 export async function getCandidateEvaluationLeadContext(leadId: string): Promise<CandidateEvaluationContext> {
@@ -26,7 +33,7 @@ export async function getCandidateEvaluationLeadContext(leadId: string): Promise
   if (!lead) return { status: "not_found" };
 
   const priorReports = await supabaseRest<Array<{ report_date: string; title: string; recommendation: string }>>(
-    `${CANDIDATE_EVALUATION_TABLE}?select=report_date,title,recommendation&lead_id=eq.${encodeURIComponent(lead.id)}&order=report_date.desc,created_at.desc&limit=50`
+    `${CANDIDATE_EVALUATION_TABLE}?select=report_date,title,recommendation&lead_id=eq.${encodeURIComponent(lead.id)}&business_unit_id=is.null&order=report_date.desc,created_at.desc&limit=50`
   );
 
   return {
@@ -75,7 +82,7 @@ export async function getCandidateEvaluationCompanyContext(companyId?: string, c
 
   const company = companies[0];
   const priorReports = await supabaseRest<Array<{ report_date: string; title: string; recommendation: string }>>(
-    `${CANDIDATE_EVALUATION_TABLE}?select=report_date,title,recommendation&company_id=eq.${company.id}&order=report_date.desc,created_at.desc&limit=50`
+    `${CANDIDATE_EVALUATION_TABLE}?select=report_date,title,recommendation&company_id=eq.${company.id}&business_unit_id=is.null&order=report_date.desc,created_at.desc&limit=50`
   );
 
   return {
@@ -87,7 +94,49 @@ export async function getCandidateEvaluationCompanyContext(companyId?: string, c
   };
 }
 
-export type SaveCandidateEvaluationInput = Partial<CandidateEvaluationReport> & { company_id?: string; lead_id?: string };
+export type SaveCandidateEvaluationInput = Partial<CandidateEvaluationReport> & { company_id?: string; lead_id?: string; business_unit_id?: string };
+
+export class CandidateEvaluationBusinessUnitError extends Error {}
+
+/** Same contract as scopePreAuditContextToBusiness (pre-audit/reports.ts). */
+export async function scopeCandidateContextToBusiness(ctx: CandidateEvaluationContext, businessUnitId?: string): Promise<CandidateEvaluationContext> {
+  if (ctx.status !== "resolved") return ctx;
+  const owner: BusinessEntityRef = { type: ctx.entity === "lead" ? "lead" : "company", id: ctx.business.id };
+  const linked = await listLinkedBusinesses(owner).catch((error) => {
+    if (businessUnitId) throw error;
+    return [];
+  });
+  const relatedBusinesses = linked.map((item) => ({
+    businessUnitId: item.entity.type === "unit" ? item.entity.id : null,
+    linkedLeadId: item.entity.type === "lead" ? item.entity.id : null,
+    linkedCompanyId: item.entity.type === "company" ? item.entity.id : null,
+    relationship: item.direction === "parent" ? `parent:${item.relationshipType}` : item.relationshipType,
+    name: item.name,
+    instagram: item.instagram,
+    website: item.website
+  }));
+  if (!businessUnitId) return { ...ctx, relatedBusinesses, selectedBusiness: null };
+  try {
+    await assertUnitLinkedTo(businessUnitId, owner);
+  } catch (error) {
+    if (error instanceof BusinessRelationshipNotFoundError || error instanceof BusinessRelationshipValidationError) throw new CandidateEvaluationBusinessUnitError(error.message);
+    throw error;
+  }
+  const unit = await getBusinessUnit(businessUnitId);
+  const ownerColumn = ctx.entity === "lead" ? "lead_id" : "company_id";
+  const prior = await supabaseRest<Array<{ report_date: string; title: string; recommendation: string }>>(
+    `${CANDIDATE_EVALUATION_TABLE}?select=report_date,title,recommendation&${ownerColumn}=eq.${encodeURIComponent(ctx.business.id)}&business_unit_id=eq.${encodeURIComponent(unit.id)}&order=report_date.desc,created_at.desc&limit=50`
+  );
+  return {
+    ...ctx,
+    business: { ...ctx.business, name: unit.name, website: unit.website, city: unit.city || ctx.business.city },
+    lead: ctx.lead ? { ...ctx.lead, instagram: unit.instagram, phone: unit.phone, googleMapsUrl: null, googleRating: null } : ctx.lead,
+    evaluationCount: prior.length,
+    latestEvaluation: prior[0] ? { reportDate: prior[0].report_date, title: prior[0].title, recommendation: prior[0].recommendation } : null,
+    relatedBusinesses,
+    selectedBusiness: { businessUnitId: unit.id, name: unit.name, instagram: unit.instagram, website: unit.website, phone: unit.phone, address: unit.address, description: unit.description, mainBusinessName: ctx.business.name }
+  };
+}
 
 export class CandidateEvaluationValidationError extends Error {}
 export class CandidateEvaluationEntityNotFoundError extends Error {}
@@ -130,9 +179,20 @@ export async function saveCandidateEvaluation(
     }
   }
 
+  const resolvedUnitId = typeof input.business_unit_id === "string" && input.business_unit_id ? input.business_unit_id : null;
+  if (resolvedUnitId) {
+    try {
+      await assertUnitLinkedTo(resolvedUnitId, resolvedLeadId ? { type: "lead", id: resolvedLeadId } : { type: "company", id: resolvedCompanyId as string });
+    } catch (error) {
+      if (error instanceof BusinessRelationshipNotFoundError || error instanceof BusinessRelationshipValidationError) throw new CandidateEvaluationValidationError(`business_unit_id doğrulanamadı: ${error.message}`);
+      throw error;
+    }
+  }
+
   const row: Record<string, unknown> = {
     company_id: resolvedCompanyId,
     lead_id: resolvedLeadId,
+    ...(resolvedUnitId ? { business_unit_id: resolvedUnitId } : {}),
     report_date: typeof input.report_date === "string" && input.report_date ? input.report_date : new Date().toISOString().slice(0, 10)
   };
   for (const field of TEXT_FIELDS) if (typeof input[field] === "string") row[field] = input[field];
@@ -142,12 +202,13 @@ export async function saveCandidateEvaluation(
 
   let targetId: string | null = null;
   if (reportId) {
-    const existing = await supabaseRest<Array<{ id: string; company_id: string | null; lead_id: string | null }>>(
-      `${CANDIDATE_EVALUATION_TABLE}?select=id,company_id,lead_id&id=eq.${encodeURIComponent(reportId)}&limit=1`
+    const existing = await supabaseRest<Array<{ id: string; company_id: string | null; lead_id: string | null; business_unit_id: string | null }>>(
+      `${CANDIDATE_EVALUATION_TABLE}?select=id,company_id,lead_id,business_unit_id&id=eq.${encodeURIComponent(reportId)}&limit=1`
     );
     const match = existing[0];
     if (!match) throw new CandidateEvaluationValidationError(`reportId doğrulanamadı: ${reportId} bulunamadı.`);
     if (match.company_id !== resolvedCompanyId || match.lead_id !== resolvedLeadId) throw new CandidateEvaluationValidationError("reportId, verilen company_id/lead_id ile eşleşmiyor.");
+    if ((match.business_unit_id || null) !== resolvedUnitId) throw new CandidateEvaluationValidationError("reportId başka bir işletmeye ait — işletme ataması değiştirilemez.");
     targetId = match.id;
   }
 
@@ -159,15 +220,16 @@ export async function saveCandidateEvaluation(
   return { updated: Boolean(targetId), success: true, report_id: saved.id, company_id: saved.company_id, lead_id: saved.lead_id, created_at: saved.created_at };
 }
 
-export async function getLatestCandidateEvaluation(companyId?: string, leadId?: string) {
-  const scope = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : `company_id=eq.${encodeURIComponent(companyId || "")}`;
+export async function getLatestCandidateEvaluation(companyId?: string, leadId?: string, businessUnitId?: string) {
+  const scope = `${leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : `company_id=eq.${encodeURIComponent(companyId || "")}`}&business_unit_id=${businessUnitId ? `eq.${encodeURIComponent(businessUnitId)}` : "is.null"}`;
   const rows = await supabaseRest<CandidateEvaluationReport[]>(`${CANDIDATE_EVALUATION_TABLE}?select=*&${scope}&order=report_date.desc,created_at.desc&limit=1`);
   return rows[0] || null;
 }
 
-export async function listCandidateEvaluations(companyId?: string, leadId?: string, search?: string, limit = 200): Promise<CandidateEvaluationListItem[]> {
+export async function listCandidateEvaluations(companyId?: string, leadId?: string, search?: string, limit = 200, businessUnitId?: string): Promise<CandidateEvaluationListItem[]> {
   const filters = [
-    "select=id,company_id,lead_id,title,report_date,recommendation,priority,score,created_at,updated_at",
+    "select=id,company_id,lead_id,business_unit_id,title,report_date,recommendation,priority,score,created_at,updated_at",
+    businessUnitId ? `business_unit_id=eq.${encodeURIComponent(businessUnitId)}` : "",
     companyId ? `company_id=eq.${encodeURIComponent(companyId)}` : "",
     leadId ? `lead_id=eq.${encodeURIComponent(leadId)}` : "",
     search?.trim() ? `title=ilike.*${encodeURIComponent(search.trim())}*` : "",

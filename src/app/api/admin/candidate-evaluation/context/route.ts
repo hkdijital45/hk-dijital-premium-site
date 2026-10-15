@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireModuleAccess } from "@/lib/permissions";
 import { getSafeSupabaseError } from "@/lib/supabase";
-import { getCandidateEvaluationCompanyContext, getCandidateEvaluationLeadContext } from "@/lib/candidate-evaluation/reports";
+import { getCandidateEvaluationCompanyContext, getCandidateEvaluationLeadContext, scopeCandidateContextToBusiness, CandidateEvaluationBusinessUnitError } from "@/lib/candidate-evaluation/reports";
+import { uuidPattern } from "@/lib/meta-pixel-admin";
 
 // Thin HTTP wrapper around the existing context-resolution service (the
 // same functions the MCP tools use) — gives the admin UI (Rapor Merkezi /
@@ -16,11 +17,14 @@ export async function GET(request: Request) {
   const leadId = url.searchParams.get("leadId") || undefined;
   const companyId = url.searchParams.get("companyId") || undefined;
   if (!leadId && !companyId) return NextResponse.json({ error: "leadId veya companyId zorunludur." }, { status: 400 });
+  const businessUnitId = url.searchParams.get("businessUnitId") || undefined;
+  if (businessUnitId && !uuidPattern.test(businessUnitId)) return NextResponse.json({ error: "Geçersiz işletme kimliği." }, { status: 400 });
 
   try {
     const context = leadId ? await getCandidateEvaluationLeadContext(leadId) : await getCandidateEvaluationCompanyContext(companyId);
-    return NextResponse.json(context);
+    return NextResponse.json(await scopeCandidateContextToBusiness(context, businessUnitId));
   } catch (error) {
+    if (error instanceof CandidateEvaluationBusinessUnitError) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ error: getSafeSupabaseError(error).detail }, { status: 500 });
   }
 }
