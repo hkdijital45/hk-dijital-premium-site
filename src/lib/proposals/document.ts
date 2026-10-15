@@ -7,6 +7,7 @@ import type { HkProposalV1, ProposalBudgetScenario, ProposalCompetitor } from ".
 import { normalizeBusinessScope } from "./business-scope";
 import { formatTRY } from "./financials";
 import type { DocumentMetric, DocumentChart, DocumentTimelinePhase } from "@/lib/document-model";
+import { humanizeKeyTr } from "@/lib/turkish-text";
 
 export type ProposalDocumentMode = "internal" | "client";
 
@@ -19,8 +20,7 @@ function isEmpty(value: unknown): boolean {
 }
 
 function prettifyKey(key: string): string {
-  const spaced = key.replaceAll("_", " ").replace(/([a-z])([A-Z])/g, "$1 $2");
-  return spaced.replace(/\b\w/g, (c) => c.toLocaleUpperCase("tr"));
+  return humanizeKeyTr(key);
 }
 
 function arrayItemText(v: unknown): string {

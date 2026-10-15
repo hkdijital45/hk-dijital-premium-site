@@ -4,14 +4,15 @@
 // Dahili Rapor or Müşteri Raporu. Same readability conventions already
 // proven for Reklam Kreatif Raporu (ad-creative-report-document.ts):
 // strip any literal Markdown Claude's paste-back carries, split long
-// blobs into real bullets, and explain every technical metric term in
-// parentheses — client report only, per section 10's exact wording list.
+// blobs into real bullets, and explain the technical metric terms the
+// report uses in a closing glossary — client report only.
 import type { AdEvaluationRecord, EvaluationReportText } from "./ad-evaluations";
 import { AD_EVALUATION_DECISION_LABELS } from "./ad-evaluations";
 import type { DocumentPayload, DocumentSection, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
 import { formatCurrencyTr, formatNumberTr, formatPercentTr } from "@/lib/report-design";
 import { formatReportTimestamp } from "@/lib/report-timestamp";
 import { normalizeLegacyTableBlock, parseMarkdownBlocks } from "./ad-evaluation-markdown";
+import { AD_METRIC_GLOSSARY, buildGlossarySection } from "@/lib/report-glossary";
 
 export type AdEvaluationDocumentMode = "internal" | "client";
 
@@ -40,48 +41,9 @@ function splitIntoBulletLines(text?: string | null): string[] {
   return [stripMarkdown(trimmed)];
 }
 
-// Exact wording required by the spec — client report only. Each gloss is
-// checked case-insensitively against text already containing the
-// explanation (idempotent — never double-wrap a term Claude already
-// explained itself).
-const CLIENT_GLOSSARY: Array<{ pattern: RegExp; gloss: string; label: string }> = [
-  { pattern: /\bErişim\b/i, gloss: "en az bir kez gören farklı kişi sayısı", label: "Erişim (Reklamı en az bir kez gören farklı kişi sayısı)" },
-  { pattern: /\bGösterim\b/i, gloss: "toplam kaç kez görüntülendiği", label: "Gösterim (Reklamın toplam kaç kez görüntülendiği)" },
-  { pattern: /\bFrekans\b/i, gloss: "ortalama kaç kez gördüğü", label: "Frekans (Bir kişinin reklamı ortalama kaç kez gördüğü)" },
-  // Compound click-metric-family labels must be glossed BEFORE the bare
-  // CTR/CPC entries below (ordered first), and the bare entries then
-  // skip over them via a negative lookaround — otherwise the generic
-  // "CTR"/"CPC" pattern re-matches the word embedded inside "CTR
-  // (Tümü)"/"Bağlantı CTR" and double-annotates it.
-  // No trailing \b here: "ı" (dotless i) falls outside \w, so a \b
-  // immediately after it never matches (both sides end up non-word) —
-  // verified live, this silently skipped the whole pattern.
-  { pattern: /\bBağlantı Tıklaması/i, gloss: "bağlantıya yapılan tıklama sayısı", label: "Bağlantı Tıklaması (Reklamdaki bağlantıya yapılan tıklama sayısı)" },
-  { pattern: /\bCTR \(Tümü\)/i, gloss: "tüm tıklamaların gösterimlere oranı", label: "CTR (Tümü) (Reklamdaki tüm tıklamaların gösterimlere oranı)" },
-  { pattern: /\bCPC \(Tümü\)/i, gloss: "tüm tıklamalardan birinin ortalama maliyeti", label: "CPC (Tümü) (Reklamdaki tüm tıklamalardan birinin ortalama maliyeti)" },
-  { pattern: /\bBağlantı CTR\b/i, gloss: "bağlantı tıklamalarının gösterimlere oranı", label: "Bağlantı CTR (Reklamdaki bağlantı tıklamalarının gösterimlere oranı)" },
-  { pattern: /\bBağlantı CPC\b/i, gloss: "bir bağlantı tıklamasının ortalama maliyeti", label: "Bağlantı CPC (Bir bağlantı tıklamasının ortalama maliyeti)" },
-  { pattern: /(?<!\(Tümü\)\s)(?<!Bağlantı )\bCTR\b(?!\s*\(Tümü\))/i, gloss: "bağlantıya tıklayanların oranı", label: "CTR (Reklamı gören kişilerden bağlantıya tıklayanların oranı)" },
-  { pattern: /(?<!\(Tümü\)\s)(?<!Bağlantı )\bCPC\b(?!\s*\(Tümü\))/i, gloss: "bağlantı tıklamasının ortalama maliyeti", label: "CPC (Bir bağlantı tıklamasının ortalama maliyeti)" },
-  { pattern: /\bCPM\b/i, gloss: "1.000 gösterim başına ortalama maliyeti", label: "CPM (Reklamın 1.000 gösterim başına ortalama maliyeti)" },
-  { pattern: /\bMesajlaşma konuşması başlatıldı\b/i, gloss: "yeni konuşma başlatan kişi sayısı", label: "Mesajlaşma konuşması başlatıldı (Reklam üzerinden işletmeyle yeni konuşma başlatan kişi sayısı)" },
-  { pattern: /\bSonuç başı maliyet\b/i, gloss: "ortalama harcanan tutar", label: "Sonuç başı maliyet (Bir mesaj veya kampanyanın ana sonucunu elde etmek için ortalama harcanan tutar)" },
-  { pattern: /\bHarcanan Tutar\b/i, gloss: "kullanılan toplam bütçe", label: "Harcanan Tutar (İncelenen dönemde reklam için kullanılan toplam bütçe)" },
-  { pattern: /\bThruPlay\b/i, gloss: "en az 15 saniye", label: "ThruPlay (Videonun en az 15 saniyesinin veya kısa videonun tamamının izlenmesi)" }
-];
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function annotateClient(text: string): string {
-  let out = text;
-  for (const { pattern, gloss, label } of CLIENT_GLOSSARY) {
-    if (new RegExp(escapeRegExp(gloss), "i").test(out)) continue;
-    out = out.replace(pattern, label);
-  }
-  return out;
-}
+// Technical terms are explained in a separate "Terimler Sözlüğü" section
+// (client report only, see report-glossary.ts) — never spliced into the
+// running text, which broke Turkish suffixes ("Harcanan Tutar (…)ın").
 
 // "Nihai Karar" is excluded here (internal mode) — buildAdEvaluationDocumentPayload
 // appends its OWN structured decision section built from the record's
@@ -105,9 +67,8 @@ function sectionsFrom(report: EvaluationReportText | undefined, mode: AdEvaluati
         first = false;
       } else if (block.text) {
         const items = splitIntoBulletLines(block.text);
-        const annotated = mode === "client" ? items.map(annotateClient) : items;
-        if (annotated.length) {
-          out.push({ title, items: annotated });
+        if (items.length) {
+          out.push({ title, items });
           first = false;
         }
       }
@@ -186,7 +147,7 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
   const summary = report?.executiveSummary;
   if (summary && !hasOwnSummarySection) {
     const items = splitIntoBulletLines(summary);
-    sections.push({ title: mode === "internal" ? "Yönetici Özeti" : "Kısa Özet", items: mode === "client" ? items.map(annotateClient) : items });
+    sections.push({ title: mode === "internal" ? "Yönetici Özeti" : "Kısa Özet", items });
   }
 
   const performance = adEvaluationPerformanceSection(evaluation.metrics_snapshot);
@@ -203,6 +164,11 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
         ...(evaluation.next_review_note ? [`Not: ${evaluation.next_review_note}`] : [])
       ]
     });
+  }
+
+  if (mode === "client") {
+    const glossary = buildGlossarySection(sections, AD_METRIC_GLOSSARY);
+    if (glossary) sections.push(glossary);
   }
 
   const periodLabel = evaluation.evaluation_period_start && evaluation.evaluation_period_end

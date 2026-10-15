@@ -6,6 +6,7 @@ import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell, Doc
 import { formatNumberTr as formatNumberTrDigits } from "@/lib/report-design";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
 import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
+import { capitalizeWordsTr } from "@/lib/turkish-text";
 
 // Ön İnceleme report → branded PDF/DOCX document model. EXPORT = RENDER,
 // never research: this only reformats what save_pre_audit_report already
@@ -145,7 +146,9 @@ function prettifyKey(key: string): string {
   // in the dictionary (which may legitimately be a Turkish word).
   const lower = spaced.toLowerCase();
   if (known[lower]) return known[lower];
-  return spaced.replace(/\b\w/g, (c) => c.toLocaleUpperCase("tr"));
+  // Unicode-aware (JS \b/\w are ASCII-only and capitalized the letter
+  // after every Turkish character: "işletme" -> "işLetme").
+  return capitalizeWordsTr(spaced);
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -366,6 +369,14 @@ function objectToSections(title: string, obj: Record<string, unknown>): Document
   if (baseItems.length) sections.push({ title, items: baseItems });
   sections.push(...extracted);
   return sections;
+}
+
+/** Any stored JSON value -> readable document sections (tables for arrays
+ * of objects, clickable link tables, bullet lists, nested sub-sections).
+ * Shared with Rapor Merkezi for other stored analyses (Instagram profil
+ * analizi, aylık raporlar) so they render with the same rules. */
+export function structuredValueSections(title: string, value: unknown): DocumentSection[] {
+  return valueToSection(title, value);
 }
 
 function valueToSection(title: string, value: unknown): DocumentSection[] {

@@ -136,7 +136,8 @@ test("buildCreativeReportDocumentPayload REDESIGN — no combined paragraphs, no
   const clientText = client.sections.map((s) => [s.title, s.text, ...(s.items || []), ...((s.table?.rows || []).flat())].join("\n")).join("\n");
   assert.match(clientText, /CTA \(Eylem çağrısı\)/, "CTA must always carry its Turkish explanation");
   assert.match(clientText, /Hook \(Dikkat çekici açılış\)/, "Hook must always carry its Turkish explanation");
-  assert.match(clientText, /FPS \(Saniyedeki kare sayısı\)/, "FPS must carry its Turkish explanation when it appears in production notes");
+  const glossaryRows = client.sections.find((s) => s.title === "Terimler Sözlüğü")?.table?.rows || [];
+  assert.ok(glossaryRows.some((r) => r[0] === "FPS" && /saniyedeki kare sayısı/.test(String(r[1]))), "FPS (used in production notes) must be explained in the glossary");
   assert.doesNotMatch(clientText, /Kreatif yorgunluğu riski düşük/, "internalNotes must never appear in the client report");
   assert.doesNotMatch(clientText, /TOFU/, "internal-only funnel stage must not leak into the client report");
 
@@ -180,7 +181,7 @@ test("buildCreativeReportDocumentPayload FIX — every creative renders its own 
   }
 });
 
-test("annotate() (via document payload) REGRESSION — idempotent: never re-wraps a term the source text already explained, in either order", async () => {
+test("creative report REGRESSION — free text is never rewritten with explanations: no nested/duplicated term glosses, in either order", async () => {
   const { buildCreativeReportDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-creative-report-document.ts");
   const report = {
     id: "r1", company_id: "c1", ad_strategy_id: null, ad_strategy_version: null, version: 1, status: "draft", report_title: "Test",

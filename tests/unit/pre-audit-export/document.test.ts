@@ -550,7 +550,8 @@ test("REGRESSION — digital_presence.assets (flat object of platform URLs) beco
   const linkCell = instagramRow![1];
   assert.equal(typeof linkCell, "object", "a URL cell must be a real DocumentLink, not a raw string");
   assert.equal((linkCell as { url: string }).url, "https://www.instagram.com/abdulmalik.beyaz.esya/", "the FULL original URL must be preserved untouched");
-  const tiktokRow = tableSection!.table!.rows.find((row) => row[0] === "Tiktok");
+  // Brand spelling is preserved by the Turkish label helper ("tiktok" key -> "TikTok").
+  const tiktokRow = tableSection!.table!.rows.find((row) => row[0] === "TikTok");
   const tiktokLink = tiktokRow![1] as { label: string; url: string };
   assert.equal(tiktokLink.url, "https://www.tiktok.com/@abdulmalik.beyaz.esya", "a trailing parenthetical note must never be absorbed into the URL itself");
   assert.match(tiktokLink.label, /muhtemel/, "the note must not be silently dropped — it moves into the visible label");

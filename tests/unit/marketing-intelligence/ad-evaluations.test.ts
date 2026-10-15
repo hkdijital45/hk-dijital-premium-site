@@ -386,7 +386,7 @@ test("parseAdEvaluationResponse: an invalid/unknown decision word is rejected (n
 
 // --- buildAdEvaluationDocumentPayload (pure) ---
 
-test("buildAdEvaluationDocumentPayload: client report always explains known metric terms in Turkish; internal-only decision section never leaks to client", async () => {
+test("buildAdEvaluationDocumentPayload: client report explains the metric terms it uses in a Turkish glossary (never inside sentences); internal-only decision section never leaks to client", async () => {
   const { buildAdEvaluationDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-document.ts");
   const evaluation = {
     id: "e1", company_id: "c1", campaign_id: "camp1", meta_campaign_id: "m1", ad_account_id: null,
@@ -402,8 +402,12 @@ test("buildAdEvaluationDocumentPayload: client report always explains known metr
 
   const client = buildAdEvaluationDocumentPayload("MY CAKE 45", "Açılış Kampanyası", evaluation, "client");
   const clientText = client.sections.map((s) => [s.title, s.text, ...(s.items || [])].join("\n")).join("\n");
-  assert.match(clientText, /Erişim \(Reklamı en az bir kez gören farklı kişi sayısı\)/);
-  assert.match(clientText, /CTR \(Reklamı gören kişilerden bağlantıya tıklayanların oranı\)/);
+  const metricItems = client.sections.find((s) => s.title === "Performans Metrikleri")?.items || [];
+  assert.deepEqual(metricItems, ["Erişim: 3200", "CTR: %1.2"], "the author's lines are never rewritten with inline explanations");
+  const glossary = client.sections.find((s) => s.title === "Terimler Sözlüğü");
+  const glossaryRows = new Map((glossary?.table?.rows || []).map((r) => [String(r[0]), String(r[1])]));
+  assert.equal(glossaryRows.get("Erişim"), "Reklamı en az bir kez gören farklı kişi sayısı.");
+  assert.match(glossaryRows.get("CTR") || "", /tıklayanların oranı/);
   assert.doesNotMatch(clientText, /Nihai Karar|CONTINUE/, "decision block is internal-only and must never appear in the client document");
   assert.equal(client.confidentialLabel, undefined);
 
@@ -413,7 +417,7 @@ test("buildAdEvaluationDocumentPayload: client report always explains known metr
   assert.equal(internal.confidentialLabel, "Dahili Kullanım");
 });
 
-test("buildAdEvaluationDocumentPayload: click-family terms are each glossed exactly once, never nested/double-annotated, never cross-contaminated between generic and compound labels", async () => {
+test("buildAdEvaluationDocumentPayload: click-family terms — sentences untouched, each term explained exactly once in the glossary, compound labels kept distinct", async () => {
   const { buildAdEvaluationDocumentPayload } = await import("../../../src/lib/marketing-intelligence/ad-evaluation-document.ts");
   const evaluation = {
     id: "e1", company_id: "c1", campaign_id: "camp1", meta_campaign_id: "m1", ad_account_id: null,
@@ -429,22 +433,14 @@ test("buildAdEvaluationDocumentPayload: click-family terms are each glossed exac
 
   const client = buildAdEvaluationDocumentPayload("MY CAKE 45", "Açılış Kampanyası", evaluation, "client");
   const items = client.sections.find((s) => s.title === "Metrikler")?.items || [];
-  assert.match(items[0], /^Bağlantı Tıklaması \(Reklamdaki bağlantıya yapılan tıklama sayısı\): 19$/);
-  assert.match(items[1], /^CTR \(Tümü\) \(Reklamdaki tüm tıklamaların gösterimlere oranı\): %3\.19$/);
-  assert.match(items[2], /^CPC \(Tümü\) \(Reklamdaki tüm tıklamalardan birinin ortalama maliyeti\): 2,50 TL$|2\.50 TL$/);
-  assert.match(items[3], /^Bağlantı CTR \(Reklamdaki bağlantı tıklamalarının gösterimlere oranı\): %0\.85$/);
-  assert.match(items[4], /^Bağlantı CPC \(Bir bağlantı tıklamasının ortalama maliyeti\): 9,33 TL$|9\.33 TL$/);
-  for (const line of items) {
-    const openParens = (line.match(/\(/g) || []).length;
-    const closeParens = (line.match(/\)/g) || []).length;
-    assert.equal(openParens, closeParens, `unbalanced parens suggest nested/double annotation: ${line}`);
-    // Each line above gets exactly one gloss appended; "CTR (Tümü)"/
-    // "CPC (Tümü)" legitimately already contain one paren pair of their
-    // own before the gloss is appended, so up to 2 is correct there —
-    // the real regression this guards against (3+ parens) would mean a
-    // second, nested gloss got applied on top of the first.
-    assert.equal(openParens <= 2, true, `more than one gloss applied to the same line: ${line}`);
+  assert.deepEqual(items, ["Bağlantı Tıklaması: 19", "CTR (Tümü): %3.19", "CPC (Tümü): 2.50 TL", "Bağlantı CTR: %0.85", "Bağlantı CPC: 9.33 TL"]);
+  const rows = client.sections.find((s) => s.title === "Terimler Sözlüğü")?.table?.rows || [];
+  const terms = rows.map((r) => String(r[0]));
+  for (const term of ["Bağlantı Tıklaması", "CTR (Tümü)", "CPC (Tümü)", "Bağlantı CTR", "Bağlantı CPC"]) {
+    assert.equal(terms.filter((t) => t === term).length, 1, `${term} must be explained exactly once`);
   }
+  assert.equal(new Set(terms).size, terms.length, "no duplicated glossary rows");
+  for (const row of rows) assert.doesNotMatch(String(row[1]), /\(.*\(/, `no nested explanation: ${row[1]}`);
 });
 
 // --- Live data-layer coverage (requires ad_evaluations migration) ---

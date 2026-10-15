@@ -77,7 +77,7 @@ const adminNavigationSourceGroups: AdminNavigationGroup[] = [
       { label: "Meta Reklam İstihbaratı", slug: "meta-istihbarat", module: "meta-analiz", description: "Meta kampanya, kreatif ve dönüşüm performansı." },
       { label: "Web Analitiği", slug: "website-analytics", module: "website-analytics", description: "Pixel, GA4 ve web sitesi dönüşüm takibi." },
       { label: "Reklam Doktoru Pro", slug: "ad-insights", module: "ad-insights", description: "Reklam performansını teşhis eder, sorunları bulur ve aksiyon reçetesi oluşturur." },
-      { label: "Rapor Merkezi", slug: "rapor-merkezi", module: "rapor-merkezi", description: "Seçilen müşterinin tüm raporlarını (strateji, kreatif, değerlendirme, ön inceleme, aylık, müşteri raporları) tek ekranda görüntüle." },
+      { label: "Rapor Merkezi", slug: "rapor-merkezi", module: "rapor-merkezi", description: "Lead veya müşteri seçerek tüm kayıtlı raporları (ön inceleme, Reklam Doktoru Pro, teklif, müşteri ve aylık raporlar) tek ekranda bul, görüntüle ve indir." },
       { label: "Büyüme Motoru", slug: "growth-engine", module: "growth-engine", description: "Müşteri satış yolculuğunu, funnel yapısını, kreatif ihtiyacını ve takip planını oluştur." },
       { label: "Funnel Planlayıcı", slug: "funnel-builder", module: "funnel-builder", description: "Müşteriye özel funnel amacı, kanal ve eksik adımları kart tabanlı planla." },
       { label: "Modül Pazarı", slug: "marketplace", module: "marketplace", description: "Paket ve modül kartlarından Büyüme Motoru planı başlat." },
