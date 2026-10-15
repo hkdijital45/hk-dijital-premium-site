@@ -213,10 +213,18 @@ function discoverySheetXml(payload: DocumentPayload) {
 </Workbook>`;
 }
 
-export async function generateReportExport(format: ExportFormat, report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []) {
-  const payload = isDiscoveryStyleReport(report)
+/** The same document every `reports` PDF/Word export renders — exposed
+ * so Rapor Merkezi can preview it without the export route's side
+ * effects (no interpretation is generated here; a missing one is shown as
+ * "henüz yorum oluşturulmadı"). */
+export function buildReportExportPayload(report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []): DocumentPayload {
+  return isDiscoveryStyleReport(report)
     ? discoveryReportToDocumentPayload(report, company)
     : toDocumentPayload(lines(report, company, interpretation, updates, visibilityRules).map(normalizeTurkishText), report, company);
+}
+
+export async function generateReportExport(format: ExportFormat, report: any, company: any, interpretation?: any, updates: any[] = [], visibilityRules: any[] = []) {
+  const payload = buildReportExportPayload(report, company, interpretation, updates, visibilityRules);
 
   if (format === "excel") {
     if (isDiscoveryStyleReport(report)) {

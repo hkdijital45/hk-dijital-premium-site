@@ -21,6 +21,7 @@
     "test:proposals-live": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/proposals-live/*.test.ts",
     "test:tasks": "node --conditions=react-server --import tsx --test tests/unit/tasks/*.test.ts",
     "test:premium-report": "node --conditions=react-server --import tsx --test tests/unit/premium-report/*.test.ts",
+    "test:report-center": "node --conditions=react-server --import tsx --test tests/unit/report-center-v2/*.test.ts",
     "test:pre-audit-versioning": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/pre-audit-export/save-report-versioning.test.ts",
     "test:business-discovery-mcp": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/business-discovery-mcp/*.test.ts",
     "test:candidate-evaluation": "node --env-file=.env.local --conditions=react-server --import tsx --test tests/unit/candidate-evaluation/*.test.ts",

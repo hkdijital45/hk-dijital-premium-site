@@ -2,7 +2,7 @@ import "server-only";
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PDFDocument, PDFName, PDFArray, PDFString, rgb, setCharacterSpacing } from "pdf-lib";
+import { PDFDocument, PDFName, PDFArray, PDFNull, PDFString, rgb, setCharacterSpacing } from "pdf-lib";
 import type { PDFFont, PDFImage, PDFPage, RGB } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { isDocumentLink, cellLabel } from "@/lib/document-model";
@@ -11,6 +11,7 @@ import {
   CHART_SERIES_COLORS, REPORT_COLORS, displayReportTitle, fitLogo, formatAxisValue, formatChartValue, formatPercentTr,
   hexToRgb01, niceAxisMax, sanitizeChartData, splitMetaLine
 } from "@/lib/report-design";
+import { cleanTurkishTypography } from "@/lib/turkish-text";
 
 // HK Dijital Premium Report System V3 — the single PDF renderer behind
 // generatePdfBuffer (document-generator.ts), so every report that already
@@ -95,7 +96,8 @@ function charSplit(word: string, font: PDFFont, size: number, maxWidth: number):
 /** Word wrap that keeps explicit line breaks and splits over-long tokens (URLs). */
 export function wrapLines(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
   const out: string[] = [];
-  for (const rawLine of cleanGlyphs(text).split(/\n/)) {
+  // Spacing/Unicode clean-up only (turkish-text.ts) — never changes words.
+  for (const rawLine of cleanTurkishTypography(cleanGlyphs(text)).split(/\n/)) {
     const words = rawLine.split(/\s+/).filter(Boolean);
     if (!words.length) { out.push(""); continue; }
     let current = "";
@@ -139,6 +141,28 @@ function addLinkAnnotation(page: PDFPage, url: string, rect: [number, number, nu
   page.node.set(PDFName.of("Annots"), annots);
 }
 
+/** Clickable contents row → jumps to `target` (a GoTo destination). */
+function addInternalLink(pdf: PDFDocument, page: PDFPage, target: PDFPage, rect: [number, number, number, number]) {
+  const context = pdf.context;
+  const dest = context.obj([target.ref, PDFName.of("XYZ"), PDFNull, PDFNull, PDFNull]);
+  const annotationRef = context.register(context.obj({ Type: "Annot", Subtype: "Link", Rect: rect, Border: [0, 0, 0], Dest: dest }));
+  const existing = page.node.lookup(PDFName.of("Annots"));
+  const annots = existing instanceof PDFArray ? existing : context.obj([]);
+  annots.push(annotationRef);
+  page.node.set(PDFName.of("Annots"), annots);
+}
+
+/** A closing note that only repeats branding the page footer already
+ * carries ("HK Dijital · hkdijital.com.tr") — never worth its own page. */
+export function isBrandingOnlyNote(note: string): boolean {
+  const rest = note
+    .replace(/(?:https?:\/\/)?(?:www\.)?hkdijital\.com\.tr/gi, "")
+    .replace(/HK\s*Dijital/gi, "")
+    .replace(/Dahili Operasyon Belgesi|Dahili Kullanım|Müşteriyle Paylaşılmaz|Dijital Pazarlama\s*&\s*Büyüme Çözümleri|AI Görünürlük Merkezi/gi, "")
+    .replace(/[\s·|—–\-:,.]+/g, "");
+  return rest.length === 0;
+}
+
 function isSubsection(section: DocumentSection): boolean {
   if (section.level) return section.level === 2;
   return /\s[—–]\s|\(devam\)\s*$/i.test(section.title);
@@ -154,7 +178,13 @@ class PremiumPdf {
   private readonly runningTitle: string;
   private coverPage: PDFPage | null = null;
   private tocTop = 0;
-  private toc: Array<{ num: string; title: string; page: number }> = [];
+  /** Every heading in reading order; `page` is the page object (not an
+   * index) so pages inserted/removed later never desynchronize it. */
+  private toc: Array<{ level: 1 | 2; num: string; title: string; page: PDFPage }> = [];
+  /** Pages that received real content (text). Decoration (header band,
+   * footer) never counts — a page left without content is removed. */
+  private contentPages = new Set<PDFPage>();
+  private decorating = false;
 
   constructor(pdf: PDFDocument, fonts: Fonts, hkLogo: PDFImage | null, private payload: DocumentPayload) {
     this.pdf = pdf;
@@ -165,7 +195,9 @@ class PremiumPdf {
 
   // ---------- primitives ----------
   private text(t: string, x: number, y: number, size: number, font: PDFFont, color: RGB, opacity = 1) {
-    this.page.drawText(cleanGlyphs(t), { x, y, size, font, color, opacity });
+    const clean = cleanGlyphs(t);
+    if (!this.decorating && clean.trim()) this.contentPages.add(this.page);
+    this.page.drawText(clean, { x, y, size, font, color, opacity });
   }
 
   private tracked(t: string, x: number, y: number, size: number, font: PDFFont, color: RGB, spacing: number, opacity = 1) {
@@ -184,7 +216,14 @@ class PremiumPdf {
 
   // ---------- page flow ----------
   private newContentPage() {
-    this.page = this.pdf.addPage([PAGE_W, PAGE_H]);
+    this.decorate(this.pdf.addPage([PAGE_W, PAGE_H]));
+    this.y = CONTENT_TOP;
+  }
+
+  /** Header band on a content/contents page — decoration only. */
+  private decorate(page: PDFPage) {
+    this.page = page;
+    this.decorating = true;
     this.page.drawRectangle({ x: 0, y: PAGE_H - HEADER_BAND, width: PAGE_W, height: HEADER_BAND, color: C.navy });
     this.page.drawRectangle({ x: 0, y: PAGE_H - HEADER_BAND - 1.4, width: PAGE_W, height: 1.4, color: C.turquoise });
     if (this.hkLogo) {
@@ -196,7 +235,7 @@ class PremiumPdf {
     const shown = ellipsize(label, this.fonts.semibold, 7, maxW);
     const w = this.trackedWidth(shown, 7, this.fonts.semibold, 0.6);
     this.tracked(shown, PAGE_W - MARGIN - w, PAGE_H - HEADER_BAND / 2 - 2.5, 7, this.fonts.semibold, C.white, 0.6, 0.85);
-    this.y = CONTENT_TOP;
+    this.decorating = false;
   }
 
   private ensure(height: number) {
@@ -315,33 +354,101 @@ class PremiumPdf {
     this.text(site, (PAGE_W - sw) / 2, 39, 8.5, this.fonts.semibold, C.turquoiseText);
   }
 
-  /** "Rapor İçeriği" on the cover — real page numbers, drawn after layout. */
-  private drawCoverToc() {
+  /** Table of contents — EVERY heading, never truncated ("… ve N bölüm
+   * daha" is gone). Rows that don't fit on the cover continue on
+   * dedicated "Rapor İçeriği (devam)" pages inserted right after the
+   * cover. Row heights never depend on the page numbers (a fixed column is
+   * reserved for them), so the number of contents pages is known before
+   * any number is printed; the loop below re-checks that the widest real
+   * page label fits the reserved column and re-lays-out (bounded) if not.
+   * Page numbers are read from the final page order, so they always match
+   * the PDF. Each row is also a clickable link to its page. */
+  private drawToc() {
     if (!this.coverPage || !this.toc.length) return;
-    this.page = this.coverPage;
-    const entries = [...(this.payload.executiveSummary || this.payload.headlineMetrics?.length ? [{ num: "—", title: "Yönetici Özeti", page: 2 }] : []), ...this.toc];
-    const rowH = 17;
-    const bottom = 86;
-    const maxRows = Math.floor((this.tocTop - 24 - bottom) / rowH);
-    if (maxRows < 2) return;
-    this.tracked("RAPOR İÇERİĞİ", MARGIN, this.tocTop - 8, 7, this.fonts.semibold, C.turquoiseText, 1.2);
-    let shown = entries;
-    let more = 0;
-    if (entries.length > maxRows) { shown = entries.slice(0, maxRows - 1); more = entries.length - shown.length; }
-    let y = this.tocTop - 28;
-    for (const entry of shown) {
-      this.text(entry.num, MARGIN, y, 8.6, this.fonts.semibold, C.turquoiseText);
-      const pageLabel = String(entry.page);
-      const pw = this.fonts.semibold.widthOfTextAtSize(pageLabel, 8.6);
-      const title = ellipsize(entry.title, this.fonts.regular, 9, CONTENT_W - 70);
-      this.text(title, MARGIN + 26, y, 9, this.fonts.regular, C.navy);
-      const tw = this.fonts.regular.widthOfTextAtSize(title, 9);
-      // dotted leader
-      for (let x = MARGIN + 30 + tw; x < PAGE_W - MARGIN - pw - 8; x += 4) this.page.drawCircle({ x, y: y + 2.4, size: 0.45, color: C.border });
-      this.text(pageLabel, PAGE_W - MARGIN - pw, y, 8.6, this.fonts.semibold, C.navy);
-      y -= rowH;
+    const entries = this.toc;
+    const COVER_BOTTOM = 86;
+    const coverCapacity = this.tocTop - 28 - COVER_BOTTOM;
+    const contTop = CONTENT_TOP - 30;
+    const contCapacity = contTop - CONTENT_BOTTOM;
+
+    type Row = { entry: (typeof entries)[number]; lines: string[]; size: number; font: PDFFont; indent: number; height: number };
+    let numberColW = 22;
+    let rows: Row[] = [];
+    let pagesOfRows: Row[][] = [];
+    for (let pass = 0; pass < 4; pass += 1) {
+      rows = entries.map((entry) => {
+        const sub = entry.level === 2;
+        const size = sub ? 8.4 : 9;
+        const font = sub ? this.fonts.regular : this.fonts.regular;
+        const indent = sub ? 40 : 26;
+        const lines = wrapLines(entry.title, font, size, CONTENT_W - indent - numberColW - 18);
+        return { entry, lines, size, font, indent, height: Math.max(sub ? 15 : 17, lines.length * (size + 3.2) + 5.5) };
+      });
+      // Greedy fill: cover first (if it has room for at least 2 rows), then
+      // as many continuation pages as needed.
+      pagesOfRows = [];
+      let current: Row[] = [];
+      let capacity = coverCapacity >= 34 ? coverCapacity : 0;
+      let used = 0;
+      for (const row of rows) {
+        if (used + row.height > capacity && (current.length || capacity === 0)) {
+          pagesOfRows.push(current);
+          current = [];
+          capacity = contCapacity;
+          used = 0;
+        }
+        current.push(row);
+        used += row.height;
+      }
+      pagesOfRows.push(current);
+      // Stability check: the real page labels (known once the number of
+      // inserted contents pages is fixed) must fit the reserved column.
+      const inserted = pagesOfRows.length - 1;
+      const maxLabel = Math.max(...entries.map((e) => this.pdf.getPages().indexOf(e.page) + 1 + inserted));
+      const needed = this.fonts.semibold.widthOfTextAtSize(String(maxLabel), 8.6) + 6;
+      if (needed <= numberColW) break;
+      numberColW = Math.ceil(needed);
     }
-    if (more) this.text(`… ve ${more} bölüm daha`, MARGIN + 26, y, 8.6, this.fonts.regular, C.muted);
+
+    // Insert the continuation pages right after the cover.
+    const tocPages: PDFPage[] = [this.coverPage];
+    for (let k = 1; k < pagesOfRows.length; k += 1) {
+      const page = this.pdf.insertPage(k, [PAGE_W, PAGE_H]);
+      this.decorate(page);
+      this.contentPages.add(page);
+      tocPages.push(page);
+    }
+    const allPages = this.pdf.getPages();
+
+    pagesOfRows.forEach((pageRows, pageIndex) => {
+      this.page = tocPages[pageIndex];
+      let y: number;
+      if (pageIndex === 0) {
+        if (!pageRows.length) {
+          if (pagesOfRows.length > 1) this.text("Rapor içeriği bir sonraki sayfada yer alır.", MARGIN, this.tocTop - 8, 8.6, this.fonts.regular, C.muted);
+          return;
+        }
+        this.tracked("RAPOR İÇERİĞİ", MARGIN, this.tocTop - 8, 7, this.fonts.semibold, C.turquoiseText, 1.2);
+        y = this.tocTop - 28;
+      } else {
+        this.tracked("RAPOR İÇERİĞİ (DEVAM)", MARGIN, CONTENT_TOP - 9, 7.4, this.fonts.semibold, C.turquoiseText, 1.2);
+        y = contTop;
+      }
+      for (const row of pageRows) {
+        const target = row.entry.page;
+        const pageLabel = String(allPages.indexOf(target) + 1);
+        const isSub = row.entry.level === 2;
+        if (!isSub) this.text(row.entry.num, MARGIN, y, 8.6, this.fonts.semibold, C.turquoiseText);
+        row.lines.forEach((line, li) => this.text(line, MARGIN + row.indent, y - li * (row.size + 3.2), row.size, row.font, isSub ? C.anthracite : C.navy));
+        const lastLineY = y - (row.lines.length - 1) * (row.size + 3.2);
+        const lastW = row.font.widthOfTextAtSize(row.lines[row.lines.length - 1] || "", row.size);
+        const pw = this.fonts.semibold.widthOfTextAtSize(pageLabel, 8.6);
+        for (let x = MARGIN + row.indent + lastW + 4; x < PAGE_W - MARGIN - pw - 8; x += 4) this.page.drawCircle({ x, y: lastLineY + 2.4, size: 0.45, color: C.border });
+        this.text(pageLabel, PAGE_W - MARGIN - pw, lastLineY, 8.6, this.fonts.semibold, isSub ? C.muted : C.navy);
+        addInternalLink(this.pdf, this.page, target, [MARGIN, lastLineY - 3, PAGE_W - MARGIN, y + row.size]);
+        y -= row.height;
+      }
+    });
   }
 
   // ---------- blocks ----------
@@ -354,8 +461,9 @@ class PremiumPdf {
     const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
     for (const p of paragraphs) {
       for (const line of wrapLines(p, font, size, width)) {
+        if (!line.trim()) { this.y -= leading; continue; } // a blank line never opens a page
         this.ensure(leading);
-        if (line) this.text(line, x, this.y - size, size, font, opts.color ?? C.anthracite);
+        this.text(line, x, this.y - size, size, font, opts.color ?? C.anthracite);
         this.y -= leading;
       }
       this.y -= size * 0.6;
@@ -390,6 +498,7 @@ class PremiumPdf {
     if (sub) {
       this.ensure(56);
       this.y -= 6;
+      if (!/\(devam\)\s*$/i.test(section.title)) this.toc.push({ level: 2, num: "", title: section.title, page: this.page });
       this.page.drawRectangle({ x: MARGIN, y: this.y - 10.5, width: 3, height: 11, color: C.turquoise });
       const lines = wrapLines(section.title, this.fonts.semibold, 11.5, CONTENT_W - 10);
       for (const line of lines) {
@@ -404,7 +513,7 @@ class PremiumPdf {
     this.sectionNumber += 1;
     this.y -= 8;
     const num = String(this.sectionNumber).padStart(2, "0");
-    this.toc.push({ num, title: section.title, page: this.pdf.getPageCount() });
+    this.toc.push({ level: 1, num, title: section.title, page: this.page });
     this.tracked(num, MARGIN, this.y - 9, 8.5, this.fonts.semibold, C.turquoiseText, 1);
     this.y -= 14;
     const size = section.titleSize && section.titleSize < 13 ? 13 : 15;
@@ -540,44 +649,56 @@ class PremiumPdf {
     return minW.map((w, i) => w + (flex[i] / sumFlex) * extra);
   }
 
-  private table(table: DocumentTable) {
-    if (!table.headers.length) return;
-    let size = table.headers.length > 5 ? 7.9 : 8.5;
-    // Wide tables: step the type down until every header word fits whole.
-    while (size > 6.8 && this.columnWidths(table, size).some((w, i) => {
+  private headerWordsFit(table: DocumentTable, size: number): boolean {
+    const widths = this.columnWidths(table, size);
+    return !widths.some((w, i) => {
       const header = cleanGlyphs(table.headers[i]).toLocaleUpperCase("tr");
       return Math.max(...header.split(/\s+/).map((word) => this.fonts.semibold.widthOfTextAtSize(word, size - 0.4))) > w - 12;
-    })) size -= 0.3;
+    });
+  }
+
+  private table(table: DocumentTable) {
+    if (!table.headers.length) return;
+    // Readability floor: type never drops below 7.4pt. A table that still
+    // can't fit its header words at that size (or has 7+ columns) is set as
+    // one record card per row instead of being squeezed.
+    const MIN_SIZE = 7.4;
+    let size = table.headers.length > 5 ? 7.9 : 8.5;
+    while (size > MIN_SIZE && !this.headerWordsFit(table, size)) size = Math.round((size - 0.3) * 10) / 10;
+    if (table.headers.length >= 7 || !this.headerWordsFit(table, Math.max(size, MIN_SIZE))) {
+      this.recordCards(table);
+      return;
+    }
+    size = Math.max(size, MIN_SIZE);
     const leading = size + 3.6;
     const pad = 6;
     const widths = this.columnWidths(table, size);
     const statusCol = table.headers.findIndex((h) => /^durum$/i.test(h.trim()));
-    const MAX_CELL_LINES = 42;
-
     const headerSize = size - 0.4;
-    const cellLines = (cell: DocumentCell | undefined, w: number, font: PDFFont, indent: number, fontSize = size) => {
-      const lines = wrapLines(cellLabel(cell ?? ""), font, fontSize, w - pad * 2 - indent);
-      return lines.length > MAX_CELL_LINES ? [...lines.slice(0, MAX_CELL_LINES - 1), "…"] : lines;
-    };
+    // Cells are never truncated: a row taller than the space left continues
+    // on the next page (header repeated) instead of being cut with "…".
+    const cellLines = (cell: DocumentCell | undefined, w: number, font: PDFFont, indent: number, fontSize = size) =>
+      wrapLines(cellLabel(cell ?? ""), font, fontSize, w - pad * 2 - indent);
 
+    const headerLines = table.headers.map((h, i) => cellLines(h.toLocaleUpperCase("tr"), widths[i], this.fonts.semibold, 0, headerSize));
+    const headerH = Math.max(...headerLines.map((l) => l.length), 1) * leading + pad * 2 - 2;
     const drawHeader = () => {
-      const lines = table.headers.map((h, i) => cellLines(h.toLocaleUpperCase("tr"), widths[i], this.fonts.semibold, 0, headerSize));
-      const h = Math.max(...lines.map((l) => l.length), 1) * leading + pad * 2 - 2;
-      this.ensure(h + 26);
       const top = this.y;
-      this.roundRect(MARGIN, top - h, CONTENT_W, h, 5, { color: C.navy });
+      this.roundRect(MARGIN, top - headerH, CONTENT_W, headerH, 5, { color: C.navy });
       let x = MARGIN;
-      lines.forEach((l, i) => {
+      headerLines.forEach((l, i) => {
         l.forEach((line, li) => this.text(line, x + pad, top - pad - size + 1 - li * leading, headerSize, this.fonts.semibold, C.white));
         x += widths[i];
       });
-      this.y = top - h;
+      this.y = top - headerH;
     };
 
     // Keep short tables (≤ ~45% of a page) in one piece instead of leaving
     // a header and a single row stranded at the bottom of a page.
     const estimate = (table.rows.length + 1) * (leading + pad * 2) + 10;
     if (estimate < (CONTENT_TOP - CONTENT_BOTTOM) * 0.45 && estimate > this.remaining() && this.y < CONTENT_TOP - 1) this.newContentPage();
+    // Never strand the header: it needs room for at least two body lines.
+    this.ensure(headerH + leading * 2 + pad * 2 + 8);
     drawHeader();
     table.rows.forEach((row, rowIndex) => {
       const prepared = table.headers.map((_, i) => {
@@ -586,32 +707,94 @@ class PremiumPdf {
         const status = !isDocumentLink(cell ?? "") && i === statusCol ? STATUS_COLORS.find(([re]) => re.test(text))?.[1] || null : null;
         return { cell, status, lines: cellLines(cell, widths[i], this.fonts.regular, status ? 9 : 0) };
       });
-      const h = Math.max(...prepared.map((p) => p.lines.length), 1) * leading + pad * 2 - 2;
-      if (this.y - h < CONTENT_BOTTOM) { this.newContentPage(); drawHeader(); }
-      const top = this.y;
-      if (rowIndex % 2 === 1) this.page.drawRectangle({ x: MARGIN, y: top - h, width: CONTENT_W, height: h, color: ZEBRA });
-      let x = MARGIN;
-      prepared.forEach((p, i) => {
-        const link = p.cell !== undefined && isDocumentLink(p.cell) ? p.cell : null;
-        const color = link ? C.turquoiseText : p.status || (i === 0 ? C.navy : C.anthracite);
-        const font = i === 0 || p.status ? this.fonts.semibold : this.fonts.regular;
-        const tx = x + pad + (p.status ? 9 : 0);
-        if (p.status) this.page.drawCircle({ x: x + pad + 3, y: top - pad - size / 2 + 0.5, size: 2.6, color: p.status });
-        p.lines.forEach((line, li) => {
-          const ly = top - pad - size + 1 - li * leading;
-          this.text(line, tx, ly, size, font, color);
-          if (link && line) {
-            const lw = font.widthOfTextAtSize(line, size);
-            this.page.drawLine({ start: { x: tx, y: ly - 1.4 }, end: { x: tx + lw, y: ly - 1.4 }, thickness: 0.5, color: C.turquoiseText });
-            addLinkAnnotation(this.page, link.url, [tx, ly - 2, tx + lw, ly + size]);
-          }
+      const totalLines = Math.max(...prepared.map((p) => p.lines.length), 1);
+      let start = 0;
+      while (start < totalLines) {
+        const remainingLines = totalLines - start;
+        const fit = Math.floor((this.y - CONTENT_BOTTOM - pad * 2 + 2) / leading);
+        if (fit < Math.min(remainingLines, 2)) { this.newContentPage(); drawHeader(); continue; }
+        const chunk = Math.min(fit, remainingLines);
+        const h = chunk * leading + pad * 2 - 2;
+        const top = this.y;
+        if (rowIndex % 2 === 1) this.page.drawRectangle({ x: MARGIN, y: top - h, width: CONTENT_W, height: h, color: ZEBRA });
+        let x = MARGIN;
+        prepared.forEach((p, i) => {
+          const link = p.cell !== undefined && isDocumentLink(p.cell) ? p.cell : null;
+          const color = link ? C.turquoiseText : p.status || (i === 0 ? C.navy : C.anthracite);
+          const font = i === 0 || p.status ? this.fonts.semibold : this.fonts.regular;
+          const tx = x + pad + (p.status ? 9 : 0);
+          if (p.status && start === 0) this.page.drawCircle({ x: x + pad + 3, y: top - pad - size / 2 + 0.5, size: 2.6, color: p.status });
+          p.lines.slice(start, start + chunk).forEach((line, li) => {
+            const ly = top - pad - size + 1 - li * leading;
+            this.text(line, tx, ly, size, font, color);
+            if (link && line) {
+              const lw = font.widthOfTextAtSize(line, size);
+              this.page.drawLine({ start: { x: tx, y: ly - 1.4 }, end: { x: tx + lw, y: ly - 1.4 }, thickness: 0.5, color: C.turquoiseText });
+              addLinkAnnotation(this.page, link.url, [tx, ly - 2, tx + lw, ly + size]);
+            }
+          });
+          x += widths[i];
         });
-        x += widths[i];
-      });
-      this.y = top - h;
+        this.y = top - h;
+        start += chunk;
+        if (start < totalLines) { this.newContentPage(); drawHeader(); }
+      }
       this.page.drawLine({ start: { x: MARGIN, y: this.y }, end: { x: PAGE_W - MARGIN, y: this.y }, thickness: 0.4, color: C.border });
     });
     this.y -= 14;
+  }
+
+  /** Wide tables (7+ columns, or header words that can't fit at 7.4pt):
+   * one card per row — first column as the card title, the other columns
+   * as "BAŞLIK / değer" fields in a two-column grid — so nothing is
+   * squeezed below a readable size or cut. Fields continue on the next
+   * page if a card is taller than the space left. */
+  private recordCards(table: DocumentTable) {
+    const size = 8.6;
+    const leading = 12.2;
+    const labelSize = 6.6;
+    const colGap = 18;
+    const innerX = MARGIN + 14;
+    const innerW = CONTENT_W - 28;
+    const colW = (innerW - colGap) / 2;
+    table.rows.forEach((row) => {
+      const title = cleanGlyphs(row[0] !== undefined ? cellLabel(row[0]) : "");
+      const titleLines = wrapLines(title || "—", this.fonts.semibold, 9.6, innerW);
+      const fields = table.headers.slice(1).map((header, i) => {
+        const cell = row[i + 1];
+        const value = cell === undefined ? "" : cellLabel(cell);
+        return { header: header.toLocaleUpperCase("tr"), link: cell !== undefined && isDocumentLink(cell) ? cell : null, lines: wrapLines(value || "—", this.fonts.regular, size, colW) };
+      });
+      const fieldRows: Array<typeof fields> = [];
+      for (let i = 0; i < fields.length; i += 2) fieldRows.push(fields.slice(i, i + 2));
+      const rowH = (pair: typeof fields) => 10 + Math.max(...pair.map((f) => f.lines.length)) * leading + 5;
+      this.ensure(14 + titleLines.length * 13 + (fieldRows[0] ? rowH(fieldRows[0]) : 0) + 6);
+      let top = this.y;
+      let y = top - 12;
+      titleLines.forEach((line) => { this.text(line, innerX, y - 9.6, 9.6, this.fonts.semibold, C.navy); y -= 13; });
+      y -= 3;
+      const flushCard = (bottom: number) => {
+        this.page.drawRectangle({ x: MARGIN, y: bottom, width: 2.4, height: top - bottom, color: C.turquoise });
+        this.page.drawLine({ start: { x: MARGIN, y: bottom }, end: { x: PAGE_W - MARGIN, y: bottom }, thickness: 0.4, color: C.border });
+      };
+      for (const pair of fieldRows) {
+        const h = rowH(pair);
+        if (y - h < CONTENT_BOTTOM && h < CONTENT_TOP - CONTENT_BOTTOM - 20) { flushCard(y + 2); this.newContentPage(); top = this.y; y = top - 6; }
+        pair.forEach((f, ci) => {
+          const x = innerX + ci * (colW + colGap);
+          this.tracked(f.header, x, y - 7, labelSize, this.fonts.semibold, C.muted, 0.3);
+          f.lines.forEach((line, li) => {
+            const ly = y - 10 - size - li * leading + 1;
+            this.text(line, x, ly, size, this.fonts.regular, f.link ? C.turquoiseText : C.anthracite);
+            if (f.link && line) addLinkAnnotation(this.page, f.link.url, [x, ly - 2, x + this.fonts.regular.widthOfTextAtSize(line, size), ly + size]);
+          });
+        });
+        y -= h;
+      }
+      flushCard(y - 2);
+      this.y = y - 10;
+    });
+    this.y -= 6;
   }
 
   // ---------- charts ----------
@@ -791,11 +974,35 @@ class PremiumPdf {
     this.y -= 6;
   }
 
+  /** Closing note box. Branding-only notes ("HK Dijital ·
+   * hkdijital.com.tr") are drawn only if they fit on the current page —
+   * the page footer already carries that branding, so they never open a
+   * page. A real note that doesn't fit is first set more compactly;
+   * only if it still doesn't fit does it continue on a new page. */
+  private closingNote(note: string) {
+    const layout = (size: number, leading: number, padY: number) => {
+      const lines = wrapLines(note, this.fonts.regular, size, CONTENT_W - 28);
+      return { lines, size, leading, padY, h: padY * 2 + 4 + (lines.length - 1) * leading + size };
+    };
+    let box = layout(8.2, 11, 7);
+    if (box.h + 12 > this.remaining()) {
+      const compact = layout(7.6, 10, 5);
+      if (compact.h + 8 <= this.remaining()) box = compact;
+      else if (isBrandingOnlyNote(note)) return;
+      else this.newContentPage();
+    }
+    this.y -= 6;
+    this.roundRect(MARGIN, this.y - box.h, CONTENT_W, box.h, 7, { color: C.surface });
+    box.lines.forEach((line, i) => this.text(line, MARGIN + 14, this.y - box.padY - box.size - i * box.leading + 2, box.size, this.fonts.regular, C.muted));
+    this.y -= box.h;
+  }
+
   async render(): Promise<Buffer> {
     await this.drawCover();
     this.newContentPage();
 
     if (this.payload.executiveSummary || this.payload.headlineMetrics?.length) {
+      this.toc.push({ level: 1, num: "—", title: "Yönetici Özeti", page: this.page });
       this.tracked("YÖNETİCİ ÖZETİ", MARGIN, this.y - 9, 8.5, this.fonts.semibold, C.turquoiseText, 1.4);
       this.y -= 26;
       if (this.payload.executiveSummary) {
@@ -812,17 +1019,15 @@ class PremiumPdf {
 
     for (const section of this.payload.sections) this.section(section);
 
-    if (this.payload.footerNote) {
-      const lines = wrapLines(this.payload.footerNote, this.fonts.regular, 8.2, CONTENT_W - 28);
-      const h = 18 + lines.length * 11;
-      this.ensure(h + 8);
-      this.y -= 6;
-      this.roundRect(MARGIN, this.y - h, CONTENT_W, h, 7, { color: C.surface });
-      lines.forEach((line, i) => this.text(line, MARGIN + 14, this.y - 14 - i * 11, 8.2, this.fonts.regular, C.muted));
-      this.y -= h;
+    if (this.payload.footerNote) this.closingNote(this.payload.footerNote);
+
+    // Never ship a page that only carries the header band / footer (e.g. a
+    // page opened by a block that then moved on, or a trailing blank).
+    for (const page of this.pdf.getPages().slice(1)) {
+      if (!this.contentPages.has(page)) this.pdf.removePage(this.pdf.getPages().indexOf(page));
     }
 
-    this.drawCoverToc();
+    this.drawToc();
 
     // Footers (needs the final page count).
     const pages = this.pdf.getPages();

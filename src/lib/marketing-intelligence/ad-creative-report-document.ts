@@ -9,13 +9,14 @@
 // known jargon (Hook, CTA, Reels, Funnel, FPS, ...) always renders with
 // its short Turkish meaning in parentheses, unless that meaning is
 // already present anywhere in the same text (Claude-authored free text
-// frequently self-explains a term already — annotate() must be
+// frequently self-explains a term already — optionalText() must be
 // idempotent, never re-wrap an already-explained term). Pure/no I/O,
 // presentation + content-normalization only — no new field is invented;
 // every bullet maps to a real value already on the record (see
 // ad-creative-reports.ts).
 import { CREATIVE_FORMATS, type AdCreativeReportRecord, type CreativeItem } from "./ad-creative-reports";
 import type { DocumentPayload, DocumentSection } from "@/lib/server/document-generator";
+import { CREATIVE_GLOSSARY, buildGlossarySection } from "@/lib/report-glossary";
 
 export type CreativeReportDocumentMode = "client" | "internal";
 
@@ -32,63 +33,12 @@ function formatLabel(format?: string): string {
   return (format && FORMAT_LABELS[format]) || format || "—";
 }
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-// One short, natural Turkish explanation per known term. `gloss` is the
-// bare Turkish phrase we check for FIRST — if it already appears
-// ANYWHERE in the text being annotated (in any order/punctuation Claude
-// might have used: "Term (gloss)", "gloss (term)", "term - gloss", ...)
-// we skip that term entirely for this text: the reader has already been
-// given the Turkish meaning, so re-wrapping it would double- or
-// nested-explain it (e.g. "FPS (Saniyedeki kare sayısı) - saniyedeki
-// kare sayısı" or "Ad Set (Reklam seti (Reklam seti))"). Skipping is the
-// safe failure mode here — under-explaining a rare repeat is far less
-// harmful than visibly duplicating an explanation.
-type GlossaryEntry = { pattern: RegExp; gloss: string; label: string };
-const GLOSSARY: GlossaryEntry[] = [
-  { pattern: /\bHook\b/i, gloss: "dikkat çekici açılış", label: "Hook (Dikkat çekici açılış)" },
-  { pattern: /\bCTA\b/i, gloss: "eylem çağrısı", label: "CTA (Eylem çağrısı)" },
-  { pattern: /\bReels\b/i, gloss: "kısa dikey video", label: "Reels (Kısa dikey video)" },
-  { pattern: /\bCarousel\b/i, gloss: "kaydırmalı gönderi", label: "Carousel (Kaydırmalı gönderi)" },
-  { pattern: /\bStory\b/i, gloss: "hikaye", label: "Story (Hikâye)" },
-  { pattern: /\bFeed\b/i, gloss: "ana akış", label: "Feed (Ana akış)" },
-  { pattern: /\bFunnel\b/i, gloss: "satış hunisi", label: "Funnel (Satış hunisi)" },
-  { pattern: /\bA\/B Test(i)?\b/i, gloss: "karşılaştırma testi", label: "A/B Testi (İki farklı versiyonu karşılaştırma testi)" },
-  { pattern: /\bRemarketing\b/i, gloss: "yeniden hedefleme", label: "Remarketing (Yeniden hedefleme)" },
-  { pattern: /\bCTR\b/i, gloss: "tıklama oranı", label: "CTR (Tıklama oranı)" },
-  { pattern: /\bLearning Phase\b/i, gloss: "öğrenme aşaması", label: "Learning Phase (Öğrenme aşaması)" },
-  { pattern: /\bPrimary Text\b/i, gloss: "ana reklam metni", label: "Primary Text (Ana reklam metni)" },
-  { pattern: /\bHeadline\b/i, gloss: "reklam başlığı", label: "Headline (Reklam başlığı)" },
-  { pattern: /\bDescription\b/i, gloss: "açıklama", label: "Description (Açıklama)" },
-  { pattern: /\bFPS\b/i, gloss: "saniyedeki kare sayısı", label: "FPS (Saniyedeki kare sayısı)" },
-  { pattern: /\bHard ?Cut\b/i, gloss: "sert kesme", label: "Hard Cut (Sert kesme)" },
-  { pattern: /\bAd ?Set\b/i, gloss: "reklam seti", label: "Ad Set (Reklam seti)" },
-  { pattern: /\bEngagement\b/i, gloss: "etkileşim", label: "Engagement (Etkileşim)" },
-  { pattern: /\bDM\b/i, gloss: "özel mesaj", label: "DM (Özel mesaj)" },
-  { pattern: /\bscroll\b/i, gloss: "kaydırma", label: "scroll (Kaydırma)" },
-  { pattern: /\bthumb-stop\b/i, gloss: "ilk saniye tutma", label: "thumb-stop (Kaydırmayı durdurma / ilk saniye tutma oranı)" },
-  { pattern: /\bslow motion\b/i, gloss: "yavaş çekim", label: "slow motion (Yavaş çekim)" },
-  { pattern: /\bscreenshot\b/i, gloss: "ekran görüntüsü", label: "screenshot (Ekran görüntüsü)" },
-  { pattern: /\bzoom\b/i, gloss: "yakınlaştırma", label: "zoom (Yakınlaştırma)" }
-];
-
-function annotateStr(text: string): string {
-  let out = text;
-  for (const { pattern, gloss, label } of GLOSSARY) {
-    if (new RegExp(escapeRegExp(gloss), "i").test(out)) continue;
-    // Unwrap a bare "(Term)" the author already wrote with no gloss —
-    // otherwise the label's own parentheses nest inside the author's,
-    // e.g. "(thumb-stop)" -> "(thumb-stop (...))".
-    out = out.replace(new RegExp(`\\(\\s*(${pattern.source})\\s*\\)`, "i"), "$1");
-    out = out.replace(pattern, label);
-  }
-  return out;
-}
-
-function annotate(text?: string | null): string | undefined {
-  return text ? annotateStr(text) : undefined;
+// Jargon (Hook, CTA, Reels, ...) is explained once, in a closing
+// "Terimler Sözlüğü" section (report-glossary.ts) — free text is never
+// rewritten with in-sentence explanations, which broke Turkish suffixes
+// and nested explanations inside each other.
+function optionalText(text?: string | null): string | undefined {
+  return text || undefined;
 }
 
 // Claude's own free-text sections (internal_report/client_report and
@@ -134,7 +84,7 @@ const SHOOT_KEYWORDS = /\b(çekim|kamera|telefon|işık|tripod|arka ?plan|zoom|f
 const EDIT_KEYWORDS = /\b(kurgu|kesim|müzik|ekran yazı|hız|sahne sırası|geçiş|son cta)\b/i;
 
 function classifyProductionNotes(details?: string | null): { shoot: string[]; edit: string[]; other: string[] } {
-  const lines = splitIntoBulletLines(annotate(details));
+  const lines = splitIntoBulletLines(optionalText(details));
   const shoot: string[] = [];
   const edit: string[] = [];
   const other: string[] = [];
@@ -172,13 +122,13 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
 
   const summaryItems: string[] = [];
   if (item.campaign) summaryItems.push(`Kampanya: ${item.campaign}`);
-  if (item.adSet) summaryItems.push(`${annotateStr("Reklam seti (Ad Set)")}: ${item.adSet}`);
+  if (item.adSet) summaryItems.push(`Reklam seti (Ad Set): ${item.adSet}`);
   if (item.priority) summaryItems.push(`Öncelik: ${item.priority}`);
   if (item.videoDuration) summaryItems.push(`Video süresi: ${item.videoDuration}`);
-  if (isInternal && item.funnelStage) summaryItems.push(`Satış hunisi aşaması (funnel): ${annotateStr(item.funnelStage)}`);
-  if (isInternal && item.angle) summaryItems.push(`Kreatif açısı: ${annotateStr(item.angle)}`);
-  if (item.hook) summaryItems.push(`Hook (Dikkat çekici açılış): ${annotateStr(item.hook)}`);
-  if (item.cta) summaryItems.push(`CTA (Eylem çağrısı): ${annotateStr(item.cta)}`);
+  if (isInternal && item.funnelStage) summaryItems.push(`Satış hunisi aşaması (funnel): ${item.funnelStage}`);
+  if (isInternal && item.angle) summaryItems.push(`Kreatif açısı: ${item.angle}`);
+  if (item.hook) summaryItems.push(`Hook (Dikkat çekici açılış): ${item.hook}`);
+  if (item.cta) summaryItems.push(`CTA (Eylem çağrısı): ${item.cta}`);
   if (summaryItems.length) sections.push({ title: "Kısa Özet", titleSize: 13, spacingBefore: 6, items: summaryItems });
 
   const reasonItems: string[] = [];
@@ -189,7 +139,7 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
 
   if (item.videoScenes?.length) {
     const rows = [...item.videoScenes].sort((a, b) => (a.order || 0) - (b.order || 0)).map((s) => [
-      String(s.order ?? "—"), annotate(s.visual) || "—", annotate(s.onScreenText) || "—", annotate(s.voiceover) || "—", annotate(s.purpose) || "—"
+      String(s.order ?? "—"), optionalText(s.visual) || "—", optionalText(s.onScreenText) || "—", optionalText(s.voiceover) || "—", optionalText(s.purpose) || "—"
     ]);
     sections.push({
       title: "Sahne Planı", titleSize: 13, spacingBefore: 6,
@@ -198,7 +148,7 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
   }
   if (item.carouselSlides?.length) {
     const rows = [...item.carouselSlides].sort((a, b) => (a.order || 0) - (b.order || 0)).map((s) => [
-      String(s.order ?? "—"), annotate(s.title) || "—", annotate(s.subtext) || "—", annotate(s.visualSuggestion) || "—"
+      String(s.order ?? "—"), optionalText(s.title) || "—", optionalText(s.subtext) || "—", optionalText(s.visualSuggestion) || "—"
     ]);
     sections.push({ title: "Carousel Slaytları", titleSize: 13, spacingBefore: 6, table: { headers: ["Sıra", "Başlık", "Alt Metin", "Görsel Önerisi"], rows } });
   }
@@ -207,17 +157,17 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
     const sf = item.staticFields;
     const items: string[] = [];
     if (sf.size || sf.platform) items.push(`Ölçü / Platform: ${[sf.size, sf.platform].filter(Boolean).join(" · ")}`);
-    if (sf.visualConcept) items.push(`Görsel konsept: ${annotateStr(sf.visualConcept)}`);
-    if (sf.mainVisual) items.push(`Ana görsel: ${annotateStr(sf.mainVisual)}`);
-    if (sf.background) items.push(`Arka plan: ${annotateStr(sf.background)}`);
-    if (sf.headline) items.push(`Başlık (Headline): ${annotateStr(sf.headline)}`);
-    if (sf.subheadline) items.push(`Alt başlık: ${annotateStr(sf.subheadline)}`);
-    if (sf.offer) items.push(`Teklif: ${annotateStr(sf.offer)}`);
-    if (sf.cta) items.push(`CTA (Eylem çağrısı): ${annotateStr(sf.cta)}`);
+    if (sf.visualConcept) items.push(`Görsel konsept: ${sf.visualConcept}`);
+    if (sf.mainVisual) items.push(`Ana görsel: ${sf.mainVisual}`);
+    if (sf.background) items.push(`Arka plan: ${sf.background}`);
+    if (sf.headline) items.push(`Başlık (Headline): ${sf.headline}`);
+    if (sf.subheadline) items.push(`Alt başlık: ${sf.subheadline}`);
+    if (sf.offer) items.push(`Teklif: ${sf.offer}`);
+    if (sf.cta) items.push(`CTA (Eylem çağrısı): ${sf.cta}`);
     if (sf.logoPlacement) items.push(`Logo yerleşimi: ${sf.logoPlacement}`);
-    if (isInternal && sf.designHierarchy) items.push(`Tasarım hiyerarşisi: ${annotateStr(sf.designHierarchy)}`);
+    if (isInternal && sf.designHierarchy) items.push(`Tasarım hiyerarşisi: ${sf.designHierarchy}`);
     if (isInternal && sf.textDensity) items.push(`Metin yoğunluğu: ${sf.textDensity}`);
-    if (isInternal && sf.designPitfallsToAvoid) items.push(...splitIntoBulletLines(annotate(sf.designPitfallsToAvoid)).map((l) => `Kaçınılacak: ${l}`));
+    if (isInternal && sf.designPitfallsToAvoid) items.push(...splitIntoBulletLines(optionalText(sf.designPitfallsToAvoid)).map((l) => `Kaçınılacak: ${l}`));
     if (items.length) sections.push({ title: "Tasarım Detayları", titleSize: FIELD_TITLE_SIZE, items });
   }
 
@@ -225,10 +175,10 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
     const stf = item.storyFields;
     const items: string[] = [];
     if (stf.aspectRatio) items.push(`Boyut oranı: ${stf.aspectRatio}`);
-    if (stf.hook) items.push(`Hook (Dikkat çekici açılış): ${annotateStr(stf.hook)}`);
-    if (stf.mainMessage) items.push(`Ana mesaj: ${annotateStr(stf.mainMessage)}`);
-    if (stf.visualSuggestion) items.push(`Görsel/Video önerisi: ${annotateStr(stf.visualSuggestion)}`);
-    if (stf.cta) items.push(`CTA (Eylem çağrısı): ${annotateStr(stf.cta)}`);
+    if (stf.hook) items.push(`Hook (Dikkat çekici açılış): ${stf.hook}`);
+    if (stf.mainMessage) items.push(`Ana mesaj: ${stf.mainMessage}`);
+    if (stf.visualSuggestion) items.push(`Görsel/Video önerisi: ${stf.visualSuggestion}`);
+    if (stf.cta) items.push(`CTA (Eylem çağrısı): ${stf.cta}`);
     if (stf.action) items.push(`Aksiyon: ${stf.action}`);
     if (isInternal && stf.textPlacement) items.push(`Metin yerleşimi: ${stf.textPlacement}`);
     if (isInternal && stf.safeArea) items.push(`Güvenli alan: ${stf.safeArea}`);
@@ -239,10 +189,10 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
   if (item.adCopy && Object.values(item.adCopy).some(Boolean)) {
     const ac = item.adCopy;
     const items: string[] = [];
-    if (ac.primaryText) items.push(`Ana reklam metni (Primary Text): ${annotateStr(ac.primaryText)}`);
-    if (ac.headline) items.push(`Başlık (Headline): ${annotateStr(ac.headline)}`);
-    if (ac.description) items.push(`Açıklama (Description): ${annotateStr(ac.description)}`);
-    if (ac.cta) items.push(`CTA (Eylem çağrısı): ${annotateStr(ac.cta)}`);
+    if (ac.primaryText) items.push(`Ana reklam metni (Primary Text): ${ac.primaryText}`);
+    if (ac.headline) items.push(`Başlık (Headline): ${ac.headline}`);
+    if (ac.description) items.push(`Açıklama (Description): ${ac.description}`);
+    if (ac.cta) items.push(`CTA (Eylem çağrısı): ${ac.cta}`);
     if (items.length) sections.push({ title: "Reklam Metni", titleSize: FIELD_TITLE_SIZE, items });
   }
 
@@ -253,12 +203,12 @@ function creativeSections(item: CreativeItem, index: number, mode: CreativeRepor
       if (edit.length) sections.push({ title: "Nasıl Kurgulanacak?", titleSize: FIELD_TITLE_SIZE, items: edit });
       if (other.length) sections.push({ title: isInternal ? "Detay / Üretim Notları" : "Üretim Notları", titleSize: FIELD_TITLE_SIZE, items: other });
     } else {
-      const items = splitIntoBulletLines(annotate(item.details));
+      const items = splitIntoBulletLines(optionalText(item.details));
       if (items.length) sections.push({ title: isInternal ? "Detay / Üretim Notları" : "Üretim Notları", titleSize: FIELD_TITLE_SIZE, items });
     }
   }
   if (isInternal && item.internalNotes) {
-    const items = splitIntoBulletLines(annotate(item.internalNotes));
+    const items = splitIntoBulletLines(optionalText(item.internalNotes));
     if (items.length) sections.push({ title: "Ajans İçi Not", titleSize: FIELD_TITLE_SIZE, items });
   }
 
@@ -285,7 +235,7 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
 
   const summaryText = (isInternal ? report.internal_report : report.client_report)?.executiveSummary;
   if (summaryText) {
-    const items = splitIntoBulletLines(annotate(summaryText));
+    const items = splitIntoBulletLines(optionalText(summaryText));
     if (items.length) pushTopSection({ title: "Yönetici Özeti", items });
   }
 
@@ -313,13 +263,13 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
 
   const s = report.strategy_summary || {};
   const summaryItems: string[] = [];
-  if (s.campaignGoal) summaryItems.push(`Kampanya amacı: ${annotateStr(s.campaignGoal)}`);
-  if (s.creativeRole) summaryItems.push(`Kreatiflerin görevi: ${annotateStr(s.creativeRole)}`);
-  if (s.targetAudience) summaryItems.push(`Hedef kitle: ${annotateStr(s.targetAudience)}`);
-  if (isInternal && s.funnelStage) summaryItems.push(`Satış hunisi aşaması (funnel): ${annotateStr(s.funnelStage)}`);
-  if (isInternal && s.awarenessLevel) summaryItems.push(`Farkındalık seviyesi: ${annotateStr(s.awarenessLevel)}`);
-  if (s.keyMessage) summaryItems.push(`Ana mesaj: ${annotateStr(s.keyMessage)}`);
-  if (s.primaryCta) summaryItems.push(`Ana CTA (Eylem çağrısı): ${annotateStr(s.primaryCta)}`);
+  if (s.campaignGoal) summaryItems.push(`Kampanya amacı: ${s.campaignGoal}`);
+  if (s.creativeRole) summaryItems.push(`Kreatiflerin görevi: ${s.creativeRole}`);
+  if (s.targetAudience) summaryItems.push(`Hedef kitle: ${s.targetAudience}`);
+  if (isInternal && s.funnelStage) summaryItems.push(`Satış hunisi aşaması (funnel): ${s.funnelStage}`);
+  if (isInternal && s.awarenessLevel) summaryItems.push(`Farkındalık seviyesi: ${s.awarenessLevel}`);
+  if (s.keyMessage) summaryItems.push(`Ana mesaj: ${s.keyMessage}`);
+  if (s.primaryCta) summaryItems.push(`Ana CTA (Eylem çağrısı): ${s.primaryCta}`);
   if (s.creativeAngles?.length) summaryItems.push(`Kreatif açılar: ${s.creativeAngles.join(", ")}`);
   if (summaryItems.length) pushTopSection({ title: "Kreatif Strateji Özeti", items: summaryItems });
 
@@ -327,7 +277,7 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
   if (report_?.sections?.length) {
     for (const sec of report_.sections) {
       if (!sec.title || !sec.content) continue;
-      const items = splitIntoBulletLines(annotate(sec.content));
+      const items = splitIntoBulletLines(optionalText(sec.content));
       if (items.length) pushTopSection({ title: sec.title, items });
     }
   }
@@ -347,8 +297,8 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
       const items: string[] = [];
       if (m.quantity) items.push(`Kaç adet?: ${m.quantity}`);
       if (m.format) items.push(`Format: ${m.format}`);
-      if (m.instructions) items.push(`Nasıl çekilecek?: ${annotateStr(m.instructions)}`);
-      if (m.description) items.push(`Not: ${annotateStr(m.description)}`);
+      if (m.instructions) items.push(`Nasıl çekilecek?: ${m.instructions}`);
+      if (m.description) items.push(`Not: ${m.description}`);
       if (items.length) sections.push({ title: m.name || "Materyal", titleSize: FIELD_TITLE_SIZE, items });
     }
   }
@@ -364,14 +314,17 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
     });
     report.ab_test_plan.forEach((t, i) => {
       const items: string[] = [];
-      if (t.hypothesis) items.push(`Hipotez: ${annotateStr(t.hypothesis)}`);
-      if (t.variable) items.push(`Değiştirilecek şey: ${annotateStr(t.variable)}`);
+      if (t.hypothesis) items.push(`Hipotez: ${t.hypothesis}`);
+      if (t.variable) items.push(`Değiştirilecek şey: ${t.variable}`);
       if (t.constants) items.push(`Sabit tutulacaklar: ${t.constants}`);
-      if (t.expectedBehavior) items.push(`Takip edilecek sonuç: ${annotateStr(t.expectedBehavior)}`);
+      if (t.expectedBehavior) items.push(`Takip edilecek sonuç: ${t.expectedBehavior}`);
       if (t.evaluationCriteria) items.push(`Ne zaman değerlendirilecek?: ${t.evaluationCriteria}`);
       if (items.length) sections.push({ title: `Test ${i + 1}${t.variable ? ` — ${t.variable}` : ""}`, titleSize: FIELD_TITLE_SIZE, items });
     });
   }
+
+  const glossary = buildGlossarySection(sections, CREATIVE_GLOSSARY);
+  if (glossary) sections.push(glossary);
 
   return {
     title: mode === "internal" ? "Reklam Kreatif Raporu — Dahili Rapor" : "Reklam Kreatif Raporu — Müşteri Raporu",
