@@ -177,7 +177,6 @@ class PremiumPdf {
   private sectionNumber = 0;
   private readonly runningTitle: string;
   private coverPage: PDFPage | null = null;
-  private tocTop = 0;
   /** Every heading in reading order; `page` is the page object (not an
    * index) so pages inserted/removed later never desynchronize it. */
   private toc: Array<{ level: 1 | 2; num: string; title: string; page: PDFPage }> = [];
@@ -308,32 +307,30 @@ class PremiumPdf {
       this.text(line, (PAGE_W - w) / 2, ty, 15, this.fonts.semibold, C.turquoiseLight);
       ty -= 21;
     }
-    if (this.payload.period && this.payload.period !== "-") {
+    const coverDates = this.coverDetails().map((d) => d.value);
+    if (this.payload.period && this.payload.period !== "-" && !coverDates.includes(this.payload.period)) {
       const period = ellipsize(this.payload.period, this.fonts.regular, 10, 440);
       const w = this.fonts.regular.widthOfTextAtSize(period, 10);
       this.text(period, (PAGE_W - w) / 2, ty - 2, 10, this.fonts.regular, C.white, 0.72);
     }
 
-    // ----- report details card (white area) -----
-    let cy = heroBottom - 44;
-    const meta = (this.payload.metaLines?.length ? this.payload.metaLines : [`Firma: ${this.payload.customerName}`, `Dönem: ${this.payload.period}`])
-      .map(splitMetaLine).filter((m) => m.value);
-    if (meta.length) {
-      const colW = (CONTENT_W - 36) / 2;
-      const rows = Math.ceil(meta.length / 2);
-      const rowH = 34;
-      const cardH = 30 + rows * rowH;
-      this.roundRect(MARGIN, cy - cardH, CONTENT_W, cardH, 10, { color: C.surface, borderColor: C.border, borderWidth: 0.6 });
-      this.tracked("RAPOR BİLGİLERİ", MARGIN + 18, cy - 20, 7, this.fonts.semibold, C.turquoiseText, 1.2);
-      meta.forEach((m, i) => {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const x = MARGIN + 18 + col * (colW + 0);
-        const y0 = cy - 40 - row * rowH;
-        if (m.label) this.text(ellipsize(m.label, this.fonts.regular, 7.6, colW - 12), x, y0, 7.6, this.fonts.regular, C.muted);
-        this.text(ellipsize(m.value, this.fonts.semibold, 10, colW - 12), x, y0 - 13, 10, this.fonts.semibold, C.navy);
+    // ----- cover details (white area): date / period only — V3.2 keeps
+    // the cover a cover: no info card, no contents, no analysis. -----
+    let cy = heroBottom - 70;
+    const details = this.coverDetails();
+    if (details.length) {
+      const colW = Math.min(200, CONTENT_W / details.length);
+      const startX = (PAGE_W - colW * details.length) / 2;
+      details.forEach((d, i) => {
+        const x = startX + i * colW;
+        if (i > 0) this.page.drawLine({ start: { x, y: cy - 30 }, end: { x, y: cy + 4 }, thickness: 0.6, color: C.border });
+        const lw = this.trackedWidth(d.label, 7, this.fonts.semibold, 1.2);
+        this.tracked(d.label, x + (colW - lw) / 2, cy - 6, 7, this.fonts.semibold, C.turquoiseText, 1.2);
+        const value = ellipsize(d.value, this.fonts.semibold, 11.5, colW - 16);
+        const vw = this.fonts.semibold.widthOfTextAtSize(value, 11.5);
+        this.text(value, x + (colW - vw) / 2, cy - 24, 11.5, this.fonts.semibold, C.navy);
       });
-      cy -= cardH + 22;
+      cy -= 64;
     }
 
     if (this.payload.confidentialLabel) {
@@ -341,10 +338,11 @@ class PremiumPdf {
       const w = this.trackedWidth(label, 7.6, this.fonts.semibold, 0.8) + 28;
       this.roundRect((PAGE_W - w) / 2, cy - 22, w, 22, 11, { borderColor: C.coral, borderWidth: 0.9, color: rgb(1, 1, 1) });
       this.tracked(label, (PAGE_W - w) / 2 + 14, cy - 14.5, 7.6, this.fonts.semibold, C.coralText, 0.8);
-      cy -= 44;
     }
+    // Subtle closing ornament above the cover footer.
+    this.page.drawRectangle({ x: (PAGE_W - 36) / 2, y: 78, width: 36, height: 2, color: C.turquoise });
+    this.page.drawRectangle({ x: (PAGE_W - 36) / 2 + 36, y: 78, width: 10, height: 2, color: C.gold });
     this.coverPage = this.page;
-    this.tocTop = cy;
 
     const tagline = "HK Dijital · Dijital Pazarlama & Büyüme Çözümleri";
     const tw = this.fonts.regular.widthOfTextAtSize(tagline, 8.5);
@@ -352,6 +350,41 @@ class PremiumPdf {
     const site = "hkdijital.com.tr";
     const sw = this.fonts.semibold.widthOfTextAtSize(site, 8.5);
     this.text(site, (PAGE_W - sw) / 2, 39, 8.5, this.fonts.semibold, C.turquoiseText);
+  }
+
+  /** Report date (+ period when it differs) for the cover — read from the
+   * payload's own meta lines; generation date only when none is stored. */
+  private coverDetails(): Array<{ label: string; value: string }> {
+    const meta = (this.payload.metaLines || []).map(splitMetaLine).filter((m) => m.value);
+    const dateLine = meta.find((m) => /tarih|oluşturul/iu.test(m.label) && !/güncelle/iu.test(m.label));
+    const date = dateLine?.value || new Date().toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric", timeZone: "Europe/Istanbul" });
+    const out = [{ label: "RAPOR TARİHİ", value: date }];
+    const period = this.payload.period && this.payload.period !== "-" ? this.payload.period : "";
+    const periodLine = meta.find((m) => /dönem|period/iu.test(m.label))?.value || period;
+    if (periodLine && periodLine !== date && !date.startsWith(periodLine) && !periodLine.startsWith(date)) out.push({ label: "DÖNEM", value: periodLine });
+    return out;
+  }
+
+  /** "Rapor Bilgileri" card — first block of the report body (moved off
+   * the cover in V3.2; nothing in it is dropped). */
+  private metaCard() {
+    const meta = (this.payload.metaLines || []).map(splitMetaLine).filter((m) => m.value);
+    if (!meta.length) return;
+    const colW = (CONTENT_W - 36) / 2;
+    const rows = Math.ceil(meta.length / 2);
+    const rowH = 32;
+    const cardH = 30 + rows * rowH;
+    this.ensure(cardH + 12);
+    const top = this.y;
+    this.roundRect(MARGIN, top - cardH, CONTENT_W, cardH, 10, { color: C.surface, borderColor: C.border, borderWidth: 0.6 });
+    this.tracked("RAPOR BİLGİLERİ", MARGIN + 18, top - 20, 7, this.fonts.semibold, C.turquoiseText, 1.2);
+    meta.forEach((m, i) => {
+      const x = MARGIN + 18 + (i % 2) * colW;
+      const y0 = top - 40 - Math.floor(i / 2) * rowH;
+      if (m.label) this.text(ellipsize(m.label, this.fonts.regular, 7.6, colW - 12), x, y0, 7.6, this.fonts.regular, C.muted);
+      this.text(ellipsize(m.value, this.fonts.semibold, 10, colW - 12), x, y0 - 13, 10, this.fonts.semibold, C.navy);
+    });
+    this.y = top - cardH - 22;
   }
 
   /** Table of contents — EVERY heading, never truncated ("… ve N bölüm
@@ -364,12 +397,11 @@ class PremiumPdf {
    * Page numbers are read from the final page order, so they always match
    * the PDF. Each row is also a clickable link to its page. */
   private drawToc() {
-    if (!this.coverPage || !this.toc.length) return;
+    // Short reports (≤ 3 headings) need no contents page.
+    if (!this.coverPage || this.toc.length < 4) return;
     const entries = this.toc;
-    const COVER_BOTTOM = 86;
-    const coverCapacity = this.tocTop - 28 - COVER_BOTTOM;
+    const firstTop = CONTENT_TOP - 56; // below the "İçindekiler" title
     const contTop = CONTENT_TOP - 30;
-    const contCapacity = contTop - CONTENT_BOTTOM;
 
     type Row = { entry: (typeof entries)[number]; lines: string[]; size: number; font: PDFFont; indent: number; height: number };
     let numberColW = 22;
@@ -378,42 +410,40 @@ class PremiumPdf {
     for (let pass = 0; pass < 4; pass += 1) {
       rows = entries.map((entry) => {
         const sub = entry.level === 2;
-        const size = sub ? 8.4 : 9;
-        const font = sub ? this.fonts.regular : this.fonts.regular;
+        const size = sub ? 8.6 : 9.6;
+        const font = sub ? this.fonts.regular : this.fonts.semibold;
         const indent = sub ? 40 : 26;
         const lines = wrapLines(entry.title, font, size, CONTENT_W - indent - numberColW - 18);
-        return { entry, lines, size, font, indent, height: Math.max(sub ? 15 : 17, lines.length * (size + 3.2) + 5.5) };
+        return { entry, lines, size, font, indent, height: Math.max(sub ? 16 : 21, lines.length * (size + 3.4) + (sub ? 6 : 10)) };
       });
-      // Greedy fill: cover first (if it has room for at least 2 rows), then
-      // as many continuation pages as needed.
       pagesOfRows = [];
       let current: Row[] = [];
-      let capacity = coverCapacity >= 34 ? coverCapacity : 0;
+      let capacity = firstTop - CONTENT_BOTTOM;
       let used = 0;
       for (const row of rows) {
-        if (used + row.height > capacity && (current.length || capacity === 0)) {
+        if (used + row.height > capacity && current.length) {
           pagesOfRows.push(current);
           current = [];
-          capacity = contCapacity;
+          capacity = contTop - CONTENT_BOTTOM;
           used = 0;
         }
         current.push(row);
         used += row.height;
       }
       pagesOfRows.push(current);
-      // Stability check: the real page labels (known once the number of
-      // inserted contents pages is fixed) must fit the reserved column.
-      const inserted = pagesOfRows.length - 1;
+      // The contents pages shift every body page by their count; the real
+      // labels must fit the reserved number column (bounded re-layout).
+      const inserted = pagesOfRows.length;
       const maxLabel = Math.max(...entries.map((e) => this.pdf.getPages().indexOf(e.page) + 1 + inserted));
-      const needed = this.fonts.semibold.widthOfTextAtSize(String(maxLabel), 8.6) + 6;
+      const needed = this.fonts.semibold.widthOfTextAtSize(String(maxLabel), 8.8) + 6;
       if (needed <= numberColW) break;
       numberColW = Math.ceil(needed);
     }
 
-    // Insert the continuation pages right after the cover.
-    const tocPages: PDFPage[] = [this.coverPage];
-    for (let k = 1; k < pagesOfRows.length; k += 1) {
-      const page = this.pdf.insertPage(k, [PAGE_W, PAGE_H]);
+    // Contents always start on PDF page 2, right after the cover.
+    const tocPages: PDFPage[] = [];
+    for (let k = 0; k < pagesOfRows.length; k += 1) {
+      const page = this.pdf.insertPage(k + 1, [PAGE_W, PAGE_H]);
       this.decorate(page);
       this.contentPages.add(page);
       tocPages.push(page);
@@ -424,28 +454,27 @@ class PremiumPdf {
       this.page = tocPages[pageIndex];
       let y: number;
       if (pageIndex === 0) {
-        if (!pageRows.length) {
-          if (pagesOfRows.length > 1) this.text("Rapor içeriği bir sonraki sayfada yer alır.", MARGIN, this.tocTop - 8, 8.6, this.fonts.regular, C.muted);
-          return;
-        }
-        this.tracked("RAPOR İÇERİĞİ", MARGIN, this.tocTop - 8, 7, this.fonts.semibold, C.turquoiseText, 1.2);
-        y = this.tocTop - 28;
+        this.tracked("RAPOR İÇERİĞİ", MARGIN, CONTENT_TOP - 9, 7.4, this.fonts.semibold, C.turquoiseText, 1.4);
+        this.text("İçindekiler", MARGIN, CONTENT_TOP - 34, 20, this.fonts.bold, C.navy);
+        this.page.drawRectangle({ x: MARGIN, y: CONTENT_TOP - 44, width: 34, height: 2.2, color: C.turquoise });
+        y = firstTop;
       } else {
-        this.tracked("RAPOR İÇERİĞİ (DEVAM)", MARGIN, CONTENT_TOP - 9, 7.4, this.fonts.semibold, C.turquoiseText, 1.2);
+        this.tracked("İÇİNDEKİLER (DEVAM)", MARGIN, CONTENT_TOP - 9, 7.4, this.fonts.semibold, C.turquoiseText, 1.2);
         y = contTop;
       }
       for (const row of pageRows) {
         const target = row.entry.page;
         const pageLabel = String(allPages.indexOf(target) + 1);
         const isSub = row.entry.level === 2;
-        if (!isSub) this.text(row.entry.num, MARGIN, y, 8.6, this.fonts.semibold, C.turquoiseText);
-        row.lines.forEach((line, li) => this.text(line, MARGIN + row.indent, y - li * (row.size + 3.2), row.size, row.font, isSub ? C.anthracite : C.navy));
-        const lastLineY = y - (row.lines.length - 1) * (row.size + 3.2);
+        if (!isSub) this.text(row.entry.num, MARGIN, y, 8.8, this.fonts.semibold, C.turquoiseText);
+        row.lines.forEach((line, li) => this.text(line, MARGIN + row.indent, y - li * (row.size + 3.4), row.size, row.font, isSub ? C.anthracite : C.navy));
+        const lastLineY = y - (row.lines.length - 1) * (row.size + 3.4);
         const lastW = row.font.widthOfTextAtSize(row.lines[row.lines.length - 1] || "", row.size);
-        const pw = this.fonts.semibold.widthOfTextAtSize(pageLabel, 8.6);
-        for (let x = MARGIN + row.indent + lastW + 4; x < PAGE_W - MARGIN - pw - 8; x += 4) this.page.drawCircle({ x, y: lastLineY + 2.4, size: 0.45, color: C.border });
-        this.text(pageLabel, PAGE_W - MARGIN - pw, lastLineY, 8.6, this.fonts.semibold, isSub ? C.muted : C.navy);
+        const pw = this.fonts.semibold.widthOfTextAtSize(pageLabel, 8.8);
+        for (let x = MARGIN + row.indent + lastW + 5; x < PAGE_W - MARGIN - pw - 8; x += 4) this.page.drawCircle({ x, y: lastLineY + 2.4, size: 0.45, color: C.border });
+        this.text(pageLabel, PAGE_W - MARGIN - pw, lastLineY, 8.8, this.fonts.semibold, isSub ? C.muted : C.navy);
         addInternalLink(this.pdf, this.page, target, [MARGIN, lastLineY - 3, PAGE_W - MARGIN, y + row.size]);
+        if (!isSub) this.page.drawLine({ start: { x: MARGIN, y: lastLineY - 6 }, end: { x: PAGE_W - MARGIN, y: lastLineY - 6 }, thickness: 0.35, color: GRID });
         y -= row.height;
       }
     });
@@ -798,17 +827,24 @@ class PremiumPdf {
   }
 
   // ---------- charts ----------
-  private chart(chart: DocumentChart) {
+  private chartLayout(chart: DocumentChart) {
     const data = sanitizeChartData(chart.data, chart.type);
-    if (!data) return; // not enough real data -> no chart (never a fake one)
+    if (!data) return null;
     const MAX_POINTS = chart.type === "line" ? 24 : 12;
     const shown = data.slice(0, MAX_POINTS);
     const truncated = data.length > shown.length;
-    const format = chart.valueFormat || "number";
     const captionText = [chart.caption, truncated ? `Grafikte ilk ${shown.length} kalem gösterilmiştir; tamamı tabloda yer alır.` : ""].filter(Boolean).join(" ");
     const captionLines = captionText ? wrapLines(captionText, this.fonts.regular, 8.2, CONTENT_W - 28) : [];
-    const plotH = chart.type === "hbar" ? shown.length * 22 + 4 : chart.type === "donut" ? 150 : 150;
+    const plotH = chart.type === "hbar" ? shown.length * 22 + 4 : 150;
     const h = 40 + plotH + (chart.type === "hbar" ? 4 : 30) + captionLines.length * 11.5 + (captionLines.length ? 8 : 0);
+    return { shown, captionLines, plotH, h };
+  }
+
+  private chart(chart: DocumentChart) {
+    const layout = this.chartLayout(chart);
+    if (!layout) return; // not enough real data -> no chart (never a fake one)
+    const { shown, captionLines, plotH, h } = layout;
+    const format = chart.valueFormat || "number";
     if (h > this.remaining()) this.newContentPage();
     const top = this.y;
     this.roundRect(MARGIN, top - h, CONTENT_W, h, 9, { color: C.white, borderColor: C.border, borderWidth: 0.7 });
@@ -962,6 +998,13 @@ class PremiumPdf {
     if (!hasBody) return;
     if (section.spacingBefore) this.y -= section.spacingBefore;
     if (section.minSpaceBefore) this.ensure(section.minSpaceBefore);
+    // Keep-with-next: a heading never stays alone at a page bottom while
+    // its first block (a chart or a table) starts on the next page.
+    if (!section.intro && !section.metrics?.length) {
+      const firstChart = (section.charts || []).map((c) => this.chartLayout(c)).find(Boolean);
+      const firstBlock = firstChart ? firstChart.h + 8 : !section.text && !section.items?.length && section.table ? 78 : 0;
+      if (firstBlock) this.ensure(Math.min(firstBlock + 56, CONTENT_TOP - CONTENT_BOTTOM));
+    }
     this.heading(section);
     if (section.intro) this.paragraph(section.intro, { size: 9, color: C.muted });
     if (section.metrics?.length) this.metricsGrid(section.metrics);
@@ -1000,6 +1043,7 @@ class PremiumPdf {
   async render(): Promise<Buffer> {
     await this.drawCover();
     this.newContentPage();
+    this.metaCard();
 
     if (this.payload.executiveSummary || this.payload.headlineMetrics?.length) {
       this.toc.push({ level: 1, num: "—", title: "Yönetici Özeti", page: this.page });

@@ -6,7 +6,7 @@ import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell, Doc
 import { formatNumberTr as formatNumberTrDigits } from "@/lib/report-design";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
 import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
-import { capitalizeWordsTr } from "@/lib/turkish-text";
+import { capitalizeWordsTr, restoreAsciiKeyWords } from "@/lib/turkish-text";
 
 // Ön İnceleme report → branded PDF/DOCX document model. EXPORT = RENDER,
 // never research: this only reformats what save_pre_audit_report already
@@ -148,7 +148,7 @@ function prettifyKey(key: string): string {
   if (known[lower]) return known[lower];
   // Unicode-aware (JS \b/\w are ASCII-only and capitalized the letter
   // after every Turkish character: "işletme" -> "işLetme").
-  return capitalizeWordsTr(spaced);
+  return capitalizeWordsTr(restoreAsciiKeyWords(spaced));
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -303,8 +303,23 @@ function cellValue(value: unknown): DocumentCell {
  * (e.g. digital_presence.sourceMatrix / .channels) — same homogeneous-
  * table detection and rendering either way, so a field's position in the
  * JSON never decides whether it gets a real table or a bullet dump. */
+/** Column order for object tables: identity first (Platform / Ad /
+ * Rakip), then status, then everything else, findings/notes last. Keys
+ * move together with their values, so no row is ever misaligned; columns
+ * with no recognisable role keep their stored order. */
+function columnRank(key: string): number {
+  const k = key.toLocaleLowerCase("tr");
+  if (/^(platform|kanal|channel|name|ad|isim|firma|rakip|competitor|business|işletme|isletme)/.test(k)) return 0;
+  if (/(durum|status|mevcut|current|var_?mi|exists)/.test(k)) return 1;
+  if (/(bulgu|finding|not|note|yorum|açıklama|aciklama|detail|detay|comment|observation|gözlem|gozlem)/.test(k)) return 3;
+  return 2;
+}
+
 function arrayOfObjectsToTable(rows: Array<Record<string, unknown>>): DocumentTable {
-  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6);
+  const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))].slice(0, 6)
+    .map((key, index) => ({ key, index, rank: columnRank(key) }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((c) => c.key);
   return {
     headers: headers.map(prettifyKey),
     rows: rows.map((row) => headers.map((key) => cellValue(row[key])))
@@ -344,7 +359,21 @@ function linkBearingObjectToTable(obj: Record<string, unknown>): DocumentTable {
  * section (remaining scalar fields, if any) followed by one section per
  * extracted sub-table — never both the extracted table AND a duplicate
  * bullet rendering of the same field. */
+/** A flat object whose values are ALL typed JSON numbers (e.g. a stored
+ * content distribution {urun_satisi: 24, tamir: 3}) — a real two-column
+ * table (and therefore chartable), never free-text parsing. */
+function isNumericMap(value: Record<string, unknown>): boolean {
+  const entries = Object.values(value).filter((v) => v !== null && v !== undefined);
+  return entries.length >= 2 && entries.every((v) => typeof v === "number" && Number.isFinite(v));
+}
+
+function numericMapToTable(obj: Record<string, unknown>): DocumentTable {
+  const entries = Object.entries(obj).filter(([, v]) => typeof v === "number" && Number.isFinite(v));
+  return { headers: ["Kategori", "Değer"], rows: entries.map(([key, v]) => [prettifyKey(key), formatPrimitiveForDisplay(v)]) };
+}
+
 function objectToSections(title: string, obj: Record<string, unknown>): DocumentSection[] {
+  if (isNumericMap(obj)) return [{ title, table: numericMapToTable(obj) }];
   const remaining: Record<string, unknown> = {};
   const extracted: DocumentSection[] = [];
 
@@ -357,6 +386,9 @@ function objectToSections(title: string, obj: Record<string, unknown>): Document
         extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: arrayOfObjectsToTable(rows) });
         continue;
       }
+    } else if (isPlainObject(entryValue) && isNumericMap(entryValue)) {
+      extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: numericMapToTable(entryValue) });
+      continue;
     } else if (isPlainObject(entryValue) && isLinkBearingObject(entryValue)) {
       extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: linkBearingObjectToTable(entryValue) });
       continue;

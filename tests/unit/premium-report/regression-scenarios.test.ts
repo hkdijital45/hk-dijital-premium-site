@@ -184,3 +184,79 @@ test("client logo — verified logo and missing logo both render; Word export fo
   const docx = await generateDocxBuffer({ ...payload, clientLogo: null });
   assert.ok(docx.length > 1000);
 });
+
+// ---------------------------------------------------------------------------
+// V3.2 — cover-first documents + automatic charts
+
+function assertCoverFirst(pageTexts: string[], name: string, withToc: boolean) {
+  const cover = pageTexts[0];
+  assert.ok(cover.includes(name), "cover names the business");
+  assert.match(cover, /RAPOR TARİHİ/);
+  assert.doesNotMatch(cover, /İçindekiler|RAPOR BİLGİLERİ|YÖNETİCİ ÖZETİ|Sayfa \d/, "page 1 is the cover only");
+  if (withToc) {
+    assert.match(pageTexts[1], /İçindekiler/, "contents start on page 2");
+    assert.doesNotMatch(pageTexts[1], /YÖNETİCİ ÖZETİ/, "the summary never shares the contents page");
+  }
+}
+
+test("V3.2 Abdulmalik (fictional fixture) — cover first, contents on page 2, content-distribution + competitor charts from typed data", { skip }, async () => {
+  const report = {
+    id: "00000000-0000-4000-8000-0000000000d1", company_id: null, lead_id: "00000000-0000-4000-8000-0000000000d2", business_unit_id: null,
+    analysis_group_id: "g", report_type: "CLIENT_REPORT", title: "Abdulmalik Teknik Servis — Ön İnceleme", status: "draft", report_date: "2026-10-15",
+    created_at: "2026-10-15T09:00:00Z", updated_at: "2026-10-15T09:00:00Z",
+    executive_summary: "Instagram hesabı satış odaklı; tamir hizmeti görünürlüğü düşük.",
+    digital_presence: { channels: [{ bulgular: "Biyografide tamir hizmeti yok", platform: "Instagram", durum: "Aktif" }, { bulgular: "Yorum sayısı düşük", platform: "Google İşletme Profili", durum: "Aktif" }] },
+    social_analysis: { instagram_icerik_dagilimi: { urun_satisi: 24, tamir: 3, teslimat: 4, genel_icerik: 2, toplam: 33 }, yorum: "Tamir içerikleri az." },
+    competitor_analysis: [
+      { rakip: "Usta Beyaz Eşya Servisi", google_yorum_sayisi: 212, not: "Aktif yorum yönetimi" },
+      { rakip: "Hızlı Teknik", google_yorum_sayisi: 58, not: "—" },
+      { rakip: "Merkez Servis", google_yorum_sayisi: 131, not: "Fotoğraflar güncel" }
+    ],
+    opportunities: ["Tamir öncesi/sonrası içerikleri", "Google yorum toplama akışı"],
+    sources: ["Instagram profili (manuel inceleme)"]
+  } as unknown as Parameters<typeof buildPreAuditDocumentPayload>[0];
+  const payload = buildPreAuditDocumentPayload(report, "Abdulmalik Teknik Servis");
+  const { pageTexts, file } = await render("v32-abdulmalik-grafikli", payload);
+  assertCoverFirst(pageTexts, "Abdulmalik Teknik Servis", true);
+  const all = pageTexts.join("\n").replace(/\s+/g, " ");
+  assert.match(all, /en küçük pay Genel İçerik/);
+  assert.match(all, /Ürün Satışı 24/);
+  assert.doesNotMatch(all, /Urun Satisi|SAYİSİ|İcerik/, "ASCII keys are restored to Turkish words");
+  assert.match(all, /Toplam 33/);
+  assert.match(all, /En yüksek değer Usta Beyaz Eşya Servisi \(212\)/);
+  assert.doesNotMatch(all, /50\.000|9 sipariş/);
+  assert.ok(file);
+});
+
+test("V3.2 multi-chart / no-chart / Robotik45 unit / short report — cover-first in every layout, no blank pages", { skip }, async () => {
+  const many: DocumentSection[] = [
+    { title: "Erişim Trendi", table: { headers: ["Ay", "Erişim"], rows: [["Ocak", "1.200"], ["Şubat", "1.650"], ["Mart", "2.100"], ["Nisan", "1.900"]] } },
+    { title: "Kampanya Harcamaları", table: { headers: ["Kampanya", "Harcama", "Sonuç"], rows: [["Mesaj Kampanyası", "1.520,40 TL", "41"], ["Takipçi Kampanyası", "980,00 TL", "23"], ["Remarketing", "620,00 TL", "9"]] } },
+    { title: "İçerik Format Dağılımı", table: { headers: ["Format", "Adet"], rows: [["Reels", "14"], ["Carousel", "9"], ["Tekli Görsel", "6"], ["Toplam", "29"]] } },
+    { title: "Değerlendirme", text: "Bu rapor kurgusal test verisi içerir." }
+  ];
+  const multi = await render("v32-cok-grafikli", { title: "HK Dijital — Reklam Performans Raporu", customerName: "MY CAKE 45", period: "1–30 Eylül 2026", executiveSummary: "Kurgusal özet.", sections: many, metaLines: ["Müşteri: MY CAKE 45", "Rapor Tarihi: 01.10.2026"] });
+  assertCoverFirst(multi.pageTexts, "MY CAKE 45", true);
+  assert.match(multi.pageTexts[0], /DÖNEM/);
+  const multiText = multi.pageTexts.join(" ").replace(/\s+/g, " ");
+  assert.match(multiText, /Kampanya Harcamaları — Harcama/);
+  assert.match(multiText, /Kampanya Harcamaları — Sonuç/);
+  assert.match(multiText, /İçerik Format Dağılımı/);
+  assert.doesNotMatch(multiText, /50\.000|9 sipariş|ciro/i);
+  assertNoEmptyPages(multi.pageTexts, /Reklam Performans/);
+
+  const noChart = await render("v32-grafiksiz", { title: "HK Dijital — Ön İnceleme Raporu", customerName: "Zirve AKADEMİ", period: "-", executiveSummary: "Özet.", sections: [
+    { title: "Bulgular", items: ["Instagram aktif", "Google profili eksik"] },
+    { title: "Kanal Durumu", table: { headers: ["Platform", "Durum"], rows: [["Instagram", "Aktif"], ["TikTok", "Yok"]] } },
+    { title: "Notlar", text: "Sayısal veri yok; grafik üretilmemeli." },
+    { title: "Sonraki Adım", text: "Görüşme." }
+  ] });
+  assertCoverFirst(noChart.pageTexts, "Zirve AKADEMİ", true);
+  assert.doesNotMatch(noChart.pageTexts.join(" "), /Kaynak: rapordaki/, "no chart without valid numeric data");
+
+  const unit = await render("v32-robotik45-sube", { title: "HK Dijital — Ön İnceleme Raporu", customerName: "Robotik45", period: "-", executiveSummary: "Robotik45 şubesi için özet.", sections: [{ title: "Bulgular", items: ["Kurgusal bulgu"] }] });
+  assertCoverFirst(unit.pageTexts, "Robotik45", false);
+  assert.ok(unit.pageTexts.slice(1).every((t) => t.includes("Robotik45")), "footer carries the unit's own name");
+  assert.ok(unit.pageTexts.every((t) => !t.includes("Zirve AKADEMİ")));
+  assert.equal(unit.count, 2, "short report: cover + one content page, no contents page, no blank page");
+});

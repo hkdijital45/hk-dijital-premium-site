@@ -86,15 +86,35 @@ export function capitalizeFirstTr(text: string): string {
   return m[1] + trUpper(m[2]) + text.slice(m[0].length);
 }
 
+/** Common Turkish words that machine keys spell in ASCII ("urun_satisi",
+ * "yorum_sayisi"). Only whole words of a KEY are restored — never running
+ * text and never business names. */
+const ASCII_KEY_WORDS: Record<string, string> = {
+  urun: "ürün", urunler: "ürünler", urunu: "ürünü", satis: "satış", satisi: "satışı", satislari: "satışları",
+  icerik: "içerik", icerigi: "içeriği", icerikler: "içerikler", dagilim: "dağılım", dagilimi: "dağılımı",
+  sayi: "sayı", sayisi: "sayısı", sayilari: "sayıları", takipci: "takipçi", takipciler: "takipçiler", begeni: "beğeni",
+  gonderi: "gönderi", gonderiler: "gönderiler", paylasim: "paylaşım", paylasimlar: "paylaşımlar", musteri: "müşteri",
+  isletme: "işletme", sube: "şube", gorunurluk: "görünürlük", guclu: "güçlü", yonler: "yönler", zayif: "zayıf",
+  firsat: "fırsat", firsatlar: "fırsatlar", onerilen: "önerilen", oneri: "öneri", butce: "bütçe", puan: "puan", puani: "puanı",
+  degerlendirme: "değerlendirme", gorsel: "görsel", calisma: "çalışma", hizmet: "hizmet", hizmetler: "hizmetler",
+  aylik: "aylık", gunluk: "günlük", haftalik: "haftalık", erisim: "erişim", gosterim: "gösterim", tiklama: "tıklama",
+  donusum: "dönüşüm", harcama: "harcama", sonuc: "sonuç", sonuclar: "sonuçlar", maliyet: "maliyet", ozet: "özet",
+  bulgu: "bulgu", bulgular: "bulgular", aciklama: "açıklama", yorumlar: "yorumlar", rakip: "rakip", rakipler: "rakipler"
+};
+
+export function restoreAsciiKeyWords(spaced: string): string {
+  return spaced.replace(/[A-Za-z]+/g, (word) => ASCII_KEY_WORDS[word.toLowerCase()] ?? word);
+}
+
 /** Turns a machine key (snake_case, camelCase, kebab-case) into a readable
  * Turkish label. "güçlüYönler" -> "Güçlü Yönler", "price_incl_vat" ->
  * "Price Incl Vat" (dictionary lookups stay with the caller). */
 export function humanizeKeyTr(key: string): string {
-  const spaced = key
+  const spaced = restoreAsciiKeyWords(key
     .replace(/[_-]+/g, " ")
     .replace(/(\p{Ll})(\p{Lu})/gu, "$1 $2")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim());
   return capitalizeWordsTr(spaced);
 }
 
