@@ -11,25 +11,26 @@ import { MODULE_LABELS, type ManualEvaluationModule, type ManualEvaluationRecord
 // Drop-in "+ Manuel Değerlendirme" button + history list for a single
 // Reklam Doktoru Pro tab. Self-contained (fetches its own history), so
 // wiring a new module into a tab is a one-line addition.
-export function ManualEvaluationSection({ module, companyId, leadId, targetLabel, prefillData }: { module: ManualEvaluationModule; companyId?: string | null; leadId?: string | null; targetLabel?: string; prefillData?: Record<string, unknown> }) {
+export function ManualEvaluationSection({ module, companyId, leadId, businessUnitId, targetLabel, prefillData }: { module: ManualEvaluationModule; companyId?: string | null; leadId?: string | null; businessUnitId?: string | null; targetLabel?: string; prefillData?: Record<string, unknown> }) {
   const [history, setHistory] = useState<ManualEvaluationRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState<ManualEvaluationRecord | "new" | null>(null);
 
   const load = useCallback(async () => {
-    if (!companyId && !leadId) { setHistory([]); return; }
+    if (!companyId && !leadId && !businessUnitId) { setHistory([]); return; }
     setLoading(true);
     try {
       const params = new URLSearchParams({ module });
       if (companyId) params.set("companyId", companyId);
       if (leadId) params.set("leadId", leadId);
+      if (businessUnitId) params.set("businessUnitId", businessUnitId);
       const res = await fetch(`/api/admin/manual-evaluations?${params.toString()}`);
       const body = await res.json();
       if (res.ok) setHistory(body.evaluations || []);
     } finally {
       setLoading(false);
     }
-  }, [module, companyId, leadId]);
+  }, [module, companyId, leadId, businessUnitId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -40,8 +41,8 @@ export function ManualEvaluationSection({ module, companyId, leadId, targetLabel
         <AdminButton variant="secondary" compact icon={<PlusCircle size={14} />} onClick={() => setOpen("new")}>+ Manuel Değerlendirme</AdminButton>
       </div>
       {loading && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Yükleniyor...</p>}
-      {!loading && history.length === 0 && (companyId || leadId) && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Henüz manuel değerlendirme yok.</p>}
-      {!loading && !companyId && !leadId && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Geçmişi görmek için bir müşteri/aday seçin — yine de bağımsız (müşteri olmayan) bir manuel değerlendirme oluşturabilirsiniz.</p>}
+      {!loading && history.length === 0 && (companyId || leadId || businessUnitId) && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Henüz manuel değerlendirme yok.</p>}
+      {!loading && !companyId && !leadId && !businessUnitId && <p className="mt-2 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Geçmişi görmek için bir müşteri/aday seçin — yine de bağımsız (müşteri olmayan) bir manuel değerlendirme oluşturabilirsiniz.</p>}
       {history.length > 0 && (
         <div className="mt-3 grid gap-1.5">
           {history.map((item) => (
@@ -64,6 +65,7 @@ export function ManualEvaluationSection({ module, companyId, leadId, targetLabel
           module={module}
           companyId={companyId}
           leadId={leadId}
+          businessUnitId={businessUnitId}
           targetLabel={targetLabel}
           existing={open === "new" ? null : open}
           prefillData={open === "new" ? prefillData : undefined}

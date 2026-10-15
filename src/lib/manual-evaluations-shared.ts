@@ -372,6 +372,7 @@ export type ManualEvaluationRecord = {
   module: ManualEvaluationModule;
   company_id: string | null;
   lead_id: string | null;
+  business_unit_id?: string | null;
   target_label: string;
   title: string;
   status: "draft" | "submitted";

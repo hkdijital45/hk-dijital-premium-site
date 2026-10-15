@@ -104,6 +104,8 @@ import { AdminMegaNav } from "@/components/admin/shell/AdminMegaNav";
 import { AdminMobileNavigation } from "@/components/admin/shell/AdminMobileNavigation";
 import { AdminTopHeader } from "@/components/admin/shell/AdminTopHeader";
 import { HKCommandCenter } from "@/components/admin/command/HKCommandCenter";
+import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
+import { RELATIONSHIP_LABELS, type LinkedBusiness } from "@/lib/business-relationships-shared";
 
 // Every var(--admin-*) token (surface, text, border colors) is only ever
 // DEFINED inside `.hk-admin` (see AdminAppShell.tsx, globals.css) — that's
@@ -6665,6 +6667,7 @@ const CALL_OUTCOMES: Record<string, { status: string; nextAction: string; follow
 };
 
 function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanentlyDelete, canManageTestRecords, close, setActive, setPreAuditInitialLeadId, setAdInsightsInitialLeadId, onConverted }: any) {
+  const [linkedBusinesses, setLinkedBusinesses] = useState<LinkedBusiness[]>([]);
   const [prepOpen, setPrepOpen] = useState(false);
   const [proposalOpen, setProposalOpen] = useState(false);
   const [autoProposalOpen, setAutoProposalOpen] = useState(false);
@@ -6812,7 +6815,10 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
   }
   function openProposalForLead() {
     try {
-      localStorage.setItem("hk-proposal-prefill", JSON.stringify({ businessName: lead.company || lead.name, sector: lead.business_type || lead.businessType, city: lead.city, budget: lead.budget, goal: lead.goal }));
+      // İşletme ve Şube Yönetimi: linked branches/related brands travel into
+      // the proposal as scope notes only — pricing inputs are untouched.
+      const scope = linkedBusinesses.length ? `Kapsamdaki bağlı işletmeler: ${linkedBusinesses.map((item) => `${item.name} (${RELATIONSHIP_LABELS[item.relationshipType]})`).join(", ")}` : undefined;
+      localStorage.setItem("hk-proposal-prefill", JSON.stringify({ businessName: lead.company || lead.name, sector: lead.business_type || lead.businessType, city: lead.city, budget: lead.budget, goal: lead.goal, note: scope }));
     } catch {}
     setActive("Teklif Motoru");
   }
@@ -6832,6 +6838,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <div className="md:col-span-2"><TextArea label="Dahili notlar" value={lead.notes || lead.internalNotes} onChange={(value) => update(lead.id, { notes: value, internalNotes: value })} /></div>
       </div>
       <ContactActionCenter record={lead} type="lead" context={pipelineStageForLead(lead) === "Teklif Gönderildi" ? "proposal" : "follow-up"} />
+      {!String(lead.id).startsWith("lead-") && <BusinessRelationshipsPanel owner={{ type: "lead", id: lead.id }} ownerName={lead.company || lead.name} onChanged={setLinkedBusinesses} />}
       <div className="mt-4 rounded-[8px] border p-4" style={{ borderColor: "var(--admin-border)" }}>
         <p className="text-xs font-black uppercase tracking-[.14em]" style={{ color: "var(--admin-text-secondary)" }}>Görüşme Sonucu</p>
         <div className="mt-2 flex flex-wrap gap-2">

@@ -78,6 +78,7 @@ export type PreAuditReport = {
   id: string;
   company_id: string | null;
   lead_id: string | null;
+  business_unit_id?: string | null;
   analysis_group_id: string;
   report_type: PreAuditReportType;
   title: string;
@@ -119,4 +120,4 @@ export type PreAuditReport = {
 export type PreAuditReportListItem = Pick<
   PreAuditReport,
   "id" | "company_id" | "lead_id" | "analysis_group_id" | "report_type" | "title" | "status" | "report_date" | "recommended_package" | "created_at" | "updated_at"
->;
+> & { business_unit_id?: string | null };

@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element */
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Activity, AlertTriangle, AtSign, BarChart3, Brain, CheckCircle, ClipboardCheck, Clock, Copy, FileText, Image as ImageIcon, MessageSquareText, RefreshCw, Search, Send, ShieldAlert, Sparkles, Stethoscope, Trophy, UserSearch, Wallet } from "lucide-react";
 import { filterSelectableCustomers } from "@/lib/customer-visibility";
@@ -17,6 +17,10 @@ import { AdminCompactKpiStrip } from "@/components/admin/workspace/AdminCompactK
 import { CandidateEvaluationBrowser } from "@/components/admin/candidate-evaluation/CandidateEvaluationBrowser";
 import { InstagramProfileAuditPanel } from "@/components/admin/customer-profile/InstagramProfileAuditPanel";
 import { ManualEvaluationSection } from "@/components/admin/manual-evaluations/ManualEvaluationSection";
+import { BusinessSelector, IndependentBusinessPicker, type SelectedBusiness } from "@/components/admin/business-relationships/BusinessSelector";
+import { BusinessRelationshipsPanel } from "@/components/admin/business-relationships/BusinessRelationshipsPanel";
+import { BusinessAdScopePanel } from "@/components/admin/business-relationships/BusinessAdScopePanel";
+import type { BusinessEntityRef, BusinessUnitRecord } from "@/lib/business-relationships-shared";
 
 const ranges = [
   ["today", "Bugün"],
@@ -167,7 +171,47 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
         .some((value: string) => String(value).toLocaleLowerCase("tr").includes(query))
     ).slice(0, 50);
   }, [leads, leadSearch]);
-  const targetLabel = targetMode === "customer" ? selectedCompany?.name : targetMode === "lead" ? (selectedLead?.company || selectedLead?.name) : undefined;
+  // İşletme ve Şube Yönetimi: the selected customer/lead/BAĞIMSIZ business
+  // may have linked branches or related brands. A selected business_unit
+  // is kept per owner (ownerKey), so switching customer/lead can never
+  // carry a stale branch selection over to another business.
+  const [independentUnit, setIndependentUnit] = useState<BusinessUnitRecord | null>(null);
+  const [businessSelection, setBusinessSelection] = useState<{ ownerKey: string; business: SelectedBusiness } | null>(null);
+  const [businessRefreshKey, setBusinessRefreshKey] = useState(0);
+  const ownerRef: BusinessEntityRef | null = targetMode === "customer" && selectedCompany
+    ? { type: "company", id: selectedCompany.id }
+    : targetMode === "lead" && selectedLead
+      ? { type: "lead", id: selectedLead.id }
+      : targetMode === "manual" && independentUnit
+        ? { type: "unit", id: independentUnit.id }
+        : null;
+  const ownerKey = ownerRef ? `${ownerRef.type}:${ownerRef.id}` : "";
+  const ownerName = targetMode === "customer" ? selectedCompany?.name : targetMode === "lead" ? (selectedLead?.company || selectedLead?.name) : independentUnit?.name;
+  const selectedBusiness = businessSelection && businessSelection.ownerKey === ownerKey ? businessSelection.business : null;
+  const businessUnitId = selectedBusiness?.entity.type === "unit" ? selectedBusiness.entity.id : targetMode === "manual" ? independentUnit?.id || "" : "";
+  const targetLabel = selectedBusiness?.name || ownerName || undefined;
+  const businessPrefill = selectedBusiness
+    ? { businessName: selectedBusiness.name, instagramUsername: selectedBusiness.instagram || "", website: selectedBusiness.website || "" }
+    : targetMode === "manual" && independentUnit
+      ? { businessName: independentUnit.name, instagramUsername: independentUnit.instagram || "", website: independentUnit.website || "", city: independentUnit.city || "" }
+      : undefined;
+  const refreshBusinesses = useCallback(() => setBusinessRefreshKey((value) => value + 1), []);
+
+  function selectBusiness(business: SelectedBusiness | null) {
+    if (!business) { setBusinessSelection(null); setData(null); return; }
+    // A linked existing lead/customer is its own record with its own
+    // history — switch the evaluation target to it instead of mixing it
+    // into the current owner's reports.
+    if (business.entity.type === "lead") { selectMode("lead"); setLeadId(business.entity.id); return; }
+    if (business.entity.type === "company") {
+      if (!companies.some((company: any) => company.id === business.entity.id)) { notify?.("Bu müşteri seçilebilir müşteri listesinde değil.", "warning"); return; }
+      selectMode("customer");
+      setCompanyId(business.entity.id);
+      return;
+    }
+    setBusinessSelection({ ownerKey, business });
+    setData(null); // never keep showing the previous business's analysis
+  }
 
   function selectMode(mode: "customer" | "lead" | "manual") {
     setTargetMode(mode);
@@ -189,21 +233,24 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
   // save the finished evaluation itself — the user never copies Claude's
   // analysis back into HK Admin for this flow.
   async function copyLeadInstagramPrompt(lead: any) {
-    const businessName = lead.company || lead.name || "İsimsiz lead";
+    const unit = selectedBusiness?.entity.type === "unit" ? selectedBusiness : null;
+    const businessName = unit?.name || lead.company || lead.name || "İsimsiz lead";
+    const instagram = unit ? unit.instagram : lead.instagram;
     const lines = [
       `HK Admin "HK Instagram Intelligence" MCP bağlantısını kullanarak aşağıdaki lead için bir Instagram Değerlendirmesi hazırla ve SONUCU DOĞRUDAN KAYDET (bana geri yapıştırmama gerek yok).`,
       `leadId: ${lead.id}`,
+      unit ? `businessUnitId: ${unit.entity.id} (bu değerlendirme ana işletme ${lead.company || lead.name} için DEĞİL, bağlı işletme ${unit.name} içindir — yalnızca bu işletmenin verilerini kullan ve kaydederken businessUnitId'yi gönder)` : undefined,
       `İşletme: ${businessName}`,
-      lead.instagram ? `Instagram: ${lead.instagram}` : "Instagram kullanıcı adı HK Admin'de kayıtlı değil — araştırmana dayanarak bul.",
+      instagram ? `Instagram: ${instagram}` : "Instagram kullanıcı adı HK Admin'de kayıtlı değil — araştırmana dayanarak bul.",
       [lead.business_type || lead.businessType, lead.city, lead.district].filter(Boolean).join(" / ") || undefined,
-      lead.website ? `Website: ${lead.website}` : undefined,
+      (unit ? unit.website : lead.website) ? `Website: ${unit ? unit.website : lead.website}` : undefined,
       "",
       "Adımlar:",
-      "1. get_lead_instagram_evaluation_context(leadId) aracını çağırarak mevcut bilgileri ve varsa önceki değerlendirmeyi oku.",
+      `1. get_lead_instagram_evaluation_context(${unit ? "leadId, businessUnitId" : "leadId"}) aracını çağırarak mevcut bilgileri ve varsa önceki değerlendirmeyi oku.`,
       "2. İşletmenin herkese açık Instagram profilini ve web varlığını araştır: profil optimizasyonu (biyografi, kullanıcı adı, ad alanı, bağlantı/CTA), içerik stratejisi, görsel tutarlılık, etkileşim sinyalleri, iletişime geçilebilirlik, dönüşüm fırsatları.",
       "3. Güçlü yönleri, zayıf yönleri ve uygulanabilir önerileri listele.",
       "4. Erişim/gösterim/profil ziyareti/mesaj/lead/satış/gelir gibi yalnızca Instagram Insights ile ölçülebilen özel verileri ASLA uydurma — bu lead için bağlı bir hesap yok; bu alanları atla ve net biçimde \"Veri mevcut değil\" olarak belirt.",
-      "5. Analizi bana gösterdikten ve onayımı aldıktan SONRA save_lead_instagram_evaluation(leadId, data, notes) aracını çağırarak sonucu HK Admin'e kaydet — onay almadan kaydetme."
+      `5. Analizi bana gösterdikten ve onayımı aldıktan SONRA save_lead_instagram_evaluation(${unit ? "leadId, businessUnitId, data, notes" : "leadId, data, notes"}) aracını çağırarak sonucu HK Admin'e kaydet — onay almadan kaydetme.`
     ].filter(Boolean);
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -226,7 +273,16 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
       notify?.("Önce müşteri seçin.", "warning");
       return;
     }
+    // A linked branch/brand: read-only analysis of its verified campaigns.
+    // Snapshot saving / AI commentary stay customer-level so a business's
+    // numbers are never stored as the customer's.
+    const scopedUnitId = targetMode === "customer" && selectedBusiness?.entity.type === "unit" ? selectedBusiness.entity.id : "";
+    if (scopedUnitId && method !== "GET") {
+      notify?.("Kayıt ve AI yorumu müşteri düzeyinde çalışır. İşletme bazlı analiz için yalnızca 'Analizi Çalıştır' kullanılabilir.", "warning");
+      return;
+    }
     const params = new URLSearchParams({ companyId, range, platform, from, to, campaignType, status: statusFilter, analysisLevel });
+    if (scopedUnitId) params.set("businessUnitId", scopedUnitId);
     setLoading(path);
     try {
       const response = method === "GET"
@@ -413,9 +469,16 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
         )}
 
         {targetMode === "manual" && (
-          <span className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Müşteri veya lead seçmeden, her sekmedeki &quot;+ Manuel Değerlendirme&quot; ile bağımsız bir değerlendirme oluşturabilirsiniz.</span>
+          <span className="text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>Müşteri veya lead seçmeden, her sekmedeki &quot;+ Manuel Değerlendirme&quot; ile bağımsız bir değerlendirme oluşturabilirsiniz. Değerlendirme geçmişini ayrı tutmak için kayıtlı bir bağımsız işletme seçin.</span>
         )}
       </div>
+
+      {targetMode === "manual" && (
+        <IndependentBusinessPicker selectedId={independentUnit?.id || ""} onSelect={(unit) => { setIndependentUnit(unit); setBusinessSelection(null); }} />
+      )}
+      {targetMode === "manual" && independentUnit && (
+        <BusinessRelationshipsPanel owner={{ type: "unit", id: independentUnit.id }} ownerName={independentUnit.name} onChanged={refreshBusinesses} />
+      )}
 
       {targetMode === "lead" && (
         <div className="mt-3">
@@ -460,6 +523,15 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
           )}
         </div>
       )}
+
+      {ownerRef && (
+        <BusinessSelector owner={ownerRef} ownerName={ownerName || "Ana işletme"} selectedId={selectedBusiness?.entity.id || ""} onSelect={selectBusiness} refreshKey={businessRefreshKey} />
+      )}
+      {selectedBusiness && (
+        <p className="mt-2 rounded-[10px] border p-2.5 text-xs font-bold" style={{ borderColor: "#a5f3fc", background: "#ecfeff", color: "#155e75" }}>
+          Seçili işletme: <strong>{selectedBusiness.name}</strong>{selectedBusiness.instagram ? ` · Instagram: ${selectedBusiness.instagram}` : " · Instagram kayıtlı değil"}. Yeni manuel değerlendirmeler bu işletmeye kaydedilir; {ownerName} geçmişiyle karışmaz.{selectedBusiness.entity.type === "unit" ? ` Claude/MCP için businessUnitId: ${selectedBusiness.entity.id}` : ""}{targetMode === "customer" ? " Bağlı reklam hesabı verileri (Reklam Doktoru, Strateji, Kreatif) müşteri hesabı düzeyinde okunmaya devam eder." : ""}
+        </p>
+      )}
     </div>
 
     <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
@@ -489,13 +561,13 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     {activeTab === "ai-strategy" && (
       <div className="grid gap-4">
         <AdsStrategyPanel companyId={companyId} companies={companies} />
-        <ManualEvaluationSection module="ads-strategy" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
+        <ManualEvaluationSection module="ads-strategy" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "creative" && (
       <div className="grid gap-4">
         <AdCreativeReportPanel companyId={companyId} companies={companies} />
-        <ManualEvaluationSection module="ad-creative" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
+        <ManualEvaluationSection module="ad-creative" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "evaluation" && (
@@ -509,16 +581,19 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
               : "Bağımsız modda gerçek kampanya verisi okunamaz. Aşağıdaki \"+ Manuel Değerlendirme\" ile bağımsız bir değerlendirme oluşturabilirsiniz."
           } : undefined}
         />
-        <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
+        <ManualEvaluationSection module="ad-evaluation" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "candidate-evaluation" && (
       <div className="grid gap-4">
         <div className="rounded-[14px] border p-4 text-sm leading-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)", color: "var(--admin-text-secondary)" }}>
-          Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir; yukarıdaki müşteri seçiminden bağımsız çalışır.
+          Aday Değerlendirmeleri; işletme/aday <strong>iş zekası</strong> raporlarıdır — Meta/Google Ads performans metrikleriyle (CTR, CPC, CPM, CPA, ROAS) karıştırılmaz ve bu hesaplamalara dahil edilmez. Müşteri olmayan adaylar için de erişilebilir. Yukarıda seçilen müşteri/lead ve işletme (şube/bağlı marka) otomatik seçilir; her işletmenin değerlendirme geçmişi ayrı listelenir.
         </div>
-        <CandidateEvaluationBrowser allCompanies={content.companies || []} />
-        <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
+        <CandidateEvaluationBrowser
+          allCompanies={content.companies || []}
+          focus={ownerRef && ownerRef.type !== "unit" ? { key: `${ownerRef.type}:${ownerRef.id}${selectedBusiness?.entity.type === "unit" ? `|${selectedBusiness.entity.id}` : ""}` } : null}
+        />
+        <ManualEvaluationSection module="candidate-evaluation" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
       </div>
     )}
     {activeTab === "instagram" && (
@@ -527,7 +602,9 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
           <strong>Mod A — Bağlı Hesap:</strong> yukarıda &quot;Müşteri&quot; hedefini seçin; gerçek, zaten bağlı Instagram verisi okunur. <strong>Mod B — Kayıtlı Lead:</strong> aşağıdaki &quot;Claude Araştırma Promptunu Kopyala&quot; ile Claude&apos;un gerçek verilere dayanarak araştırıp sonucu doğrudan HK Admin&apos;e kaydetmesini sağlayın — geri yapıştırma gerekmez. <strong>Mod C — Bağımsız Manuel:</strong> &quot;+ Manuel Değerlendirme&quot;yi kullanın, ekran görüntüsü/gözlemlerinizi elle girin.
         </div>
         {targetMode === "customer" && (
-          selectedCompany ? (
+          selectedCompany && selectedBusiness ? (
+            <AdminEmptyState title={`${selectedBusiness.name} için bağlı Instagram hesabı okunmaz.`} description={`Bağlı hesap analizi yalnızca ${selectedCompany.name} müşteri hesabına aittir. ${selectedBusiness.name} için aşağıdaki manuel değerlendirmeyi kullanın; kayıt bu işletmeye ayrı tutulur.`} />
+          ) : selectedCompany ? (
             <InstagramProfileAuditPanel company={{ id: selectedCompany.id, name: selectedCompany.name }} />
           ) : (
             <AdminEmptyState title="Bağlı hesap analizi için yukarıda bir müşteri seçin." />
@@ -540,14 +617,14 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
               <div>
                 <p className="text-sm font-black">Claude ile Araştır ve Doğrudan Kaydet</p>
                 <p className="mt-1 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>
-                  Promptu kopyalayıp Claude&apos;a yapıştırın — Claude gerçek MCP araçlarıyla ({selectedLead.company || selectedLead.name} için leadId: {selectedLead.id}) araştırmayı yapar ve onayınızla sonucu doğrudan HK Admin&apos;e kaydeder.
+                  Promptu kopyalayıp Claude&apos;a yapıştırın — Claude gerçek MCP araçlarıyla ({selectedBusiness ? `${selectedBusiness.name} — ${selectedLead.company || selectedLead.name} bağlı işletmesi` : selectedLead.company || selectedLead.name} için leadId: {selectedLead.id}) araştırmayı yapar ve onayınızla sonucu doğrudan HK Admin&apos;e kaydeder.
                 </p>
               </div>
               <AdminButton variant="primary" compact icon={<Copy size={14} />} onClick={() => copyLeadInstagramPrompt(selectedLead)}>
                 {leadPromptCopied ? "Kopyalandı ✓" : "Claude Araştırma Promptunu Kopyala"}
               </AdminButton>
             </div>
-            {!selectedLead.instagram && (
+            {!(selectedBusiness ? selectedBusiness.instagram : selectedLead.instagram) && (
               <p className="mt-3 rounded-[10px] border p-3 text-xs font-bold" style={{ borderColor: "#fde68a", background: "#fffbeb", color: "#92400e" }}>
                 Bu lead için Instagram kullanıcı adı HK Admin&apos;de kayıtlı değil — Claude araştırmasıyla bulunacak. Aşağıdaki manuel değerlendirmede de elle girebilirsiniz.
               </p>
@@ -558,9 +635,12 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
           module="instagram"
           companyId={targetMode === "customer" ? selectedCompany?.id || null : null}
           leadId={targetMode === "lead" ? selectedLead?.id || null : null}
+          businessUnitId={businessUnitId || null}
           targetLabel={targetLabel}
           prefillData={
-            targetMode === "lead" && selectedLead
+            businessPrefill
+              ? businessPrefill
+              : targetMode === "lead" && selectedLead
               ? {
                   businessName: selectedLead.company || selectedLead.name || "",
                   instagramUsername: selectedLead.instagram || "",
@@ -577,6 +657,16 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
     <div hidden={activeTab !== "doctor"}>
     {!selectedCompany && <AdminEmptyState title="Reklam doktoru analizini başlatmak için yukarıdan aktif bir müşteri seçin." />}
 
+    {selectedCompany && selectedBusiness?.entity.type === "unit" && (
+      <BusinessAdScopePanel companyId={selectedCompany.id} businessUnitId={selectedBusiness.entity.id} businessName={selectedBusiness.name} onChanged={() => setData(null)} />
+    )}
+    {data?.scope && (
+      <p className="mb-3 rounded-[10px] border p-2.5 text-xs font-bold" style={data.scope.level === "business" ? { borderColor: "#a5f3fc", background: "#ecfeff", color: "#155e75" } : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}>
+        {data.scope.level === "business"
+          ? `İşletme düzeyi metrikler: ${data.scope.businessName} · ${data.scope.verifiedCampaigns} doğrulanmış kampanya${data.scope.sharedCampaigns ? ` · ${data.scope.sharedCampaigns} kampanya başka işletmeyle ortak (kampanya toplamı gösterilir)` : ""}. Meta ve Google ayrı filtrelenir.`
+          : `Müşteri düzeyi metrikler: ${selectedCompany?.name || "müşteri"} hesabındaki tüm kampanyalar.`}
+      </p>
+    )}
     {selectedCompany && (
       <section className="mb-5 rounded-[18px] border p-5 sm:p-6" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface)" }}>
         <div>
@@ -890,7 +980,7 @@ export function AdInsightsCenter({ content, notify, initialLeadId }: { content: 
         </div>
       </div>
     )}
-    <ManualEvaluationSection module="ad-doctor" companyId={companyId || null} leadId={leadId || null} targetLabel={targetLabel} />
+    <ManualEvaluationSection module="ad-doctor" companyId={companyId || null} leadId={leadId || null} businessUnitId={businessUnitId || null} targetLabel={targetLabel} />
     </div>
     </AdminWorkspace>
   );

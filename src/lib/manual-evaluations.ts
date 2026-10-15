@@ -36,11 +36,16 @@ export {
 
 export class ManualEvaluationNotFoundError extends Error {}
 
-export async function listManualEvaluations(module: ManualEvaluationModule, options: { companyId?: string; leadId?: string; limit?: number } = {}): Promise<ManualEvaluationRecord[]> {
+export async function listManualEvaluations(module: ManualEvaluationModule, options: { companyId?: string; leadId?: string; businessUnitId?: string; limit?: number } = {}): Promise<ManualEvaluationRecord[]> {
   const params = new URLSearchParams();
   params.set("module", `eq.${module}`);
   if (options.companyId) params.set("company_id", `eq.${options.companyId}`);
   if (options.leadId) params.set("lead_id", `eq.${options.leadId}`);
+  // İşletme ve Şube Yönetimi: a lead/customer's own history is only its
+  // main-business rows; a branch/related brand's rows are listed only when
+  // that business_unit is explicitly selected — never mixed.
+  if (options.businessUnitId) params.set("business_unit_id", `eq.${options.businessUnitId}`);
+  else if (options.companyId || options.leadId) params.set("business_unit_id", "is.null");
   params.set("order", "created_at.desc");
   params.set("limit", String(options.limit || 20));
   return supabaseRest<ManualEvaluationRecord[]>(`${MANUAL_EVALUATIONS_TABLE}?${params.toString()}`);
@@ -56,6 +61,7 @@ export type CreateManualEvaluationInput = {
   module: ManualEvaluationModule;
   companyId?: string | null;
   leadId?: string | null;
+  businessUnitId?: string | null;
   targetLabel?: string;
   title?: string;
   status?: "draft" | "submitted";
@@ -79,6 +85,7 @@ export async function createManualEvaluation(input: CreateManualEvaluationInput)
       module: input.module,
       company_id: input.companyId || null,
       lead_id: input.leadId || null,
+      ...(input.businessUnitId ? { business_unit_id: input.businessUnitId } : {}),
       target_label: input.targetLabel || "",
       title: input.title || "",
       status: input.status || "draft",

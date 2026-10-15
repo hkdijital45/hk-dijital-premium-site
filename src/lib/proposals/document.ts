@@ -4,6 +4,8 @@ import type { DocumentPayload, DocumentSection, DocumentCell } from "@/lib/docum
 import { safeFileNameSegment } from "@/lib/server/document-generator";
 import type { ProposalRecord } from "./store";
 import type { HkProposalV1, ProposalBudgetScenario, ProposalCompetitor } from "./schema";
+import { normalizeBusinessScope } from "./business-scope";
+import { formatTRY } from "./financials";
 
 export type ProposalDocumentMode = "internal" | "client";
 
@@ -125,12 +127,31 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
     sections.push({ title: "Reklam Bütçesi Senaryoları", table: budgetScenariosTable(data.budget_scenarios) });
   }
 
+  // Teklif kapsamı — only when the proposal explicitly covers more than one
+  // business; single-business proposals render exactly as before.
+  const scope = normalizeBusinessScope((record.questionnaire as { businessScope?: unknown } | undefined)?.businessScope);
+  if (scope.length > 1) {
+    sections.push({ title: "Teklif Kapsamı", items: scope.map((item) => `${item.name} — ${item.role === "main" ? "Ana işletme" : item.role === "related_brand" ? "Bağlı marka" : item.role === "branch" ? "Şube" : "İşletme grubu"}${item.instagram ? ` (${item.instagram})` : ""}`) });
+  }
+
   const fin = record.financials;
   if (fin && !isEmpty(fin)) {
+    const lines = Array.isArray(fin.serviceLines) ? fin.serviceLines : [];
+    if (lines.length) {
+      sections.push({
+        title: "İşletme Bazlı Hizmet Kalemleri",
+        table: {
+          headers: ["İşletme", "Hizmet", "Aylık (KDV Dahil)", "Kurulum (KDV Dahil)"],
+          rows: lines.map((line): DocumentCell[] => [line.businessName, line.description, line.monthlyFee ? formatTRY(line.monthlyFeeInclVat) : "-", line.setupFee ? formatTRY(line.setupFeeInclVat) : "-"])
+        }
+      });
+    }
     const rows: DocumentCell[][] = [
-      ["Toplam Aylık Reklam Bütçesi", fin.formatted?.totalMonthlyAdBudget || "-"],
+      ["Toplam Aylık Reklam Bütçesi (platforma ödenir, KDV'ye tabi değil)", fin.formatted?.totalMonthlyAdBudget || "-"],
       ["Aylık Ajans Yönetim Ücreti (KDV Dahil)", fin.formatted?.agencyMonthlyFeeInclVat || "-"],
+      ...(lines.length ? [["İşletme Bazlı Hizmetler — Aylık (KDV Dahil)", formatTRY(fin.serviceLinesMonthlyInclVat || 0)] as DocumentCell[]] : []),
       ["Kurulum Ücreti (KDV Dahil)", fin.formatted?.setupFeeInclVat || "-"],
+      ...(lines.some((line) => line.setupFee) ? [["İşletme Bazlı Kurulum (KDV Dahil)", formatTRY(fin.serviceLinesSetupInclVat || 0)] as DocumentCell[]] : []),
       ["İlk Ay Toplamı (KDV Dahil)", fin.formatted?.firstMonthTotalInclVat || "-"],
       ["Sonraki Aylar Toplamı (KDV Dahil)", fin.formatted?.subsequentMonthTotalInclVat || "-"]
     ];

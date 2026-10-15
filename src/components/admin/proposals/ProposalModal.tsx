@@ -5,11 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X, Copy, ClipboardPaste, Download, ChevronLeft, ChevronRight, Plus, Trash2, Send, CircleCheck, CircleX, GitBranch, Copy as CopyIcon, RefreshCw, TriangleAlert } from "lucide-react";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
-import { calculateProposalFinancials, type AdPlatformBudget } from "@/lib/proposals/financials";
+import { calculateProposalFinancials, formatTRY, type AdPlatformBudget } from "@/lib/proposals/financials";
 import { buildProposalClaudePrompt, type ProposalQuestionnaire, type PromptFindingsContext } from "@/lib/proposals/prompt";
 import type { ProposalCompetitor, HkProposalV1 } from "@/lib/proposals/schema";
 import { isValidHttpUrl } from "@/lib/proposals/competitors";
 import { forceTextColor } from "@/lib/admin-style";
+import { normalizeBusinessScope, normalizeServiceLines } from "@/lib/proposals/business-scope";
+import { ProposalScopeSelector, ProposalServiceLinesEditor } from "@/components/admin/proposals/ProposalBusinessScope";
 
 type AggregateContext = {
   completeness: { lead: boolean; preAudit: boolean; instagram: boolean; adEvaluation: boolean; competitors: boolean; budget: boolean };
@@ -147,11 +149,16 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
     }));
   }, [questionnaire.platforms, questionnaire.budget?.googleAllocation, questionnaire.budget?.metaAllocation]);
 
+  // Teklif kapsamı: per-business service lines only count for businesses
+  // still in scope, and exact duplicates are billed once.
+  const businessScope = normalizeBusinessScope(questionnaire.businessScope);
+  const serviceLineResult = normalizeServiceLines(questionnaire.businessServiceLines, businessScope);
   const financials = calculateProposalFinancials({
     adBudgets,
     agencyMonthlyFee: Number(questionnaire.fees?.monthlyManagementFee) || 0,
     setupFee: Number(questionnaire.fees?.setupFee) || 0,
-    contractMonths: Number(questionnaire.fees?.contractDurationMonths) || 1
+    contractMonths: Number(questionnaire.fees?.contractDurationMonths) || 1,
+    serviceLines: serviceLineResult.lines
   });
 
   const locked = Boolean(proposal?.sent_at);
@@ -433,6 +440,7 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
               {step === 0 && (
                 <fieldset className="grid gap-3 sm:grid-cols-2">
                   <legend className="mb-1 text-sm font-black">1. İşletme Bilgileri</legend>
+                  <ProposalScopeSelector leadId={leadId} companyId={companyId} targetLabel={targetLabel} scope={questionnaire.businessScope} locked={locked} onChange={(scope) => setQuestionnaire((q) => ({ ...q, businessScope: scope }))} />
                   <label><span className={labelClass} style={mutedStyle}>İşletme Adı</span><input className={inputClass} style={fieldStyle} value={questionnaire.business?.name || ""} onChange={(e) => updateBusiness({ name: e.target.value })} placeholder={targetLabel} /></label>
                   <label><span className={labelClass} style={mutedStyle}>Sektör</span><input className={inputClass} style={fieldStyle} value={questionnaire.business?.sector || ""} onChange={(e) => updateBusiness({ sector: e.target.value })} /></label>
                   <label><span className={labelClass} style={mutedStyle}>Şehir</span><input className={inputClass} style={fieldStyle} value={questionnaire.business?.city || ""} onChange={(e) => updateBusiness({ city: e.target.value })} /></label>
@@ -506,8 +514,11 @@ export function ProposalModal({ leadId, companyId, targetLabel, autoAggregate, o
                     <label className="sm:col-span-2"><span className={labelClass} style={mutedStyle}>Kapsama Dahil Hizmetler</span><textarea rows={2} className={inputClass} style={fieldStyle} value={questionnaire.fees?.includedServices || ""} onChange={(e) => updateFees({ includedServices: e.target.value })} /></label>
                     <label className="sm:col-span-2"><span className={labelClass} style={mutedStyle}>Kapsam Dışı Hizmetler</span><textarea rows={2} className={inputClass} style={fieldStyle} value={questionnaire.fees?.excludedServices || ""} onChange={(e) => updateFees({ excludedServices: e.target.value })} /></label>
                   </div>
+                  <ProposalServiceLinesEditor scope={businessScope} lines={questionnaire.businessServiceLines || []} duplicatesIgnored={serviceLineResult.duplicatesIgnored} locked={locked} onChange={(lines) => setQuestionnaire((q) => ({ ...q, businessServiceLines: lines }))} />
                   <div className="mt-4 grid gap-2 rounded-[10px] border p-3 text-sm sm:grid-cols-2" style={{ borderColor: "var(--admin-border)", background: "var(--admin-surface-soft)" }}>
                     <p>Toplam Aylık Reklam Bütçesi: <strong>{financials.formatted.totalMonthlyAdBudget}</strong></p>
+                    <p>Aylık Ajans Yönetim Ücreti (KDV Dahil): <strong>{financials.formatted.agencyMonthlyFeeInclVat}</strong></p>
+                    {financials.serviceLines.length > 0 && <p>İşletme Bazlı Hizmetler — Aylık (KDV Dahil): <strong>{formatTRY(financials.serviceLinesMonthlyInclVat)}</strong>{financials.serviceLinesSetupInclVat ? <> · Kurulum: <strong>{formatTRY(financials.serviceLinesSetupInclVat)}</strong></> : null}</p>}
                     <p>İlk Ay Toplamı (KDV Dahil): <strong>{financials.formatted.firstMonthTotalInclVat}</strong></p>
                     <p>Sonraki Aylar (KDV Dahil): <strong>{financials.formatted.subsequentMonthTotalInclVat}</strong></p>
                     {financials.formatted.contractTotalInclVat && <p>Sözleşme Toplamı (KDV Dahil): <strong>{financials.formatted.contractTotalInclVat}</strong></p>}

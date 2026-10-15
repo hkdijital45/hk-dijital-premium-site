@@ -16,9 +16,10 @@ export async function GET(request: Request) {
   const companyId = url.searchParams.get("companyId") || undefined;
   const leadId = url.searchParams.get("leadId") || undefined;
   const search = url.searchParams.get("q") || undefined;
+  const businessUnitId = url.searchParams.get("businessUnitId") || undefined;
 
   try {
-    const reports = await listCandidateEvaluations(companyId, leadId, search, 200);
+    const reports = await listCandidateEvaluations(companyId, leadId, search, 200, businessUnitId && /^[0-9a-f-]{36}$/i.test(businessUnitId) ? businessUnitId : undefined);
     return NextResponse.json({ reports });
   } catch (error) {
     const safe = getSafeSupabaseError(error);
