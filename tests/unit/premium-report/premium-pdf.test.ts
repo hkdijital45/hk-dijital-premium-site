@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { PDFDocument, PDFName, PDFDict } from "pdf-lib";
 import { createCanvas } from "@napi-rs/canvas";
 import { generatePdfBuffer, generateDocxBuffer, type DocumentPayload } from "../../../src/lib/server/document-generator.ts";
-import { normalizeLogoImage, LogoImageError } from "../../../src/lib/server/logo-image.ts";
+import { normalizeLogoImage, LogoImageError, analyzeLogoBackground } from "../../../src/lib/server/logo-image.ts";
 import { assertPublicHttpUrl, SafeFetchError } from "../../../src/lib/server/safe-fetch.ts";
 import { adEvaluationPerformanceSection } from "../../../src/lib/marketing-intelligence/ad-evaluation-document.ts";
 import { buildMiniAuditDocumentPayload } from "../../../src/lib/pdf-audit.ts";
@@ -26,10 +26,10 @@ function pdfText(buffer: Buffer): string {
   return execFileSync("pdftotext", ["-layout", file, "-"]).toString("utf8");
 }
 
-async function logoPng(width: number, height: number, transparent = true) {
+async function logoPng(width: number, height: number, transparent = true, backgroundHex?: string) {
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-  if (!transparent) { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, width, height); }
+  if (!transparent) { ctx.fillStyle = backgroundHex || "#ffffff"; ctx.fillRect(0, 0, width, height); }
   ctx.fillStyle = "#1F3A5F";
   ctx.fillRect(width * 0.1, height * 0.2, width * 0.8, height * 0.6);
   const n = await normalizeLogoImage(Buffer.from(await canvas.encode("png")));
@@ -83,6 +83,68 @@ test("square, wide and transparent client logos all render", async () => {
     const doc = await PDFDocument.load(await generatePdfBuffer(payload({ clientLogo: logo })));
     assert.equal(imageCountOnPage(doc, 0), 2);
   }
+});
+
+// Cover client-logo placement: the real bug was a large white box with
+// the logo rendered tiny inside it. analyzeLogoBackground is the real
+// decision logic premium-pdf.ts's cover uses to pick a presentation (no
+// added plate for a transparent logo, or an opaque logo whose own
+// background already contrasts; a tight light plate ONLY for an opaque
+// white/light logo, which would otherwise be unreadable on the navy
+// cover) — tested directly here since the compiled PDF content stream
+// doesn't expose drawn pixel sizes in a way worth asserting on.
+test("analyzeLogoBackground: a genuinely transparent PNG is classified as transparent, never light (no corner pixels to sample)", async () => {
+  const canvas = createCanvas(200, 100);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#1F3A5F";
+  ctx.fillRect(20, 20, 160, 60);
+  const png = Buffer.from(await canvas.encode("png"));
+  const result = await analyzeLogoBackground(png);
+  assert.equal(result.transparent, true);
+  assert.equal(result.light, false);
+});
+
+test("analyzeLogoBackground: an opaque white-background logo is classified as opaque + light (needs a backing plate on navy)", async () => {
+  const canvas = createCanvas(200, 100);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, 200, 100);
+  ctx.fillStyle = "#1F3A5F";
+  ctx.fillRect(20, 20, 160, 60);
+  const png = Buffer.from(await canvas.encode("png"));
+  const result = await analyzeLogoBackground(png);
+  assert.equal(result.transparent, false);
+  assert.equal(result.light, true);
+});
+
+test("analyzeLogoBackground: an opaque dark-background logo is classified as opaque + NOT light (already contrasts on navy, no plate needed)", async () => {
+  const canvas = createCanvas(200, 100);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#0b1f33";
+  ctx.fillRect(0, 0, 200, 100);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(20, 20, 160, 60);
+  const png = Buffer.from(await canvas.encode("png"));
+  const result = await analyzeLogoBackground(png);
+  assert.equal(result.transparent, false);
+  assert.equal(result.light, false);
+});
+
+test("analyzeLogoBackground: an unusable/corrupt buffer degrades safely (never throws), defaulting to no added plate", async () => {
+  const result = await analyzeLogoBackground(Buffer.from([1, 2, 3]));
+  assert.deepEqual(result, { transparent: false, light: false });
+});
+
+test("cover layout: an opaque white-background client logo (the real regression — large white box, tiny barely-visible logo) still renders alongside HK Dijital's logo without breaking the cover", async () => {
+  const whiteLogo = await logoPng(900, 220, false);
+  const doc = await PDFDocument.load(await generatePdfBuffer(payload({ clientLogo: whiteLogo })));
+  assert.equal(imageCountOnPage(doc, 0), 2, "both logos must still render on the cover");
+});
+
+test("cover layout: an opaque dark-background client logo renders directly, alongside HK Dijital's logo, without breaking the cover", async () => {
+  const darkLogo = await logoPng(900, 220, false, "#0b1f33");
+  const doc = await PDFDocument.load(await generatePdfBuffer(payload({ clientLogo: darkLogo })));
+  assert.equal(imageCountOnPage(doc, 0), 2, "both logos must still render on the cover");
 });
 
 test("Turkish characters are embedded and extractable; TL / % / date formatting", { skip: hasPdftotext() ? false : "pdftotext not installed" }, async () => {

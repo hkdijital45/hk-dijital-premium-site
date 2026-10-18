@@ -34,6 +34,51 @@ export function pngDimensions(buffer: Buffer): { width: number; height: number }
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
+export type LogoBackground = { transparent: boolean; light: boolean };
+
+/** Samples the four CORNER pixels of an already-decoded logo PNG to
+ * classify its real background — used by the PDF cover renderer
+ * (premium-pdf.ts) to decide whether a client logo needs a light backing
+ * plate (opaque + light/white corners, where the logo would otherwise
+ * read as unreadable on a navy cover) or can sit directly on navy
+ * (genuinely transparent corners, or an opaque colored/dark background
+ * that already contrasts fine on its own). Never guesses from the file
+ * extension/MIME alone, and never alters the image's own pixels —
+ * callers choose a surface to place the UNCHANGED logo on top of; the
+ * logo's own real background (e.g. a white rectangle baked into the
+ * pixels) is never cropped or force-stripped. */
+export async function analyzeLogoBackground(png: Buffer): Promise<LogoBackground> {
+  const { createCanvas, loadImage } = await import("@napi-rs/canvas");
+  let image: Awaited<ReturnType<typeof loadImage>>;
+  try {
+    image = await loadImage(png);
+  } catch {
+    return { transparent: false, light: false };
+  }
+  const canvas = createCanvas(image.width, image.height);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, 0, 0);
+  const corners: Array<[number, number]> = [
+    [0, 0], [image.width - 1, 0], [0, image.height - 1], [image.width - 1, image.height - 1]
+  ];
+  let alphaSum = 0;
+  let lightSum = 0;
+  let opaqueSamples = 0;
+  for (const [x, y] of corners) {
+    const { data } = ctx.getImageData(x, y, 1, 1);
+    const [r, g, b, a] = data;
+    alphaSum += a;
+    if (a > 200) {
+      lightSum += (r + g + b) / 3;
+      opaqueSamples += 1;
+    }
+  }
+  return {
+    transparent: alphaSum / corners.length < 64,
+    light: opaqueSamples > 0 && lightSum / opaqueSamples > 225
+  };
+}
+
 export async function normalizeLogoImage(input: Buffer): Promise<NormalizedLogo> {
   if (!input?.length) throw new LogoImageError("Görsel boş.");
   if (input.length > LOGO_MAX_BYTES) throw new LogoImageError("Logo dosyası 5 MB sınırını aşıyor.");

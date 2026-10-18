@@ -12,6 +12,7 @@ import {
   hexToRgb01, niceAxisMax, sanitizeChartData, splitMetaLine
 } from "@/lib/report-design";
 import { cleanTurkishTypography } from "@/lib/turkish-text";
+import { analyzeLogoBackground } from "@/lib/server/logo-image";
 
 // HK Dijital Premium Report System V3 — the single PDF renderer behind
 // generatePdfBuffer (document-generator.ts), so every report that already
@@ -261,23 +262,45 @@ class PremiumPdf {
     const logoCenterY = PAGE_H - 132;
     const client = this.payload.clientLogo;
     let clientImage: PDFImage | null = null;
+    let clientBackground = { transparent: false, light: false };
     if (client?.png?.length) {
       try { clientImage = await this.pdf.embedPng(client.png); } catch { clientImage = null; }
+      if (clientImage) {
+        try { clientBackground = await analyzeLogoBackground(Buffer.from(client.png)); } catch { /* keep the conservative default: no added plate, logo drawn as-is */ }
+      }
     }
     if (this.hkLogo && clientImage) {
       const hk = fitLogo(this.hkLogo.width, this.hkLogo.height, 214, 74, 214 * 74);
-      const plateW = 168;
-      const plateH = 82;
-      const inner = fitLogo(clientImage.width, clientImage.height, plateW - 28, plateH - 22);
+      // Same visual envelope as HK's own logo box (no padding stolen from
+      // it first, no 0.55-of-box area attenuation) — this is the actual
+      // fix for "tiny, barely visible" client logos: the old plate
+      // reserved 168×82 then carved 28/22px of padding off that BEFORE
+      // fitting, then fitLogo's own default area-ratio shrank it further.
+      const envelopeW = 190;
+      const envelopeH = 78;
+      const clientFit = fitLogo(clientImage.width, clientImage.height, envelopeW, envelopeH, envelopeW * envelopeH);
       const gap = 24;
-      const total = hk.width + gap * 2 + plateW;
+      const total = hk.width + gap * 2 + envelopeW;
       const startX = (PAGE_W - total) / 2;
       this.page.drawImage(this.hkLogo, { x: startX, y: logoCenterY - hk.height / 2, width: hk.width, height: hk.height });
       const dividerX = startX + hk.width + gap;
       this.page.drawLine({ start: { x: dividerX, y: logoCenterY - 30 }, end: { x: dividerX, y: logoCenterY + 30 }, thickness: 0.9, color: C.turquoise, opacity: 0.7 });
-      const plateX = dividerX + gap;
-      this.roundRect(plateX, logoCenterY - plateH / 2, plateW, plateH, 10, { color: C.white });
-      this.page.drawImage(clientImage, { x: plateX + (plateW - inner.width) / 2, y: logoCenterY - inner.height / 2, width: inner.width, height: inner.height });
+      const slotCenterX = dividerX + gap + envelopeW / 2;
+      // A real backing plate is only drawn for an OPAQUE, LIGHT/WHITE
+      // logo — the one case that genuinely needs it for readability on
+      // navy (rule: açık renkli/beyaz logolar için okunabilir yerleşim).
+      // A transparent logo, or an opaque logo with its own colored/dark
+      // background, goes straight onto navy — never boxed, never
+      // resized beyond its real proportions, and the logo's own
+      // embedded background pixels are never touched/stripped.
+      if (!clientBackground.transparent && clientBackground.light) {
+        const padX = 14;
+        const padY = 12;
+        const plateW = clientFit.width + padX * 2;
+        const plateH = clientFit.height + padY * 2;
+        this.roundRect(slotCenterX - plateW / 2, logoCenterY - plateH / 2, plateW, plateH, 8, { color: C.white });
+      }
+      this.page.drawImage(clientImage, { x: slotCenterX - clientFit.width / 2, y: logoCenterY - clientFit.height / 2, width: clientFit.width, height: clientFit.height });
     } else if (this.hkLogo) {
       const hk = fitLogo(this.hkLogo.width, this.hkLogo.height, 300, 104, 300 * 104);
       this.page.drawImage(this.hkLogo, { x: (PAGE_W - hk.width) / 2, y: logoCenterY - hk.height / 2, width: hk.width, height: hk.height });
