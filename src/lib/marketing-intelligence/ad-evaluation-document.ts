@@ -10,7 +10,7 @@ import type { AdEvaluationRecord, EvaluationReportText } from "./ad-evaluations"
 import { AD_EVALUATION_DECISION_LABELS } from "./ad-evaluations";
 import type { DocumentPayload, DocumentSection, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
 import { formatCurrencyTr, formatNumberTr, formatPercentTr } from "@/lib/report-design";
-import { formatReportTimestamp } from "@/lib/report-timestamp";
+import { formatReportDate } from "@/lib/report-timestamp";
 import { normalizeLegacyTableBlock, parseMarkdownBlocks } from "./ad-evaluation-markdown";
 import { AD_METRIC_GLOSSARY, buildGlossarySection } from "@/lib/report-glossary";
 
@@ -58,7 +58,7 @@ function sectionsFrom(report: EvaluationReportText | undefined, mode: AdEvaluati
   for (const s of report.sections) {
     if (!s.title || !s.content) continue;
     if (mode === "internal" && /^nihai karar$/i.test(s.title.trim())) continue;
-    const blocks = parseMarkdownBlocks(s.content).flatMap((b) => (b.table ? normalizeLegacyTableBlock(b.table, createdAt) : [b]));
+    const blocks = parseMarkdownBlocks(s.content).flatMap((b) => (b.table ? normalizeLegacyTableBlock(b.table, createdAt, true) : [b]));
     let first = true;
     for (const block of blocks) {
       const title = first ? s.title : `${s.title} (devam)`;
@@ -185,14 +185,15 @@ export function buildAdEvaluationDocumentPayload(companyName: string, campaignNa
     metaLines: [
       `Müşteri: ${companyName}`,
       `Kampanya: ${campaignName || "-"}`,
-      `Rapor Tarihi ve Saati: ${formatReportTimestamp(evaluation.created_at)}`,
+      `Rapor Tarihi: ${formatReportDate(evaluation.created_at)}`,
       // Son Veri Senkronizasyonu is a DIFFERENT timestamp from the report
       // generation time above (section 10) — when this evaluation's
       // underlying Meta metrics snapshot was actually read (metrics_snapshot.
       // syncedAt, already stored by buildMetricsSnapshot — no new DB field).
       // Omitted entirely rather than guessed when genuinely unavailable.
+      // Exported documents show date-only (no time-of-day) throughout.
       ...(typeof (evaluation.metrics_snapshot as { syncedAt?: unknown })?.syncedAt === "string"
-        ? [`Son Veri Senkronizasyonu: ${formatReportTimestamp((evaluation.metrics_snapshot as { syncedAt: string }).syncedAt)}`]
+        ? [`Son Veri Senkronizasyonu: ${formatReportDate((evaluation.metrics_snapshot as { syncedAt: string }).syncedAt)}`]
         : []),
       `İncelenen dönem: ${periodLabel}`
     ],

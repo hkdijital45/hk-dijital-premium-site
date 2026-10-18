@@ -5,7 +5,7 @@ import { PRE_AUDIT_SECTION_LABELS, PRE_AUDIT_INTERNAL_SECTION_LABELS } from "@/l
 import type { DocumentPayload, DocumentSection, DocumentTable, DocumentCell, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
 import { formatNumberTr as formatNumberTrDigits } from "@/lib/report-design";
 import { safeFileNameSegment } from "@/lib/server/document-generator";
-import { normalizeTurkishText, formatTurkishDateTime } from "@/lib/reports/report-exports";
+import { normalizeTurkishText, formatTurkishDate } from "@/lib/reports/report-exports";
 import { capitalizeWordsTr, restoreAsciiKeyWords } from "@/lib/turkish-text";
 
 // Ön İnceleme report → branded PDF/DOCX document model. EXPORT = RENDER,
@@ -556,11 +556,14 @@ export function preAuditBudgetChart(report: PreAuditReport): DocumentChart | nul
  * drift into different content. */
 export function buildPreAuditDocumentPayload(report: PreAuditReport, companyDisplayName: string): DocumentPayload {
   const isInternal = report.report_type === "INTERNAL_REPORT";
-  // created_at/updated_at (timestamptz) carry real time-of-day; report_date
-  // is a bare date column, so the document's "Rapor Tarihi" uses created_at
-  // to let the operator tell same-day re-checks apart.
-  const createdLabel = formatTurkishDateTime(report.created_at);
-  const updatedLabel = formatTurkishDateTime(report.updated_at);
+  // created_at/updated_at (timestamptz) carry real time-of-day, but the
+  // exported document shows date-only (GG.AA.YYYY, Europe/Istanbul) —
+  // meaningfullyUpdated still compares the real timestamps (not the
+  // displayed labels), so a same-day re-check is still correctly detected
+  // and the "Son Güncelleme" line still appears even though both labels
+  // may show the same calendar date.
+  const createdLabel = formatTurkishDate(report.created_at);
+  const updatedLabel = formatTurkishDate(report.updated_at);
   const meaningfullyUpdated = Boolean(report.created_at && report.updated_at) &&
     Math.abs(new Date(report.updated_at).getTime() - new Date(report.created_at).getTime()) >= 60000;
 

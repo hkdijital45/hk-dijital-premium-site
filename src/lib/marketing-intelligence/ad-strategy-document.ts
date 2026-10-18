@@ -9,6 +9,7 @@ import { AD_STRATEGY_STATUS_LABELS, type AdStrategyRecord, type AdStrategyReport
 import { formatCurrencyTr } from "@/lib/report-design";
 import type { DocumentMetric } from "@/lib/document-model";
 import type { DocumentPayload, DocumentSection, DocumentTable } from "@/lib/server/document-generator";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 export type AdStrategyDocumentMode = "internal" | "client";
 
@@ -79,13 +80,13 @@ export function buildAdStrategyDocumentPayload(companyName: string, strategy: Ad
   return {
     title: mode === "internal" ? "Reklam Stratejisi — Dahili Rapor" : "Reklam Stratejisi — Müşteri Raporu",
     customerName: companyName,
-    period: new Date(strategy.created_at).toLocaleDateString("tr-TR"),
+    period: formatReportDate(strategy.created_at),
     executiveSummary: report?.executiveSummary || "",
     sections,
     confidentialLabel: mode === "internal" ? "Dahili Kullanım" : undefined,
     metaLines: [
       `Müşteri: ${companyName}`,
-      mode === "internal" ? `Versiyon: v${strategy.version} · Durum: ${AD_STRATEGY_STATUS_LABELS[strategy.status]}` : `Hazırlanma tarihi: ${new Date().toLocaleDateString("tr-TR")}`
+      mode === "internal" ? `Versiyon: v${strategy.version} · Durum: ${AD_STRATEGY_STATUS_LABELS[strategy.status]}` : `Hazırlanma tarihi: ${formatReportDate(new Date())}`
     ],
     footerNote: mode === "internal" ? "HK Dijital · Dahili Operasyon Belgesi · hkdijital.com.tr" : "HK Dijital · hkdijital.com.tr",
     logo: true

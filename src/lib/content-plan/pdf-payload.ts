@@ -16,6 +16,7 @@
 import { parseContentPlanNotes } from "./notes-parser";
 import { CONTENT_FORMAT_LABELS, type ContentFormatKey, type ContentPlanItem } from "./types";
 import type { DocumentPayload, DocumentSection } from "@/lib/server/document-generator";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 export type ContentPlanPdfMode = "customer" | "internal";
 
@@ -139,7 +140,7 @@ export function buildContentPlanDocumentPayload(companyName: string, items: Cont
     sections,
     confidentialLabel: mode === "internal" ? "Dahili Kullanım" : undefined,
     footerNote: mode === "customer" ? "HK Dijital · hkdijital.com.tr" : "HK Dijital · Dahili Operasyon Belgesi · hkdijital.com.tr",
-    metaLines: [`Müşteri: ${companyName}`, `Plan dönemi: ${period}`, `Hazırlanma tarihi: ${new Date().toLocaleDateString("tr-TR")}`],
+    metaLines: [`Müşteri: ${companyName}`, `Plan dönemi: ${period}`, `Hazırlanma tarihi: ${formatReportDate(new Date())}`],
     logo: true
   };
 }

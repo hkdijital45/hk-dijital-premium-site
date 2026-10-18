@@ -17,6 +17,7 @@
 import { CREATIVE_FORMATS, type AdCreativeReportRecord, type CreativeItem } from "./ad-creative-reports";
 import type { DocumentPayload, DocumentSection } from "@/lib/server/document-generator";
 import { CREATIVE_GLOSSARY, buildGlossarySection } from "@/lib/report-glossary";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 export type CreativeReportDocumentMode = "client" | "internal";
 
@@ -329,13 +330,13 @@ export function buildCreativeReportDocumentPayload(companyName: string, report: 
   return {
     title: mode === "internal" ? "Reklam Kreatif Raporu — Dahili Rapor" : "Reklam Kreatif Raporu — Müşteri Raporu",
     customerName: companyName,
-    period: new Date(report.created_at).toLocaleDateString("tr-TR"),
+    period: formatReportDate(report.created_at),
     executiveSummary: "",
     sections,
     confidentialLabel: mode === "internal" ? "Dahili Kullanım" : undefined,
     metaLines: [
       `Müşteri: ${companyName}`,
-      mode === "internal" ? `Versiyon: v${report.version} · ${report.creatives?.length || 0} kreatif` : `Hazırlanma tarihi: ${new Date().toLocaleDateString("tr-TR")}`
+      mode === "internal" ? `Versiyon: v${report.version} · ${report.creatives?.length || 0} kreatif` : `Hazırlanma tarihi: ${formatReportDate(new Date())}`
     ],
     footerNote: mode === "internal" ? "HK Dijital · Dahili Operasyon Belgesi · hkdijital.com.tr" : "HK Dijital · hkdijital.com.tr",
     logo: true

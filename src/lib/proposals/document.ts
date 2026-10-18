@@ -8,6 +8,7 @@ import { normalizeBusinessScope } from "./business-scope";
 import { formatTRY } from "./financials";
 import type { DocumentMetric, DocumentChart, DocumentTimelinePhase } from "@/lib/document-model";
 import { humanizeKeyTr } from "@/lib/turkish-text";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 export type ProposalDocumentMode = "internal" | "client";
 
@@ -236,7 +237,7 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
   return {
     title: mode === "internal" ? `HK Dijital — Dahili Teklif Raporu (${record.proposal_number})` : `HK Dijital — Teklif (${record.proposal_number})`,
     customerName: record.target_label,
-    period: new Date(record.created_at).toLocaleDateString("tr-TR"),
+    period: formatReportDate(record.created_at),
     // The bare record title ("Teklif") is already the cover title — never repeated as a fake summary.
     executiveSummary: (business?.description as string) || "",
     sections,
@@ -246,8 +247,8 @@ export function buildProposalDocumentPayload(record: ProposalRecord, mode: Propo
     metaLines: [
       `Firma: ${record.target_label}`,
       `Teklif No: ${record.proposal_number}`,
-      `Tarih: ${new Date(record.created_at).toLocaleDateString("tr-TR")}`,
-      record.valid_until ? `Geçerlilik: ${new Date(record.valid_until).toLocaleDateString("tr-TR")}` : "",
+      `Tarih: ${formatReportDate(record.created_at)}`,
+      record.valid_until ? `Geçerlilik: ${formatReportDate(record.valid_until)}` : "",
       "Hazırlayan: HK Dijital"
     ].filter(Boolean)
   };

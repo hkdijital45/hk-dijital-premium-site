@@ -3,6 +3,7 @@ import "server-only";
 import type { DocumentPayload, DocumentSection, DocumentMetric, DocumentChart } from "@/lib/server/document-generator";
 import { formatNumberTr } from "@/lib/report-design";
 import { MODULE_FIELD_GROUPS, MODULE_LABELS, type ManualEvaluationRecord } from "@/lib/manual-evaluations-shared";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 export type ManualEvaluationDocumentMode = "internal" | "client";
 
@@ -74,7 +75,7 @@ export function buildManualEvaluationDocumentPayload(targetName: string, evaluat
         rows: [
           ["Kaynak", evaluation.source === "claude_import" ? "Claude Yorumu (Doğrulama Gerekir)" : "Manuel Girilen"],
           ["Durum", evaluation.status === "submitted" ? "Tamamlandı" : "Taslak"],
-          ["Oluşturulma", new Date(evaluation.created_at).toLocaleString("tr-TR")]
+          ["Oluşturulma", formatReportDate(evaluation.created_at)]
         ]
       }
     });
@@ -85,7 +86,7 @@ export function buildManualEvaluationDocumentPayload(targetName: string, evaluat
   return {
     title: `${MODULE_LABELS[evaluation.module]} — ${mode === "internal" ? "Dahili Rapor" : "Müşteri Raporu"}`,
     customerName: targetName,
-    period: evaluation.data.analysisStartDate && evaluation.data.analysisEndDate ? `${evaluation.data.analysisStartDate} – ${evaluation.data.analysisEndDate}` : new Date(evaluation.created_at).toLocaleDateString("tr-TR"),
+    period: evaluation.data.analysisStartDate && evaluation.data.analysisEndDate ? `${evaluation.data.analysisStartDate} – ${evaluation.data.analysisEndDate}` : formatReportDate(evaluation.created_at),
     executiveSummary: evaluation.title || `${MODULE_LABELS[evaluation.module]} değerlendirmesi.`,
     headlineMetrics,
     sections,

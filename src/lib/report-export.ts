@@ -1,3 +1,5 @@
+import { formatReportDate } from "@/lib/report-timestamp";
+
 export type ProfessionalReportSection = {
   title: string;
   items?: unknown[];
@@ -49,7 +51,7 @@ export function buildWordMarkdownReport(payload: ProfessionalReportPayload) {
   return `# ${sanitizeExportValue(payload.title)}
 
 Müşteri / Firma: ${sanitizeExportValue(payload.customerName || "-")}
-Oluşturulma tarihi: ${sanitizeExportValue(payload.generatedAt || new Date().toISOString())}
+Oluşturulma tarihi: ${sanitizeExportValue(payload.generatedAt || formatReportDate(new Date()))}
 Veri dönemi: ${sanitizeExportValue(payload.period || "-")}
 
 ## Yönetici Özeti
@@ -94,7 +96,7 @@ export function buildPrintableHtmlReport(payload: ProfessionalReportPayload) {
   <main>
     <p class="brand">HK Dijital</p>
     <h1>${escapeHtml(payload.title)}</h1>
-    <p class="meta">Müşteri / Firma: ${escapeHtml(payload.customerName || "-")} · Veri dönemi: ${escapeHtml(payload.period || "-")} · Oluşturulma: ${escapeHtml(payload.generatedAt || new Date().toLocaleString("tr-TR"))}</p>
+    <p class="meta">Müşteri / Firma: ${escapeHtml(payload.customerName || "-")} · Veri dönemi: ${escapeHtml(payload.period || "-")} · Oluşturulma: ${escapeHtml(payload.generatedAt || formatReportDate(new Date()))}</p>
     <div class="summary"><strong>Yönetici Özeti</strong><p>${escapeHtml(payload.summary || "Bu çıktı profesyonel rapor şablonuyla hazırlanmıştır.")}</p></div>
     ${tableHtml}
     ${sectionHtml}

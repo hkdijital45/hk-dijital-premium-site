@@ -1,9 +1,11 @@
 // Reklam Değerlendirme report rendering — markdown-table-to-real-table
-// parsing, single report-generation timestamp (date+time, never just
-// date), separate "Son Veri Senkronizasyonu", no duplicated "Nihai
-// Karar", and the status-color visual system. Run via
-// --conditions=react-server --import tsx (document-generator.ts is
-// "server-only").
+// parsing, single report-generation date (date-only, GG.AA.YYYY,
+// Europe/Istanbul — exported PDF/DOCX never shows a time-of-day; the
+// on-screen admin UI, a separate consumer of the shared formatter, still
+// shows the full date+time, unchanged), separate "Son Veri
+// Senkronizasyonu", no duplicated "Nihai Karar", and the status-color
+// visual system. Run via --conditions=react-server --import tsx
+// (document-generator.ts is "server-only").
 import test from "node:test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
@@ -59,25 +61,27 @@ function fakeEvaluation(overrides: Partial<AdEvaluationRecord> = {}): AdEvaluati
   } as AdEvaluationRecord;
 }
 
-const TIMESTAMP_FORMAT = /\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}/;
+const DATE_ONLY_FORMAT = /^\d{2}\.\d{2}\.\d{4}$/;
 
-test("buildAdEvaluationDocumentPayload: report timestamp includes date AND time (never date-only), uses evaluation.created_at as the single source, and is identical between internal and client payloads (section 9/26)", () => {
+test("buildAdEvaluationDocumentPayload: exported report date is DATE-ONLY (never a time-of-day), uses evaluation.created_at as the single source, and is identical between internal and client payloads (section 9/26)", () => {
   const evaluation = fakeEvaluation();
   const internal = buildAdEvaluationDocumentPayload("MY CAKE 45", "MYCAKE-IG-DM-01", evaluation, "internal");
   const client = buildAdEvaluationDocumentPayload("MY CAKE 45", "MYCAKE-IG-DM-01", evaluation, "client");
-  const internalLine = internal.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"));
-  const clientLine = client.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"));
-  assert.ok(internalLine && TIMESTAMP_FORMAT.test(internalLine), `expected DD.MM.YYYY HH:mm, got: ${internalLine}`);
-  assert.equal(internalLine, clientLine, "internal and client must show the exact same report generation timestamp");
-  assert.doesNotMatch(internalLine!, /\d{2}:\d{2}:\d{2}/, "must never include seconds");
+  const internalLine = internal.metaLines!.find((l) => l.startsWith("Rapor Tarihi"));
+  const clientLine = client.metaLines!.find((l) => l.startsWith("Rapor Tarihi"));
+  assert.ok(internalLine, "a Rapor Tarihi meta line must exist");
+  const internalValue = internalLine!.split(": ")[1];
+  assert.ok(DATE_ONLY_FORMAT.test(internalValue), `expected date-only DD.MM.YYYY, got: ${internalValue}`);
+  assert.equal(internalLine, clientLine, "internal and client must show the exact same report date");
+  assert.doesNotMatch(internalLine!, /\d{2}:\d{2}/, "must never include a time-of-day");
   assert.doesNotMatch(internalLine!, /\dT\d{2}:\d{2}:\d{2}/, "must never expose a raw ISO/UTC string to the reader");
 });
 
-test("buildAdEvaluationDocumentPayload: 'Son Veri Senkronizasyonu' is a SEPARATE line from the report timestamp, sourced from metrics_snapshot.syncedAt (no new DB field), and is omitted (not guessed) when genuinely absent (section 10)", () => {
+test("buildAdEvaluationDocumentPayload: 'Son Veri Senkronizasyonu' is a SEPARATE date-only line from the report date, sourced from metrics_snapshot.syncedAt (no new DB field), and is omitted (not guessed) when genuinely absent (section 10)", () => {
   const withSync = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", fakeEvaluation(), "internal");
   const syncLine = withSync.metaLines!.find((l) => l.startsWith("Son Veri Senkronizasyonu"));
-  assert.ok(syncLine && TIMESTAMP_FORMAT.test(syncLine));
-  const reportLine = withSync.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"));
+  assert.ok(syncLine && DATE_ONLY_FORMAT.test(syncLine.split(": ")[1]));
+  const reportLine = withSync.metaLines!.find((l) => l.startsWith("Rapor Tarihi"));
   assert.notEqual(syncLine, reportLine);
 
   const withoutSync = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", fakeEvaluation({ metrics_snapshot: {} }), "internal");
@@ -164,15 +168,20 @@ test("LEGACY RENDERER HOTFIX — a saved report containing the real production l
   const internalSerialized = JSON.stringify(internalPayload);
   const clientSerialized = JSON.stringify(clientPayload);
 
-  // 1/2/3 — placeholder gone, canonical created_at displayed, correct Europe/Istanbul conversion.
+  // 1/2/3 — placeholder gone, canonical created_at displayed as a
+  // DATE-ONLY value (exported document, never a time-of-day), correct
+  // Europe/Istanbul conversion. The legacy "Rapor Tarihi ve Saati" row
+  // label is itself relabeled to "Rapor Tarihi" for the export, since the
+  // value next to it no longer includes a time.
   assert.doesNotMatch(internalSerialized, /Kayıt anında sistem tarafından/);
   assert.doesNotMatch(clientSerialized, /Kayıt anında sistem tarafından/);
   const reportBilgileriTable = internalPayload.sections.find((s) => s.title === "Rapor Bilgileri")?.table;
-  const reportTimestampRow = reportBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi ve Saati");
-  assert.equal(reportTimestampRow?.[1], "02.10.2026 19:20", "the canonical created_at must structurally replace the placeholder value, by row identity");
+  const reportTimestampRow = reportBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi");
+  assert.equal(reportTimestampRow?.[1], "02.10.2026", "the canonical created_at must structurally replace the placeholder value, by row identity, as a date-only value");
+  assert.equal(reportBilgileriTable?.rows.some((r) => r[0] === "Rapor Tarihi ve Saati"), false, "the old time-bearing label must not survive in the exported document");
   const kampanyaBilgileriTable = clientPayload.sections.find((s) => s.title === "Kampanya Bilgileri")?.table;
-  const clientTimestampRow = kampanyaBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi ve Saati");
-  assert.equal(clientTimestampRow?.[1], "02.10.2026 19:20");
+  const clientTimestampRow = kampanyaBilgileriTable?.rows.find((r) => r[0] === "Rapor Tarihi");
+  assert.equal(clientTimestampRow?.[1], "02.10.2026");
 
   // 4/5 — Ana Metrikler normalized to exactly 5 rendered columns, all legacy Not values preserved outside the table.
   const metricsTable = internalPayload.sections.find((s) => s.title === "Ana Metrikler")?.table;
@@ -340,14 +349,14 @@ test("statusColorHexFor / statusColorFor matching order: 'Aksiyon Gerekebilir' n
 
 // --- Final report UX/renderer polish (production hotfix) ---
 
-test("buildAdEvaluationDocumentPayload: report timestamp is Europe/Istanbul, never the server process's own local/UTC time — proven live bug: 2026-10-02T16:20:20Z previously rendered as 16:20 instead of the correct 19:20", () => {
+test("buildAdEvaluationDocumentPayload: exported report date is Europe/Istanbul, date-only, never the server process's own local/UTC time or a time-of-day — proven live bug: 2026-10-02T16:20:20Z previously rendered with 16:20 instead of the correct 19:20; the exported document now shows neither, only the correct 02.10.2026 calendar date", () => {
   const evaluation = fakeEvaluation({ created_at: "2026-10-02T16:20:20Z", metrics_snapshot: {} });
   const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "internal");
-  const line = payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"));
-  assert.equal(line, "Rapor Tarihi ve Saati: 02.10.2026 19:20");
+  const line = payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi"));
+  assert.equal(line, "Rapor Tarihi: 02.10.2026");
 });
 
-test("buildAdEvaluationDocumentPayload: Claude's own placeholder report-date text (e.g. the proven live leak 'Kayıt anında sistem tarafından atanacak') must never appear anywhere in the final payload — the real canonical timestamp always wins via metaLines", () => {
+test("buildAdEvaluationDocumentPayload: Claude's own placeholder report-date text (e.g. the proven live leak 'Kayıt anında sistem tarafından atanacak') must never appear anywhere in the final payload — the real canonical date (date-only) always wins via metaLines", () => {
   const evaluation = fakeEvaluation({
     created_at: "2026-10-02T16:20:20Z",
     client_report: {
@@ -358,7 +367,7 @@ test("buildAdEvaluationDocumentPayload: Claude's own placeholder report-date tex
   const payload = buildAdEvaluationDocumentPayload("MY CAKE 45", "Kampanya", evaluation, "client");
   const serialized = JSON.stringify(payload);
   assert.doesNotMatch(serialized, /Kayıt anında sistem tarafından/);
-  assert.match(payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi ve Saati"))!, /02\.10\.2026 19:20/);
+  assert.match(payload.metaLines!.find((l) => l.startsWith("Rapor Tarihi"))!, /^Rapor Tarihi: 02\.10\.2026$/);
 });
 
 test("buildAdEvaluationDocumentPayload: INTERNAL 'Yönetici Özeti' / CLIENT 'Kısa Özet' each render EXACTLY ONCE, even when both a preamble executiveSummary AND Claude's own matching '## ' section exist (proven live: production PDF duplicated the summary)", () => {

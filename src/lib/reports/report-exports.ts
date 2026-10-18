@@ -154,7 +154,7 @@ export function formatTurkishDate(value: unknown) {
   if (!value) return "-";
   const date = new Date(String(value));
   if (Number.isNaN(date.getTime())) return normalizeTurkishText(value);
-  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
 /** Same UTC→local conversion Intl already applies with no explicit

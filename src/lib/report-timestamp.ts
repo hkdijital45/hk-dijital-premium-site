@@ -11,11 +11,22 @@
 // timezone (same explicit-timeZone pattern already established by
 // analytics-time.ts's istanbulDateString for date-only values) — so
 // output is deterministic regardless of where this code runs.
+/** Date-only (GG.AA.YYYY, Europe/Istanbul) — used anywhere a reader must
+ * never see a time-of-day, e.g. exported PDF/DOCX reports (HK Admin's own
+ * screens keep the full date+time via formatReportTimestamp below, which
+ * reuses this for its date half so the two can never drift apart). */
+export function formatReportDate(value: string | Date | null | undefined): string {
+  if (!value) return "Tarih bilgisi yok";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "Tarih bilgisi yok";
+  return new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+}
+
 export function formatReportTimestamp(value: string | Date | null | undefined): string {
   if (!value) return "Tarih bilgisi yok";
   const date = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) return "Tarih bilgisi yok";
-  const datePart = new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
+  const datePart = formatReportDate(date);
   const timePart = new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
   return `${datePart} ${timePart}`;
 }

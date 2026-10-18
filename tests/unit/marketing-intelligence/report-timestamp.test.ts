@@ -8,7 +8,7 @@
 // (raw UTC mislabeled as local) instead of the correct "19:20".
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatReportTimestamp, compareByTimestampDesc } from "../../../src/lib/report-timestamp.ts";
+import { formatReportTimestamp, formatReportDate, compareByTimestampDesc } from "../../../src/lib/report-timestamp.ts";
 
 test("formatReportTimestamp: UTC -> Europe/Istanbul, DD.MM.YYYY HH:mm, matches the proven production case exactly", () => {
   assert.equal(formatReportTimestamp("2026-10-02T16:20:20Z"), "02.10.2026 19:20");
@@ -42,6 +42,46 @@ test("formatReportTimestamp: null/undefined/invalid input is handled safely, nev
 
 test("formatReportTimestamp: accepts a real Date object, not only an ISO string", () => {
   assert.equal(formatReportTimestamp(new Date("2026-10-02T16:20:20Z")), "02.10.2026 19:20");
+});
+
+// formatReportDate — the date-only half of formatReportTimestamp, used
+// by exported PDF/DOCX reports (which must never show a time-of-day; see
+// the "PDF rapor oluşturma" brief) while HK Admin's own UI keeps the full
+// date+time via formatReportTimestamp, unchanged.
+test("formatReportDate: UTC -> Europe/Istanbul, DD.MM.YYYY, never a time-of-day", () => {
+  assert.equal(formatReportDate("2026-10-02T16:20:20Z"), "02.10.2026");
+});
+
+test("formatReportDate: never contains a colon/time component, even for a timestamp near the Europe/Istanbul day boundary", () => {
+  // 21:30 UTC = 00:30 the NEXT day in Europe/Istanbul (UTC+3) — proves the
+  // date half is computed from the real Istanbul calendar day, not UTC's.
+  const result = formatReportDate("2026-10-02T21:30:00Z");
+  assert.equal(result, "03.10.2026");
+  assert.doesNotMatch(result, /:/);
+});
+
+test("formatReportDate: deterministic regardless of the ambient process timezone", () => {
+  const original = process.env.TZ;
+  try {
+    process.env.TZ = "America/New_York";
+    assert.equal(formatReportDate("2026-10-02T16:20:20Z"), "02.10.2026");
+    process.env.TZ = "Asia/Tokyo";
+    assert.equal(formatReportDate("2026-10-02T16:20:20Z"), "02.10.2026");
+  } finally {
+    if (original === undefined) delete process.env.TZ; else process.env.TZ = original;
+  }
+});
+
+test("formatReportDate: null/undefined/invalid input is handled safely, never throws, never fabricates a date", () => {
+  assert.equal(formatReportDate(null), "Tarih bilgisi yok");
+  assert.equal(formatReportDate(undefined), "Tarih bilgisi yok");
+  assert.equal(formatReportDate("not-a-real-date"), "Tarih bilgisi yok");
+  assert.equal(formatReportDate(""), "Tarih bilgisi yok");
+});
+
+test("formatReportDate: is exactly the date half of formatReportTimestamp — the two can never drift apart, since the latter is built from the former", () => {
+  const value = "2026-10-02T16:20:20Z";
+  assert.ok(formatReportTimestamp(value).startsWith(formatReportDate(value)));
 });
 
 test("compareByTimestampDesc: sorts newest first", () => {

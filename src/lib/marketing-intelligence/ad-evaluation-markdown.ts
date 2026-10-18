@@ -6,7 +6,7 @@
 // browser bundle. ad-evaluation-document.ts (PDF/DOCX export) re-uses these
 // exact same functions, so the on-screen report and the downloaded document
 // are always built from one parser, never two that can drift apart.
-import { formatReportTimestamp } from "@/lib/report-timestamp";
+import { formatReportTimestamp, formatReportDate } from "@/lib/report-timestamp";
 import { cellLabel } from "@/lib/document-model";
 import type { DocumentTable } from "@/lib/document-model";
 
@@ -84,11 +84,20 @@ export function parseMarkdownBlocks(content: string): ContentBlock[] {
 // these signatures and passes through completely unchanged, so a new
 // report is never double-transformed.
 
-function fixReportTimestampRow(table: DocumentTable, createdAt: string | null | undefined): DocumentTable {
+// dateOnly: PDF/DOCX export must never show a time-of-day (see
+// ad-evaluation-document.ts's call site); the on-screen admin viewer
+// (AdEvaluationPanel.tsx) keeps passing false (the default) so it still
+// shows the full date+time, unchanged.
+function fixReportTimestampRow(table: DocumentTable, createdAt: string | null | undefined, dateOnly = false): DocumentTable {
   const rows = table.rows.map((row) => {
     if (cellLabel(row[0] ?? "").trim().toLocaleLowerCase("tr") !== "rapor tarihi ve saati") return row;
     const next = [...row];
-    next[1] = formatReportTimestamp(createdAt);
+    if (dateOnly) {
+      next[0] = "Rapor Tarihi";
+      next[1] = formatReportDate(createdAt);
+    } else {
+      next[1] = formatReportTimestamp(createdAt);
+    }
     return next;
   });
   return { headers: table.headers, rows };
@@ -148,8 +157,8 @@ function splitLegacyCreativeTable(table: DocumentTable): [DocumentTable, Documen
  * to the exact field-name cell); the Ana Metrikler / creative reshaping
  * only fires when a table's header signature exactly matches the known
  * legacy shape. */
-export function normalizeLegacyTableBlock(table: DocumentTable, createdAt: string | null | undefined): ContentBlock[] {
-  const fixed = fixReportTimestampRow(table, createdAt);
+export function normalizeLegacyTableBlock(table: DocumentTable, createdAt: string | null | undefined, dateOnly = false): ContentBlock[] {
+  const fixed = fixReportTimestampRow(table, createdAt, dateOnly);
   if (isLegacyMetricsTable(fixed)) {
     const { table: normalized, footnotes } = normalizeLegacyMetricsTable(fixed);
     const blocks: ContentBlock[] = [{ table: normalized }];

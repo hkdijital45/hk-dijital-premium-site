@@ -1,6 +1,7 @@
 import type { DocumentPayload } from "@/lib/server/document-generator";
 import { questionCategoryLabels } from "./types";
 import type { GeminiVisibilityAnswer, GeminiVisibilityProfile, GeminiVisibilityScan } from "./types";
+import { formatReportDate } from "@/lib/report-timestamp";
 
 const levelLabels: Record<string, string> = {
   critical: "Kritik", weak: "Zayıf", developing: "Gelişiyor", strong: "Güçlü", excellent: "Mükemmel"
@@ -18,7 +19,7 @@ const componentLabels: Record<string, string> = {
 export function buildGeminiVisibilityReportPayload(
   companyName: string, profile: GeminiVisibilityProfile, scan: GeminiVisibilityScan, answers: GeminiVisibilityAnswer[]
 ): DocumentPayload {
-  const scanDate = new Date(scan.started_at).toLocaleString("tr-TR");
+  const scanDate = formatReportDate(scan.started_at);
   const mentioning = answers.filter((answer) => answer.brand_mentioned || answer.alternate_name_mentioned);
   const competitorCounts = new Map<string, number>();
   answers.forEach((answer) => answer.competitors_mentioned.forEach((name) => competitorCounts.set(name, (competitorCounts.get(name) || 0) + 1)));
