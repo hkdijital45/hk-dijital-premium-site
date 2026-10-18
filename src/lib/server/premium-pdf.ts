@@ -164,6 +164,22 @@ export function isBrandingOnlyNote(note: string): boolean {
   return rest.length === 0;
 }
 
+/** A subsection belongs in the contents list only when it adds a distinct
+ * label: "(devam)" continuations, a heading identical to its parent
+ * numbered section, and "X — X" headings whose two halves are the same
+ * (or whose trailing half just repeats the parent) are left out. Real,
+ * different subsections are always kept. Exported for tests. */
+export function shouldListSubsectionInToc(title: string, parentTitle: string): boolean {
+  if (/\(devam\)\s*$/i.test(title)) return false;
+  const norm = (v: string) => v.replace(/\s+/g, " ").trim().toLocaleLowerCase("tr");
+  const t = norm(title);
+  if (!t) return false;
+  if (parentTitle && t === norm(parentTitle)) return false;
+  const parts = title.split(/\s[—–]\s/).map(norm).filter(Boolean);
+  if (parts.length >= 2 && parts.every((part) => part === parts[0])) return false;
+  return true;
+}
+
 function isSubsection(section: DocumentSection): boolean {
   if (section.level) return section.level === 2;
   return /\s[—–]\s|\(devam\)\s*$/i.test(section.title);
@@ -176,6 +192,8 @@ class PremiumPdf {
   private page!: PDFPage;
   private y = 0;
   private sectionNumber = 0;
+  /** Title of the most recent numbered (level-1) section, for TOC de-duplication. */
+  private lastTopTitle = "";
   private readonly runningTitle: string;
   private coverPage: PDFPage | null = null;
   /** Every heading in reading order; `page` is the page object (not an
@@ -550,7 +568,7 @@ class PremiumPdf {
     if (sub) {
       this.ensure(56);
       this.y -= 6;
-      if (!/\(devam\)\s*$/i.test(section.title)) this.toc.push({ level: 2, num: "", title: section.title, page: this.page });
+      if (shouldListSubsectionInToc(section.title, this.lastTopTitle)) this.toc.push({ level: 2, num: "", title: section.title, page: this.page });
       this.page.drawRectangle({ x: MARGIN, y: this.y - 10.5, width: 3, height: 11, color: C.turquoise });
       const lines = wrapLines(section.title, this.fonts.semibold, 11.5, CONTENT_W - 10);
       for (const line of lines) {
@@ -566,6 +584,7 @@ class PremiumPdf {
     this.y -= 8;
     const num = String(this.sectionNumber).padStart(2, "0");
     this.toc.push({ level: 1, num, title: section.title, page: this.page });
+    this.lastTopTitle = section.title;
     this.tracked(num, MARGIN, this.y - 9, 8.5, this.fonts.semibold, C.turquoiseText, 1);
     this.y -= 14;
     const size = section.titleSize && section.titleSize < 13 ? 13 : 15;

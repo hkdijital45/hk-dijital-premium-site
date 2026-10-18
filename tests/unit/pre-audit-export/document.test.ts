@@ -692,3 +692,64 @@ test("LOCALIZATION REGRESSION — PDF and DOCX binaries themselves contain the T
   assert.match(xml, /Bulgular/);
   assert.doesNotMatch(xml, /brandSearch/);
 });
+
+// ---------------------------------------------------------------------------
+// İçindekiler tekrarı: a nested key whose label equals its section title
+// (digital_presence: { "Dijital Varlıklar": [...] }) must never produce a
+// "Dijital Varlıklar — Dijital Varlıklar" heading or contents entry.
+// ---------------------------------------------------------------------------
+
+import { execFileSync as tocExec } from "node:child_process";
+import { mkdtempSync as tocMkdtemp, writeFileSync as tocWrite } from "node:fs";
+import { tmpdir as tocTmpdir } from "node:os";
+import { join as tocJoin } from "node:path";
+
+function pdfTextOf(buffer: Buffer): string | null {
+  try {
+    tocExec("pdftotext", ["-v"], { stdio: "ignore" });
+  } catch {
+    return null;
+  }
+  const dir = tocMkdtemp(tocJoin(tocTmpdir(), "hk-toc-"));
+  const file = tocJoin(dir, "r.pdf");
+  tocWrite(file, buffer);
+  return tocExec("pdftotext", ["-layout", file, "-"]).toString("utf8");
+}
+
+const DUPLICATE_KEY_PRESENCE = {
+  "Dijital Varlıklar": [
+    { Kanal: "Web sitesi", Durum: "Aktif online mağaza." },
+    { Kanal: "Instagram", Durum: "2.560 takipçi." }
+  ],
+  "İnceleme Kapsamı": "Herkese açık kaynaklar 18.10.2026 tarihinde incelendi."
+};
+
+test("TOC DEDUP — a nested key equal to its section title is merged into that section, never 'X — X'", () => {
+  const payload = buildPreAuditDocumentPayload(baseReport({ digital_presence: DUPLICATE_KEY_PRESENCE as unknown as PreAuditReport["digital_presence"] }), COMPANY_NAME);
+  const titles = payload.sections.map((s) => s.title);
+  assert.ok(!titles.some((t) => /Dijital Varlıklar\s+—\s+Dijital Varlıklar/.test(t)), `duplicate heading found: ${titles.join(" | ")}`);
+  const own = payload.sections.filter((s) => s.title === "Dijital Varlıklar");
+  assert.equal(own.length, 1, "exactly one Dijital Varlıklar section");
+  assert.ok(own[0].table, "the duplicate-labelled table is attached to the parent section");
+  assert.ok(own[0].items?.some((i) => i.includes("İnceleme Kapsamı")), "the other fields still render");
+  assert.equal(own[0].table?.rows.length, 2);
+});
+
+test("TOC DEDUP — genuinely different nested labels keep their own 'Parent — Child' sub-heading", () => {
+  const payload = buildPreAuditDocumentPayload(baseReport({
+    digital_presence: { sourceMatrix: [{ Kaynak: "Google", Durum: "Doğrulandı" }], assets: { instagram: "https://www.instagram.com/ornek/" } } as unknown as PreAuditReport["digital_presence"]
+  }), COMPANY_NAME);
+  const titles = payload.sections.map((s) => s.title);
+  assert.ok(titles.includes("Dijital Varlıklar — Kaynak Doğrulama Tablosu"));
+  assert.ok(titles.includes("Dijital Varlıklar — Bağlantılar"));
+});
+
+test("TOC DEDUP — rendered PDF contents page never lists 'Dijital Varlıklar — Dijital Varlıklar'", async (t) => {
+  const payload = buildPreAuditDocumentPayload(baseReport({ digital_presence: DUPLICATE_KEY_PRESENCE as unknown as PreAuditReport["digital_presence"] }), COMPANY_NAME);
+  const pdf = await generatePdfBuffer(payload);
+  const text = pdfTextOf(pdf);
+  if (text === null) { t.skip("pdftotext not installed"); return; }
+  assert.match(text, /İçindekiler/);
+  assert.doesNotMatch(text, /Dijital Varlıklar\s+—\s+Dijital Varlıklar/);
+  assert.match(text, /Dijital Varlıklar/);
+});

@@ -1,6 +1,8 @@
 // Deterministic pre-audit prompt. Only values actually stored on the lead are
 // written; empty fields are omitted, never rendered as undefined/null/[]/{}.
 // Name, email and phone are deliberately excluded from the copied prompt.
+import { NOINDEX_EVIDENCE_RULE } from "./pre-audit/evidence-wording.ts";
+
 export type PreAuditLeadSnapshot = {
   company?: string | null;
   business_type?: string | null;
@@ -59,6 +61,8 @@ export function buildPreAuditLeadPrompt(leadId: string, lead: PreAuditLeadSnapsh
     "Bulamadığın bilgiyi uydurma. Kesin doğrulanamayan bilgiyi kesinmiş gibi yazma.",
     "Reklam hesabına erişimin yoksa aktif reklam performansı hakkında varsayım yapma.",
     "Satış garantisi verme. Gerçek veriye dayanmayan takipçi, trafik, ciro veya reklam sonucu üretme.",
+    "",
+    NOINDEX_EVIDENCE_RULE,
     "",
     "SONUÇ",
     "",

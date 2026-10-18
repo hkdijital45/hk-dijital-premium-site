@@ -11,6 +11,8 @@
 //    worth pursuing?" qualification. Lighter, different MCP tools
 //    (get_candidate_evaluation_context/save_candidate_evaluation), never
 //    calls save_pre_audit_report or vice versa.
+import { NOINDEX_EVIDENCE_RULE } from "./evidence-wording.ts";
+
 export type PromptLead = {
   id: string;
   company?: string | null;
@@ -69,6 +71,8 @@ Telefon: ${who.phone || "-"}
 Instagram: ${who.instagram || "-"}
 
 Doğruladıktan sonra: Google, Google Maps/Local SEO, web sitesi, SEO, sosyal medya (Instagram/Facebook) ve halka açık reklam sinyallerini (Meta/Google Ads) araştır. Yalnızca gerçekten bulduğun/doğrulayabildiğin bilgileri kullan; olmayan metrik uydurma.
+
+${NOINDEX_EVIDENCE_RULE}
 
 Kısa ve profesyonel bir ön inceleme hazırla: yönetici özeti, dijital varlıklar, SWOT (güçlü/zayıf yönler, fırsatlar, tehditler), dijital boşluklar, fırsatlar, önerilen HK Dijital hizmetleri ve paket, başlangıç reklam stratejisi ve bütçe planı.
 

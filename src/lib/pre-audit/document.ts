@@ -372,10 +372,30 @@ function numericMapToTable(obj: Record<string, unknown>): DocumentTable {
   return { headers: ["Kategori", "Değer"], rows: entries.map(([key, v]) => [prettifyKey(key), formatPrimitiveForDisplay(v)]) };
 }
 
+/** Case/whitespace-insensitive Turkish comparison for heading labels. */
+function sameHeading(a: string, b: string): boolean {
+  const norm = (v: string) => v.replace(/\s+/g, " ").trim().toLocaleLowerCase("tr");
+  return norm(a) === norm(b);
+}
+
 function objectToSections(title: string, obj: Record<string, unknown>): DocumentSection[] {
   if (isNumericMap(obj)) return [{ title, table: numericMapToTable(obj) }];
   const remaining: Record<string, unknown> = {};
   const extracted: DocumentSection[] = [];
+  // A nested key whose label repeats the section title (e.g. a
+  // "Dijital Varlıklar" table inside the "Dijital Varlıklar" section) must
+  // never become a "Dijital Varlıklar — Dijital Varlıklar" sub-heading:
+  // its table is attached to the parent section itself instead.
+  let ownTable: DocumentTable | null = null;
+  const addTable = (key: string, table: DocumentTable) => {
+    const label = prettifyKey(key);
+    if (sameHeading(label, title)) {
+      if (!ownTable) { ownTable = table; return; }
+      extracted.push({ title: `${title} (devam)`, level: 2, table });
+      return;
+    }
+    extracted.push({ title: `${title} — ${label}`, table });
+  };
 
   for (const [key, entryValue] of Object.entries(obj)) {
     if (isEmptyValue(entryValue)) continue;
@@ -383,14 +403,14 @@ function objectToSections(title: string, obj: Record<string, unknown>): Document
       const rows = entryValue.filter((item): item is Record<string, unknown> => isPlainObject(item));
       const nonEmptyCount = entryValue.filter((item) => !isEmptyValue(item)).length;
       if (rows.length && rows.length === nonEmptyCount) {
-        extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: arrayOfObjectsToTable(rows) });
+        addTable(key, arrayOfObjectsToTable(rows));
         continue;
       }
     } else if (isPlainObject(entryValue) && isNumericMap(entryValue)) {
-      extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: numericMapToTable(entryValue) });
+      addTable(key, numericMapToTable(entryValue));
       continue;
     } else if (isPlainObject(entryValue) && isLinkBearingObject(entryValue)) {
-      extracted.push({ title: `${title} — ${prettifyKey(key)}`, table: linkBearingObjectToTable(entryValue) });
+      addTable(key, linkBearingObjectToTable(entryValue));
       continue;
     }
     remaining[key] = entryValue;
@@ -398,7 +418,10 @@ function objectToSections(title: string, obj: Record<string, unknown>): Document
 
   const baseItems = renderValueLines(remaining);
   const sections: DocumentSection[] = [];
-  if (baseItems.length) sections.push({ title, items: baseItems });
+  const base: DocumentSection = { title };
+  if (baseItems.length) base.items = baseItems;
+  if (ownTable) base.table = ownTable;
+  if (base.items || base.table) sections.push(base);
   sections.push(...extracted);
   return sections;
 }

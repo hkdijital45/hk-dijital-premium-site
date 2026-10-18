@@ -214,3 +214,43 @@ test("monthly report KPI cards skip absent metrics; mini audit never invents con
   assert.ok(!titles.includes("Teklif") && !titles.includes("Fırsatlar"), "no boilerplate sections without real content");
   assert.ok(!JSON.stringify(audit).includes("10.000 TL"), "no sample prices");
 });
+
+test("TOC — shouldListSubsectionInToc drops repeated/continuation subsections, keeps distinct ones", async () => {
+  const { shouldListSubsectionInToc } = await import("../../../src/lib/server/premium-pdf.ts");
+  assert.equal(shouldListSubsectionInToc("Dijital Varlıklar — Dijital Varlıklar", "Dijital Varlıklar"), false);
+  assert.equal(shouldListSubsectionInToc("Dijital Varlıklar — Dijital Varlıklar", "Başka Bölüm"), false);
+  assert.equal(shouldListSubsectionInToc("dijital varlıklar", "Dijital Varlıklar"), false);
+  assert.equal(shouldListSubsectionInToc("Dijital Varlıklar (devam)", "Dijital Varlıklar"), false);
+  assert.equal(shouldListSubsectionInToc("Dijital Varlıklar — Bağlantılar", "Dijital Varlıklar"), true);
+  assert.equal(shouldListSubsectionInToc("Bütçe Planı — Dağılım", "Bütçe Planı"), true);
+});
+
+test("TOC — section numbering and page numbers stay correct when a duplicate subsection is skipped", async () => {
+  const payload: DocumentPayload = {
+    title: "HK Dijital — Ön İnceleme Raporu", customerName: "Örnek İşletme", period: "18.10.2026",
+    executiveSummary: "Kısa özet.",
+    sections: [
+      { title: "Dijital Varlıklar", text: "Metin." },
+      { title: "Dijital Varlıklar — Dijital Varlıklar", text: "Tekrar." },
+      { title: "Dijital Varlıklar — Bağlantılar", text: "Bağlantılar." },
+      { title: "Google Analizi", text: "Metin." },
+      { title: "SEO Analizi", text: "Metin." },
+      { title: "Sonraki Adım", text: "Metin." }
+    ]
+  };
+  const pdf = await generatePdfBuffer(payload);
+  if (!hasPdftotext()) return;
+  const text = pdfText(pdf);
+  const tocPage = text.split("\f")[1] || "";
+  assert.match(tocPage, /İçindekiler/);
+  assert.doesNotMatch(tocPage, /Dijital Varlıklar\s+—\s+Dijital Varlıklar/);
+  assert.match(tocPage, /Dijital Varlıklar\s+—\s+Bağlantılar/);
+  for (const [num, title] of [["01", "Dijital Varlıklar"], ["02", "Google Analizi"], ["03", "SEO Analizi"], ["04", "Sonraki Adım"]]) {
+    assert.match(tocPage, new RegExp(`${num}\\s+${title}`));
+  }
+  const pages = text.split("\f");
+  const tocLine = tocPage.split("\n").find((l) => /SEO Analizi/.test(l)) || "";
+  const pageNo = Number(tocLine.trim().split(/\s+/).pop());
+  assert.ok(Number.isInteger(pageNo) && pageNo > 2, `TOC page label: ${tocLine}`);
+  assert.match(pages[pageNo - 1] || "", /SEO Analizi/, "the TOC page number points at the real page");
+});
