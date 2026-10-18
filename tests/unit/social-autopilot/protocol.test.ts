@@ -77,6 +77,26 @@ test("validateArguments: rejects a non-object arguments payload", () => {
   assert.throws(() => validateArguments(tool, "not-an-object" as unknown as Record<string, unknown>), ControlError);
 });
 
+// maxLength regression — see src/lib/instagram-intelligence/lead-evaluation.ts's
+// save_lead_instagram_evaluation, the real caller that needed a string field
+// longer than the shared 4000-char default (a full Instagram Değerlendirme
+// report can legitimately run past 15,000 characters). The field type gained
+// an optional `maxLength`; every existing tool/field left it unset, so this
+// proves the default (4000) is unchanged for them while a field that opts in
+// gets its own cap.
+test("validateArguments: a string field with no maxLength keeps the default 4000-char limit (backward compatible)", () => {
+  const tool: Tool = { name: "fixture_default_length", permission: "READ_ONLY", description: "", inputSchema: { type: "object", properties: { note: { type: "string" } }, required: [], additionalProperties: false } };
+  assert.doesNotThrow(() => validateArguments(tool, { note: "a".repeat(4000) }));
+  assert.throws(() => validateArguments(tool, { note: "a".repeat(4001) }), ControlError);
+});
+
+test("validateArguments: a string field with an explicit maxLength uses that limit instead of the 4000 default", () => {
+  const tool: Tool = { name: "fixture_long_text", permission: "WRITE_SAFE", description: "", inputSchema: { type: "object", properties: { reportText: { type: "string", maxLength: 50000 } }, required: [], additionalProperties: false } };
+  assert.doesNotThrow(() => validateArguments(tool, { reportText: "a".repeat(15726) }), "a real 15,726-character report must be accepted");
+  assert.doesNotThrow(() => validateArguments(tool, { reportText: "a".repeat(50000) }), "exactly 50,000 characters must be accepted");
+  assert.throws(() => validateArguments(tool, { reportText: "a".repeat(50001) }), ControlError, "50,001 characters must be rejected");
+});
+
 test("sanitize: redacts a configured secret value found anywhere in output text", () => {
   const env = { SOME_API_SECRET: "sk-super-secret-value-123" };
   const result = sanitize({ message: "token was sk-super-secret-value-123 during the call" }, env) as { message: string };

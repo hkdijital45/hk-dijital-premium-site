@@ -51,6 +51,42 @@ test("MCP REGRESSION — execute() rejects unknown tool names as UNKNOWN_TOOL (s
   await assert.rejects(() => execute("get_lead_instagram_evaluation", {}), (error: unknown) => error instanceof ControlError && (error as InstanceType<typeof ControlError>).code === "UNKNOWN_TOOL");
 });
 
+// --- 4000-char MCP wire limit fix: save_lead_instagram_evaluation.reportText
+// needed to accept a full, real 15,726-character Instagram Değerlendirme
+// report (18 sections) without truncation — the shared validateArguments()
+// in social-autopilot/control/protocol.ts hard-coded every string field to
+// 4000 chars. Fixed by adding an opt-in `maxLength` to the field type
+// (default stays 4000 for every field that doesn't set it); reportText is
+// now the one field that opts into 50000. ---
+
+test("MCP REGRESSION — save_lead_instagram_evaluation's reportText field is registered with a 50000-char maxLength, notes keeps the shared 4000-char default", async () => {
+  const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const tool = tools.find((t: any) => t.name === "save_lead_instagram_evaluation")!;
+  assert.equal(tool.inputSchema.properties.reportText.maxLength, 50000);
+  assert.equal(tool.inputSchema.properties.notes.maxLength, undefined, "notes must keep the shared 4000-char default, never widened");
+});
+
+test("validateArguments (the real MCP wire-level check) — accepts a real 15,726-char reportText, accepts exactly 50,000, rejects 50,001, while notes still rejects over 4000", async () => {
+  const { tools, validateArguments } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  const tool = tools.find((t: any) => t.name === "save_lead_instagram_evaluation")!;
+  const leadId = "00000000-0000-4000-8000-000000000000";
+  assert.doesNotThrow(() => validateArguments(tool, { leadId, reportText: "a".repeat(15726) }), "the real ALTIN SEYİT report length (15,726 chars) must pass");
+  assert.doesNotThrow(() => validateArguments(tool, { leadId, reportText: "a".repeat(50000) }));
+  assert.throws(() => validateArguments(tool, { leadId, reportText: "a".repeat(50001) }));
+  assert.doesNotThrow(() => validateArguments(tool, { leadId, notes: "a".repeat(4000) }));
+  assert.throws(() => validateArguments(tool, { leadId, notes: "a".repeat(4001) }), "notes must still reject over 4000 — this field was never widened");
+});
+
+test("MCP REGRESSION — every OTHER registered tool's string fields are unaffected (no field anywhere else silently gained a maxLength)", async () => {
+  const { tools } = await import("../../../src/lib/instagram-intelligence/mcp/protocol.ts");
+  for (const tool of tools) {
+    if (tool.name === "save_lead_instagram_evaluation") continue;
+    for (const [key, field] of Object.entries(tool.inputSchema.properties) as Array<[string, any]>) {
+      if (field.type === "string") assert.equal(field.maxLength, undefined, `${tool.name}.${key} must not have gained a maxLength — only save_lead_instagram_evaluation.reportText should`);
+    }
+  }
+});
+
 // --- Prompt copy (HK Admin -> Claude, no copy-paste back required) ---
 
 test("AdInsightsCenter's lead prompt references the real get_lead_instagram_evaluation_context/save_lead_instagram_evaluation tool names and the real leadId, never a secret", async () => {
@@ -127,6 +163,37 @@ test("Lead Instagram Değerlendirme — full context/save/update/list/get cycle 
     } finally {
       await supabaseRest(`leads?id=eq.${otherLead.id}`, { method: "DELETE" });
     }
+  } finally {
+    await supabaseRest(`manual_evaluations?lead_id=eq.${leadId}`, { method: "DELETE" });
+    await supabaseRest(`leads?id=eq.${leadId}`, { method: "DELETE" });
+  }
+});
+
+test("Lead Instagram Değerlendirme — a full 15,726-char long-form report survives the save/read-back cycle with zero truncation (API -> DB -> read)", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const { saveLeadInstagramEvaluation } = await import("../../../src/lib/instagram-intelligence/lead-evaluation.ts");
+  const { getManualEvaluation } = await import("../../../src/lib/manual-evaluations.ts");
+
+  const unique = `QA Lead IG LongReport ${Date.now()}`;
+  const [lead] = await supabaseRest<Array<{ id: string }>>("leads", { method: "POST", body: JSON.stringify({ company: unique, status: "yeni" }) });
+  const leadId = lead.id;
+
+  // A real-shaped 18-section long-form report, built to land at exactly
+  // 15,726 characters — the length of the actual ALTIN SEYİT report that
+  // the shared 4000-char limit was rejecting before this fix.
+  const sectionBody = "Bu bölümde gerçek, uzun biçimli Instagram Değerlendirme analiz metni yer alır. ".repeat(12);
+  let longReport = Array.from({ length: 18 }, (_, i) => `BÖLÜM ${i + 1}\n${sectionBody}`).join("\n\n");
+  longReport = longReport.length >= 15726 ? longReport.slice(0, 15726) : longReport.padEnd(15726, "x");
+  assert.equal(longReport.length, 15726);
+
+  try {
+    const saved = await saveLeadInstagramEvaluation({ leadId, title: "ALTIN SEYİT Instagram Değerlendirmesi", reportText: longReport });
+    assert.equal(saved.claude_import?.text.length, 15726, "the saved row must preserve the full report length, not a truncated/summarized version");
+    assert.equal(saved.claude_import?.text, longReport, "content must be byte-for-byte identical, never silently altered");
+
+    const readBack = await getManualEvaluation(saved.id);
+    assert.equal(readBack.claude_import?.text.length, 15726, "reading the row back from the database must still return the full, untruncated report");
+    assert.equal(readBack.claude_import?.text, longReport);
   } finally {
     await supabaseRest(`manual_evaluations?lead_id=eq.${leadId}`, { method: "DELETE" });
     await supabaseRest(`leads?id=eq.${leadId}`, { method: "DELETE" });
