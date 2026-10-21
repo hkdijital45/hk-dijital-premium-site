@@ -122,12 +122,13 @@ export function TrackingPlaceholders({ ids }: Props) {
         script.src = `https://www.googletagmanager.com/gtm.js?id=${gtm}`;
       } else {
         window.gtag("js", new Date());
-        window.gtag("config", ga, { send_page_view: false });
-        // The GA4 destination (`ga`) is a connected site tag under the
-        // primary Google tag — its own ID is not servable as a script
-        // loader (confirmed 404), so the <script> must load via the
-        // primary tag's ID while `gtag('config', ga, ...)` above still
-        // targets the real GA4 destination. See GOOGLE_TAG_LOADER_ID.
+        // `ga` (the admin-configured site_settings value) only gates
+        // whether direct GA4 mode is enabled at all — the destination it
+        // actually configures is GOOGLE_TAG_LOADER_ID, the only ID
+        // verified live on Google's servers in every capacity (script
+        // load AND destination-config fetch). See its doc comment in
+        // ga-events.ts for the full verification trail.
+        window.gtag("config", GOOGLE_TAG_LOADER_ID, { send_page_view: false });
         script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_TAG_LOADER_ID}`;
       }
       document.head.appendChild(script);

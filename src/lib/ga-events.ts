@@ -32,17 +32,19 @@ export function pushGaEvent(name: string, params?: Record<string, unknown>) {
 // fabricated number here (see the final audit report).
 export const GOOGLE_ADS_LEAD_CONVERSION_SEND_TO = "AW-17670817544/cldVCND5xd4bEIiOjepB";
 
-// Google tag "connected site tags" setup (confirmed via GA4 Admin > Data
-// Streams > manual install instructions, and via direct HTTP checks on
-// 2026-10-21): the GA4 destination G-WN98CMWEZF and the Google Ads
-// destination AW-17670817544 are BOTH connected under one primary Google
-// tag, G-SMGL6PEYJ1 — only the primary tag's own ID is servable at
-// https://www.googletagmanager.com/gtag/js?id=... (verified HTTP 200);
-// loading the script with a connected destination's own ID 404s (verified
-// HTTP 404 for G-WN98CMWEZF), which is why no events were reaching GA4 at
-// all. The destination ID itself does NOT change — gtag('config', ...)
-// is still called with G-WN98CMWEZF exactly as before; only the <script>
-// src must use this primary loader ID.
+// The GA4 measurement ID stored in admin-configurable site_settings
+// (G-WN98CMWEZF) was initially assumed to be a "connected site tag"
+// destination under this ID, since G-SMGL6PEYJ1 alone served gtag.js
+// successfully. Direct re-verification on 2026-10-21 disproved that:
+// G-WN98CMWEZF 404s not only as a script loader but ALSO as a destination
+// config fetch (`gtag/js?id=G-WN98CMWEZF&cx=c`) — the exact request
+// Google Tag Assistant reported failing — meaning Google's servers do not
+// recognize this ID in ANY capacity (it is stale/deleted/never valid).
+// G-SMGL6PEYJ1 and AW-17670817544 both succeed in every capacity tested.
+// G-SMGL6PEYJ1 is therefore the only verified-real, currently live GA4
+// measurement ID (also the one GA4's own "manual install" instructions
+// recommend for this property) and is used for BOTH the script loader
+// and the gtag('config', ...) destination — not merely the loader.
 export const GOOGLE_TAG_LOADER_ID = "G-SMGL6PEYJ1";
 
 export function fireGoogleAdsConversion(sendTo: string) {
