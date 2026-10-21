@@ -7,6 +7,7 @@ import { MarketingCard } from "./marketing/MarketingUI";
 export function ContactForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <MarketingCard className="p-7">
@@ -15,27 +16,36 @@ export function ContactForm() {
         className="mt-6 grid gap-4"
         onSubmit={async (event) => {
           event.preventDefault();
+          // Guards against a double-click/double-tap firing two concurrent
+          // /api/leads requests for one real submission, and against the
+          // already-shown success state being resubmitted — either would
+          // double-count the Google Ads/Meta/GA4 conversion for one lead.
+          if (submitting || sent) return;
           setError("");
-          setSent(false);
-          const formData = new FormData(event.currentTarget);
-          const response = await fetch("/api/leads", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              source: "contact",
-              name: formData.get("name"),
-              email: formData.get("email"),
-              phone: formData.get("phone"),
-              company: formData.get("company"),
-              note: formData.get("note")
-            })
-          });
-          if (!response.ok) {
-            setError("Mesajınız gönderilemedi. Lütfen daha sonra tekrar deneyin veya WhatsApp üzerinden iletişime geçin.");
-            return;
+          setSubmitting(true);
+          try {
+            const formData = new FormData(event.currentTarget);
+            const response = await fetch("/api/leads", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                source: "contact",
+                name: formData.get("name"),
+                email: formData.get("email"),
+                phone: formData.get("phone"),
+                company: formData.get("company"),
+                note: formData.get("note")
+              })
+            });
+            if (!response.ok) {
+              setError("Mesajınız gönderilemedi. Lütfen daha sonra tekrar deneyin veya WhatsApp üzerinden iletişime geçin.");
+              return;
+            }
+            setSent(true);
+            trackEvent("contact_form_submitted", { form_name: "İletişim Formu" });
+          } finally {
+            setSubmitting(false);
           }
-          setSent(true);
-          trackEvent("contact_form_submitted", { form_name: "İletişim Formu" });
         }}
       >
         {[
@@ -53,7 +63,7 @@ export function ContactForm() {
           Mesajınız
           <textarea name="note" required rows={5} className="rounded-[10px] border px-4 py-3 outline-none transition focus:ring-2" style={{ borderColor: "var(--mk-border-strong)", background: "var(--mk-surface)", color: "var(--mk-ink)" }} />
         </label>
-        <button type="submit" className="marketing-btn marketing-btn-primary">Gönder</button>
+        <button type="submit" disabled={submitting || sent} className="marketing-btn marketing-btn-primary disabled:cursor-not-allowed disabled:opacity-40">{submitting ? "Gönderiliyor…" : "Gönder"}</button>
         {error && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(220,38,38,.08)", color: "#b91c1c" }}>{error}</p>}
         {sent && <p className="rounded-[10px] p-4 text-sm" style={{ background: "rgba(16, 124, 115,.08)", color: "var(--mk-violet)" }}>Mesajınız alındı. HK Dijital ekibi bilgilerinizi inceleyip uygun zamanda dönüş yapacaktır.</p>}
       </form>

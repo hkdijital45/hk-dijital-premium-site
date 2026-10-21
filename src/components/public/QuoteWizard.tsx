@@ -20,6 +20,7 @@ type ContactStepProps = {
   setForm: Dispatch<SetStateAction<Answers>>;
   error: string;
   sent: boolean;
+  submitting: boolean;
   submit: () => void;
   whatsappUrl: string | null;
   back: () => void;
@@ -55,6 +56,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   const [form, setForm] = useState<Answers>({});
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const resolvedBusinessCategory = resolveBusinessCategory(answers.businessType, customBusinessType);
   const resolvedPlatformLabel = platformSelectionLabel(selectedPlatforms);
@@ -114,38 +116,48 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
   }
 
   async function submit() {
+    // Guards against a double-click/double-tap firing two concurrent
+    // /api/leads requests for one real submission, and against the
+    // already-shown success button being clicked again — either would
+    // double-count the Google Ads/Meta/GA4 conversion for one genuine lead.
+    if (submitting || sent) return;
     const missing = wizard.formFields.find((field) => field.required && !form[field.id]?.trim());
     if (missing) {
       setError(`${missing.label} alanı zorunludur.`);
       return;
     }
     setError("");
-    const response = await fetch("/api/leads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        source: "quote",
-        ...form,
-        businessType: resolvedBusinessCategory,
-        goal: selectedLabel(goalCards, answers.goal),
-        platforms: selectedPlatforms,
-        platformNeed: resolvedPlatformLabel,
-        budget: selectedLabel(budgetCards, answers.budget),
-        contentNeed: packageChoiceLabel("content", answers.contentNeed),
-        urgency: packageChoiceLabel("urgency", answers.urgency),
-        socialStatus: packageChoiceLabel("social", answers.socialStatus),
-      })
-    });
-    if (!response.ok) {
-      setError("Form gönderilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.");
-      return;
+    setSubmitting(true);
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "quote",
+          ...form,
+          businessType: resolvedBusinessCategory,
+          goal: selectedLabel(goalCards, answers.goal),
+          platforms: selectedPlatforms,
+          platformNeed: resolvedPlatformLabel,
+          budget: selectedLabel(budgetCards, answers.budget),
+          contentNeed: packageChoiceLabel("content", answers.contentNeed),
+          urgency: packageChoiceLabel("urgency", answers.urgency),
+          socialStatus: packageChoiceLabel("social", answers.socialStatus),
+        })
+      });
+      if (!response.ok) {
+        setError("Form gönderilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.");
+        return;
+      }
+      setSent(true);
+      // A single event per successful submission — this used to also fire a
+      // second "lead_form_submitted" right after, which double-counted the
+      // same conversion in Meta Pixel, first-party analytics and now GA4
+      // (all three key off the "form_submitted" substring in trackEvent).
+      trackEvent("quote_form_submitted", { form_name: "Dijital Pazarlama Ön Analizi" });
+    } finally {
+      setSubmitting(false);
     }
-    setSent(true);
-    // A single event per successful submission — this used to also fire a
-    // second "lead_form_submitted" right after, which double-counted the
-    // same conversion in Meta Pixel, first-party analytics and now GA4
-    // (all three key off the "form_submitted" substring in trackEvent).
-    trackEvent("quote_form_submitted", { form_name: "Dijital Pazarlama Ön Analizi" });
   }
 
   const whatsappNumber = resolvePublicWhatsappNumber(content.contact.whatsappNumber);
@@ -215,7 +227,7 @@ export function QuoteWizard({ content }: { content: QuoteContent }) {
               {step === 5 && <StepPanel key="analysis"><PreAnalysisResult summary={analysisSummary} platforms={selectedPlatforms} whatsappUrl={whatsappUrl} onNext={() => setStep(6)} /></StepPanel>}
               {step === 6 && (
                 <StepPanel key="contact">
-                  <ContactStep wizard={wizard} form={form} setForm={setForm} error={error} sent={sent} submit={submit} whatsappUrl={whatsappUrl} back={() => setStep(5)} />
+                  <ContactStep wizard={wizard} form={form} setForm={setForm} error={error} sent={sent} submitting={submitting} submit={submit} whatsappUrl={whatsappUrl} back={() => setStep(5)} />
                 </StepPanel>
               )}
             </AnimatePresence>
@@ -513,7 +525,7 @@ function AddressField({ value, onChange }: { value: string; onChange: (value: st
   );
 }
 
-function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, back }: ContactStepProps) {
+function ContactStep({ wizard, form, setForm, error, sent, submitting, submit, whatsappUrl, back }: ContactStepProps) {
   return (
     <div>
       <h2 className="text-3xl font-black sm:text-4xl" style={{ color: "var(--mk-ink)" }}>Analizinizi Tamamlayın</h2>
@@ -549,7 +561,7 @@ function ContactStep({ wizard, form, setForm, error, sent, submit, whatsappUrl, 
       )}
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <button onClick={back} className="marketing-btn marketing-btn-secondary"><ArrowLeft size={17} /> Geri</button>
-        <button onClick={submit} className="marketing-btn marketing-btn-primary">Analizimi Gönder</button>
+        <button onClick={submit} disabled={submitting || sent} className="marketing-btn marketing-btn-primary disabled:cursor-not-allowed disabled:opacity-40">{submitting ? "Gönderiliyor…" : "Analizimi Gönder"}</button>
       </div>
     </div>
   );
