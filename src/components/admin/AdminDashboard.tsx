@@ -63,6 +63,7 @@ import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { MissionControl } from "@/components/admin/dashboard/MissionControl";
 import type { DashboardStatCard } from "@/components/admin/dashboard/DashboardOverviewV2";
+import { monthOverMonthTrend } from "@/lib/dashboard-overview-helpers";
 import { istanbulDateString } from "@/lib/analytics-time";
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
@@ -2910,12 +2911,23 @@ function Overview({ content, setContent, setActive, supabaseConfigured, systemSt
   // card is never off-by-one around the UTC/Istanbul midnight boundary.
   const istanbulToday = istanbulDateString(new Date());
   const dashboardOverdueTasks = activeTasks.filter((item) => item.due_date && dateOnly(item.due_date) < istanbulToday && !["Tamamlandı", "İptal"].includes(item.status));
+  // Real month-over-month deltas — only for metrics that are genuinely a
+  // time series (new leads created, new active customers acquired, revenue
+  // collected); Bekleyen Teklif/Geciken Görev are point-in-time snapshots
+  // with no stored daily history to compare against, so their cards show a
+  // neutral caption instead of a fabricated/misleading percentage.
+  const lastMonth = (() => { const [y, m] = month.split("-").map(Number); const d = new Date(Date.UTC(y, m - 2, 1)); return d.toISOString().slice(0, 7); })();
+  const newLeadsLastMonth = leads.filter((lead) => String(lead.created_at || "").startsWith(lastMonth)).length;
+  const newCustomersThisMonth = activeCustomers.filter((company) => String(company.created_at || "").startsWith(month)).length;
+  const newCustomersLastMonth = activeCustomers.filter((company) => String(company.created_at || "").startsWith(lastMonth)).length;
+  const lastMonthPayments = activePayments.filter((item) => String(item.service_period || item.due_date || "").startsWith(lastMonth));
+  const paidRevenueLastMonth = lastMonthPayments.filter((item) => item.status === "Ödendi").reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const dashboardStatCards: DashboardStatCard[] = [
-    { label: "Yeni Lead", value: newLeads.length, hint: "Durumu 'Yeni' olan başvurular", icon: <UsersRound size={18} />, tone: "info", target: "Lead Merkezi" },
-    { label: "Aktif Müşteri", value: activeCustomers.length, hint: "Hizmeti devam eden firmalar", icon: <Building2 size={18} />, tone: "success", target: "Müşteriler" },
-    { label: "Bekleyen Teklif", value: pendingProposalCount, hint: "Karar veya revize bekleyen teklifler", icon: <FileBarChart size={18} />, tone: "warning", target: "Lead Merkezi" },
-    { label: "Geciken Görev", value: dashboardOverdueTasks.length, hint: "Süresi geçmiş, tamamlanmamış görevler", icon: <AlertTriangle size={18} />, tone: "danger", target: "Görevler" },
-    { label: "Aylık Gelir", value: `${paidRevenue.toLocaleString("tr-TR")} TL`, hint: "Bu ay tahsil edilen toplam", icon: <CircleCheck size={18} />, tone: "success", target: "Tahsilat" }
+    { label: "Yeni Lead", value: newLeads.length, trend: monthOverMonthTrend(newLeads.length, newLeadsLastMonth), neutralHint: "Durumu 'Yeni' olan başvurular", icon: <UsersRound size={18} />, tone: "info", target: "Lead Merkezi" },
+    { label: "Aktif Müşteri", value: activeCustomers.length, trend: monthOverMonthTrend(newCustomersThisMonth, newCustomersLastMonth), neutralHint: "Hizmeti devam eden firmalar", icon: <Building2 size={18} />, tone: "success", target: "Müşteriler" },
+    { label: "Bekleyen Teklif", value: pendingProposalCount, trend: null, neutralHint: "Şu an karar/revize bekleyen teklif sayısı", icon: <FileBarChart size={18} />, tone: "warning", target: "Lead Merkezi" },
+    { label: "Geciken Görev", value: dashboardOverdueTasks.length, trend: null, neutralHint: dashboardOverdueTasks.length ? "Dikkat gerekebilir" : "Gecikmiş görev yok", icon: <AlertTriangle size={18} />, tone: "danger", target: "Görevler" },
+    { label: "Aylık Gelir", value: `₺${paidRevenue.toLocaleString("tr-TR")}`, trend: monthOverMonthTrend(paidRevenue, paidRevenueLastMonth), neutralHint: "Bu ay tahsil edilen toplam", icon: <CircleCheck size={18} />, tone: "info", target: "Tahsilat" }
   ];
   const lightOverviewCards = [
     ["Bu Ay Tahsil Edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Ödenen toplam", <CircleCheck size={20} />, "bg-green-50 text-green-700"],

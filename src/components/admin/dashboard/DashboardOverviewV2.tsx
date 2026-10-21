@@ -1,43 +1,68 @@
 "use client";
 
-// HK Admin Dashboard V2 — stat cards, "Bugün Yapılacaklar" task table and
-// the 6-chart analytics section. Additive: rendered as a new top section
-// inside MissionControl (see MissionControl.tsx), every existing widget
-// below it is untouched. Reuses the app's only chart primitives
-// (src/components/admin/analytics/charts.tsx — hand-rolled SVG, no new
-// charting dependency) and the shared AdminPeriodFilter/admin-period-filter
-// date-range convention already used by the finance workspaces.
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+// HK Admin Dashboard V3 — pixel-close rebuild of the Genel Bakış content
+// against a supplied reference screenshot: header (title/subtitle + date +
+// period selector), 5 stat cards, "Bugün Yapılacaklar" task table with
+// status counters, and a 3x2 light-themed chart grid. This REPLACES
+// MissionControl's old rendered body for this view (see MissionControl.tsx
+// — legacy widgets are no longer rendered here, their components/APIs are
+// untouched and still used elsewhere). Reuses the app's only chart
+// primitives (analytics/charts.tsx, now theme="light"-capable — see that
+// file) and the shared admin-period-filter date-range convention; no new
+// chart library, no new dependency.
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowRight, Calendar } from "lucide-react";
 import { AdminStatusBadge, type AdminStatusTone } from "@/components/admin/ui/AdminStatusBadge";
-import { AdminPeriodFilter } from "@/components/admin/ui/AdminPeriodFilter";
-import { resolveAdminPeriodRange, type AdminPeriodKey } from "@/lib/admin-period-filter";
+import { adminPeriodOptions, resolveAdminPeriodRange, type AdminPeriodKey } from "@/lib/admin-period-filter";
 import { AnalyticsBarChart, AnalyticsDonutChart, AnalyticsLineChart, type SeriesPoint } from "@/components/admin/analytics/charts";
-import { formatReportDate } from "@/lib/report-timestamp";
 import { istanbulDateString } from "@/lib/analytics-time";
-import { dateOnly, monthKey, monthLabel, monthBuckets, taskSource, relatedRecordLabel, assignedUserLabel } from "@/lib/dashboard-overview-helpers";
+import { dateOnly, monthKey, monthLabel, monthBuckets, taskSource, relatedRecordLabel, assignedUserLabel, assignedUserInitials, taskDateTimeLabel } from "@/lib/dashboard-overview-helpers";
+import { useProposalStatusCounts } from "./useProposalStatusCounts";
 import type { NavigateFn } from "./types";
 
-export type DashboardStatCard = { label: string; value: ReactNode; hint: string; icon: ReactNode; tone: string; target: string };
+export type DashboardStatCard = { label: string; value: ReactNode; trend: { direction: "up" | "down"; percent: number } | null; neutralHint: string; icon: ReactNode; tone: "info" | "success" | "warning" | "danger"; target: string };
 
-// Mirrors AdminDashboard.tsx's own leadSourceOptions (not exported from
-// that file) — kept as a literal here rather than forcing an export-only
-// refactor of an unrelated ~16,000-line component for one shared array.
 const LEAD_SOURCE_OPTIONS = ["İletişim Formu", "Teklif Formu", "Teklif Sihirbazı", "Müşteri Bulucu", "Meta Analiz", "Google Ads Analiz", "Instagram", "WhatsApp", "Referans", "Manuel Giriş", "Diğer"];
-const DONUT_PALETTE = ["#0891b2", "#059669", "#d97706", "#dc2626", "#7c3aed", "#2563eb", "#64748b", "#db2777", "#0d9488", "#ca8a04", "#4f46e5"];
+const DONUT_PALETTE = ["#1673F9", "#0AA66A", "#F4B400", "#E53935", "#7c3aed", "#64748b", "#0d9488", "#ca8a04", "#4f46e5", "#db2777", "#2563eb"];
+const TONE_BG: Record<string, string> = { info: "bg-blue-50 text-blue-700", success: "bg-emerald-50 text-emerald-700", warning: "bg-amber-50 text-amber-700", danger: "bg-red-50 text-red-700" };
 
 function priorityTone(priority?: string): AdminStatusTone {
   if (priority === "Kritik") return "danger";
   if (priority === "Yüksek") return "warning";
-  return "info";
+  return "neutral";
 }
 
 function statusTone(status?: string): AdminStatusTone {
   if (status === "Tamamlandı") return "success";
   if (status === "İptal") return "neutral";
   if (status === "Devam Ediyor") return "info";
-  if (status === "Beklemede") return "warning";
-  return "neutral";
+  return "warning";
+}
+
+// --- Header: title/subtitle (left) + date + global period selector (right) ---
+
+function DashboardHeaderBar({ periodKey, onPeriodChange }: { periodKey: AdminPeriodKey; onPeriodChange: (key: AdminPeriodKey) => void }) {
+  const today = useMemo(() => new Intl.DateTimeFormat("tr-TR", { timeZone: "Europe/Istanbul", day: "2-digit", month: "long", year: "numeric" }).format(new Date()), []);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-black" style={{ color: "var(--admin-text-primary)" }}>Genel Bakış</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--admin-text-secondary)" }}>Bugünkü işleriniz, performansınız ve önemli istatistikler</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="admin-card flex items-center gap-2 rounded-[10px] px-3 py-2 text-xs font-bold" style={{ color: "var(--admin-text-secondary)" }}><Calendar size={14} /> {today}</span>
+        <select
+          value={periodKey}
+          onChange={(event) => onPeriodChange(event.target.value as AdminPeriodKey)}
+          className="admin-card min-h-9 rounded-[10px] px-3 text-xs font-bold"
+          style={{ color: "var(--admin-text-secondary)" }}
+          aria-label="Raporlama dönemi"
+        >
+          {adminPeriodOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+        </select>
+      </div>
+    </div>
+  );
 }
 
 // --- 5 stat cards -----------------------------------------------------
@@ -46,21 +71,18 @@ function StatCardsRow({ cards, onNavigate }: { cards: DashboardStatCard[]; onNav
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
-        <button
-          type="button"
-          key={card.label}
-          onClick={() => onNavigate(card.target)}
-          className="admin-card rounded-[16px] p-4 text-left transition hover:shadow-lg"
-          style={{ borderColor: "var(--admin-border)" }}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className={`grid size-9 place-items-center rounded-[10px] ${
-              card.tone === "danger" ? "bg-red-50 text-red-700" : card.tone === "warning" ? "bg-amber-50 text-amber-700" : card.tone === "success" ? "bg-emerald-50 text-emerald-700" : "bg-cyan-50 text-cyan-700"
-            }`}>{card.icon}</span>
-          </div>
-          <p className="mt-3 text-2xl font-black" style={{ color: "var(--admin-text-primary)" }}>{card.value}</p>
-          <p className="mt-0.5 text-xs font-black uppercase tracking-wide" style={{ color: "var(--admin-text-secondary)" }}>{card.label}</p>
-          <p className="mt-1 text-[11px]" style={{ color: "var(--admin-text-muted)" }}>{card.hint}</p>
+        <button type="button" key={card.label} onClick={() => onNavigate(card.target)} className="admin-card rounded-[14px] p-4 text-left transition hover:shadow-md">
+          <span className={`grid size-10 place-items-center rounded-[10px] ${TONE_BG[card.tone]}`}>{card.icon}</span>
+          <p className="mt-3 text-[13px] font-bold" style={{ color: "var(--admin-text-secondary)" }}>{card.label}</p>
+          <p className="text-2xl font-black leading-tight" style={{ color: "var(--admin-text-primary)" }}>{card.value}</p>
+          {card.trend ? (
+            <p className={`mt-1.5 flex items-center gap-1 text-xs font-black ${card.trend.direction === "up" ? "text-emerald-600" : "text-red-600"}`}>
+              {card.trend.direction === "up" ? "↑" : "↓"} %{card.trend.percent}
+              <span className="font-bold" style={{ color: "var(--admin-text-muted)" }}>Geçen aya göre</span>
+            </p>
+          ) : (
+            <p className="mt-1.5 text-xs font-bold" style={{ color: "var(--admin-text-muted)" }}>{card.neutralHint}</p>
+          )}
         </button>
       ))}
     </div>
@@ -69,78 +91,98 @@ function StatCardsRow({ cards, onNavigate }: { cards: DashboardStatCard[]; onNav
 
 // --- "Bugün Yapılacaklar" task table -----------------------------------
 
+type TaskFilter = "all" | "overdue" | "pending" | "done";
+
 function TodayTasksTable({
   tasks, companies, leads, users, completingIds, onCompleteTask, onNavigate
 }: {
   tasks: any[]; companies: any[]; leads: any[]; users: any[];
   completingIds: Set<string>; onCompleteTask: (id: string) => void; onNavigate: NavigateFn;
 }) {
+  const [filter, setFilter] = useState<TaskFilter>("all");
+  const counts = useMemo(() => ({
+    all: tasks.length,
+    overdue: tasks.filter((t) => t.__overdue).length,
+    pending: tasks.filter((t) => !t.__overdue && t.status !== "Tamamlandı").length,
+    done: tasks.filter((t) => t.status === "Tamamlandı").length
+  }), [tasks]);
+  const visible = filter === "all" ? tasks : filter === "overdue" ? tasks.filter((t) => t.__overdue) : filter === "pending" ? tasks.filter((t) => !t.__overdue && t.status !== "Tamamlandı") : tasks.filter((t) => t.status === "Tamamlandı");
+
+  const pill = (key: TaskFilter, label: string, tone: string) => (
+    <button
+      type="button"
+      key={key}
+      onClick={() => setFilter(key)}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black transition ${filter === key ? tone : "border"}`}
+      style={filter === key ? undefined : { borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }}
+    >
+      {label} <span className={filter === key ? "" : "rounded-full px-1.5"} style={filter === key ? undefined : { background: "var(--admin-surface-soft)" }}>{counts[key]}</span>
+    </button>
+  );
+
   return (
-    <div className="admin-card rounded-[20px] p-5">
+    <div className="admin-card rounded-[16px] p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black" style={{ color: "var(--admin-text-primary)" }}>Bugün Yapılacaklar</h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--admin-text-secondary)" }}>Geciken görevler en üstte, ardından bugün bekleyenler ve bugün tamamlananlar.</p>
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-[10px] bg-blue-50 text-blue-700"><Calendar size={18} /></span>
+          <div>
+            <h2 className="text-base font-black" style={{ color: "var(--admin-text-primary)" }}>Bugün Yapılacaklar</h2>
+            <p className="text-xs" style={{ color: "var(--admin-text-secondary)" }}>Bugünkü ve gecikmiş görevleriniz</p>
+          </div>
         </div>
-        <button type="button" onClick={() => onNavigate("Görevler")} className="hk-button hk-button-compact hk-button-info">Tüm Görevleri Görüntüle <ArrowRight size={14} /></button>
+        <div className="flex flex-wrap items-center gap-2">
+          {pill("all", "Tümü", "bg-blue-600 text-white")}
+          {pill("overdue", "Geciken", "bg-red-600 text-white")}
+          {pill("pending", "Bekleyen", "bg-amber-500 text-white")}
+          {pill("done", "Yapılan", "bg-emerald-600 text-white")}
+          <button type="button" onClick={() => onNavigate("Görevler")} className="ml-1 flex items-center gap-1 text-xs font-black text-blue-700">Tüm görevleri görüntüle <ArrowRight size={13} /></button>
+        </div>
       </div>
 
-      {tasks.length === 0 ? (
-        <p className="mt-4 rounded-[14px] border border-dashed p-5 text-center text-sm" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>
-          Bugün için bekleyen veya geciken görev yok.
+      {visible.length === 0 ? (
+        <p className="mt-4 rounded-[14px] border border-dashed p-6 text-center text-sm" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>
+          Bu filtrede görev yok.
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[840px] text-left text-sm">
             <thead>
-              <tr className="text-[11px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
-                <th className="p-2 w-10"></th>
+              <tr className="text-[10px] font-black uppercase tracking-wide" style={{ color: "var(--admin-text-muted)" }}>
+                <th className="p-2 w-8"></th>
                 <th className="p-2">Yapılacak İş</th>
                 <th className="p-2">İlgili Kayıt</th>
-                <th className="p-2">Atanan Kullanıcı</th>
+                <th className="p-2">Atanan</th>
                 <th className="p-2">Tarih</th>
                 <th className="p-2">Öncelik</th>
                 <th className="p-2">Durum</th>
-                <th className="p-2">İşlemler</th>
+                <th className="p-2 w-14">İşlemler</th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((item) => {
+              {visible.map((item) => {
                 const id = item.id || item.title;
                 const done = item.status === "Tamamlandı";
                 const overdue = !done && item.__overdue;
-                const rowClass = done
-                  ? "bg-emerald-50"
-                  : overdue
-                    ? "bg-red-50"
-                    : "bg-amber-50";
+                const rowBg = done ? "bg-emerald-50" : overdue ? "bg-red-50" : "bg-amber-50";
                 return (
-                  <tr key={id} className={`${rowClass} border-t`} style={{ borderColor: "var(--admin-border)" }}>
-                    <td className="p-2 align-top">
-                      <input
-                        type="checkbox"
-                        checked={done}
-                        disabled={done || completingIds.has(id)}
-                        onChange={() => !done && onCompleteTask(id)}
-                        aria-label={`${item.title || "Görev"} tamamlandı olarak işaretle`}
-                      />
+                  <tr key={id} className={`${rowBg} border-t`} style={{ borderColor: "var(--admin-border)" }}>
+                    <td className="p-2.5 align-middle">
+                      <input type="checkbox" checked={done} disabled={done || completingIds.has(id)} onChange={() => !done && onCompleteTask(id)} aria-label={`${item.title || "Görev"} tamamlandı olarak işaretle`} />
                     </td>
-                    <td className="p-2 align-top font-bold" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</td>
-                    <td className="p-2 align-top" style={{ color: "var(--admin-text-secondary)" }}>{relatedRecordLabel(item, companies, leads)}</td>
-                    <td className="p-2 align-top" style={{ color: "var(--admin-text-secondary)" }}>{assignedUserLabel(item, users)}</td>
-                    <td className="p-2 align-top" style={{ color: "var(--admin-text-secondary)" }}>{item.due_date ? formatReportDate(item.due_date) : "Tarih yok"}</td>
-                    <td className="p-2 align-top"><AdminStatusBadge tone={priorityTone(item.priority)}>{item.priority || "Orta"}</AdminStatusBadge></td>
-                    <td className="p-2 align-top">
-                      <AdminStatusBadge tone={overdue ? "danger" : statusTone(item.status)}>{overdue ? "Gecikti" : (item.status || "Yapılacak")}</AdminStatusBadge>
+                    <td className="p-2.5 align-middle font-bold" style={{ color: "var(--admin-text-primary)" }}>{item.title || "Görev"}</td>
+                    <td className="p-2.5 align-middle" style={{ color: "var(--admin-text-secondary)" }}>{relatedRecordLabel(item, companies, leads)}</td>
+                    <td className="p-2.5 align-middle">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="grid size-6 place-items-center rounded-full bg-blue-600 text-[10px] font-black text-white">{assignedUserInitials(item, users)}</span>
+                      </span>
                     </td>
-                    <td className="p-2 align-top">
-                      <button
-                        type="button"
-                        onClick={() => onNavigate(taskSource(item) === "customer" ? "Müşteriler" : taskSource(item) === "lead" ? "Lead Merkezi" : "Görevler")}
-                        className="hk-button hk-button-compact hk-button-neutral"
-                      >
-                        Aç
-                      </button>
+                    <td className="p-2.5 align-middle whitespace-nowrap" style={{ color: "var(--admin-text-secondary)" }}>{taskDateTimeLabel(item)}</td>
+                    <td className="p-2.5 align-middle"><AdminStatusBadge tone={priorityTone(item.priority)}>{item.priority || "Normal"}</AdminStatusBadge></td>
+                    <td className="p-2.5 align-middle">
+                      <AdminStatusBadge tone={overdue ? "danger" : statusTone(item.status)}>{overdue ? "Gecikti" : done ? "Tamamlandı" : "Bekliyor"}</AdminStatusBadge>
+                    </td>
+                    <td className="p-2.5 align-middle">
+                      <button type="button" onClick={() => onNavigate(taskSource(item) === "customer" ? "Müşteriler" : taskSource(item) === "lead" ? "Lead Merkezi" : "Görevler")} className="text-base font-black" style={{ color: "var(--admin-text-muted)" }} aria-label="Görevi aç">⋯</button>
                     </td>
                   </tr>
                 );
@@ -153,55 +195,31 @@ function TodayTasksTable({
   );
 }
 
-// --- "Teklif Durumları" donut — the only chart not already covered by
-// Overview()'s own aggregated content (the real, persisted proposals
-// table isn't part of the big content blob fetched in admin-page-data.ts;
-// self-fetching here, exactly like MissionControl.tsx's existing
-// AiTeamWidget pattern, avoids threading a new table through the whole
-// admin data pipeline for one chart). Four small count-only requests
-// (limit=1, real PROPOSAL_STATUSES filters) — never a full record dump. ---
-function ProposalStatusDonut({ createdFrom, createdTo }: { createdFrom: string; createdTo: string }) {
-  // Loading state is `counts === null` (reset to null at the top of the
-  // effect's async work, not via a separate setLoading(true) call in the
-  // effect body) — same fetch-on-mount convention already established by
-  // MissionControl.tsx's AiTeamWidget.
-  const [counts, setCounts] = useState<{ won: number; lost: number; total: number } | null>(null);
+// --- One 3x2 chart grid card wrapper with its own period select -------
 
-  useEffect(() => {
-    let cancelled = false;
-    const qs = (extra: string) => {
-      const params = new URLSearchParams({ limit: "1" });
-      if (createdFrom) params.set("createdFrom", createdFrom);
-      if (createdTo) params.set("createdTo", createdTo);
-      return `/api/admin/proposals/v2?${params.toString()}${extra}`;
-    };
-    Promise.all([
-      fetch(qs("")).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(qs("&status=Kabul%20Edildi")).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(qs("&status=Reddedildi")).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch(qs("&status=S%C3%BCresi%20Doldu")).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-    ]).then(([all, won, rejected, expired]) => {
-      if (cancelled || !all) return;
-      setCounts({
-        total: Number(all.total || 0),
-        won: Number(won?.total || 0),
-        lost: Number(rejected?.total || 0) + Number(expired?.total || 0)
-      });
-    });
-    return () => { cancelled = true; };
-  }, [createdFrom, createdTo]);
-
-  const loading = counts === null;
-  const data = counts ? [
-    { label: "Kazanıldı", value: counts.won, color: "#059669" },
-    { label: "Bekliyor", value: Math.max(0, counts.total - counts.won - counts.lost), color: "#d97706" },
-    { label: "Kaybedildi", value: counts.lost, color: "#dc2626" }
-  ] : [];
-
-  return <AnalyticsDonutChart title="Teklif Durumları" subtitle="Seçili dönemde oluşturulan teklifler" data={data} loading={loading} height={260} />;
+// resetSignal: changing the header's global period selector reseeds every
+// per-chart selector below it to match (its initial/only value on first
+// render too) — each can still be individually overridden afterward (the
+// header sets a shared default, not a lock).
+function usePeriod(resetSignal: AdminPeriodKey) {
+  const [key, setKey] = useState<AdminPeriodKey>(resetSignal);
+  // React's own sanctioned "adjust state during render" pattern (not an
+  // effect — see "You Might Not Need An Effect") for resetting derived
+  // state when a prop changes: setState called conditionally, synchronously
+  // in the render body, React re-renders immediately before committing.
+  const [prevResetSignal, setPrevResetSignal] = useState(resetSignal);
+  if (resetSignal !== prevResetSignal) {
+    setPrevResetSignal(resetSignal);
+    setKey(resetSignal);
+  }
+  const range = useMemo(() => resolveAdminPeriodRange(key), [key]);
+  const select = (
+    <select value={key} onChange={(e) => setKey(e.target.value as AdminPeriodKey)} className="rounded-[8px] border bg-transparent px-2 py-1 text-[11px] font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-secondary)" }} aria-label="Grafik dönemi">
+      {adminPeriodOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+    </select>
+  );
+  return { ...range, select };
 }
-
-// --- Main export --------------------------------------------------------
 
 export function DashboardOverviewV2({
   statCards, tasks, companies, leads, users, onNavigate, onCompleteTask, completingIds
@@ -215,11 +233,7 @@ export function DashboardOverviewV2({
   onCompleteTask: (id: string) => void;
   completingIds: Set<string>;
 }) {
-  const [periodKey, setPeriodKey] = useState<AdminPeriodKey>("last_30");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const { startDate, endDate } = useMemo(() => resolveAdminPeriodRange(periodKey, customStart, customEnd), [periodKey, customStart, customEnd]);
-
+  const [headerPeriod, setHeaderPeriod] = useState<AdminPeriodKey>("last_30");
   const istanbulToday = useMemo(() => istanbulDateString(new Date()), []);
 
   const todayTasks = useMemo(() => {
@@ -230,19 +244,18 @@ export function DashboardOverviewV2({
     return [...overdue, ...duePending, ...dueDone];
   }, [tasks, istanbulToday]);
 
-  const months = useMemo(() => monthBuckets(startDate, endDate), [startDate, endDate]);
+  // Charts 1/2: monthly bucketing only makes sense over several months —
+  // fixed "Son 6 ay" window (not user-editable), independent of the other
+  // 4 charts' own per-chart period selector.
+  const months = useMemo(() => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setMonth(start.getMonth() - 5);
+    return monthBuckets(monthKey(start.toISOString()), monthKey(end.toISOString()));
+  }, []);
 
-  // Chart 1 — Aylık Lead ve Müşteri Sayıları (yeni lead / kazanılan müşteri, ayrı ayrı).
-  const leadMonthlyBar: SeriesPoint[] = useMemo(() => months.map((key) => ({
-    label: monthLabel(key),
-    value: leads.filter((l) => monthKey(l.created_at) === key).length
-  })), [months, leads]);
-  const customerMonthlyBar: SeriesPoint[] = useMemo(() => months.map((key) => ({
-    label: monthLabel(key),
-    value: companies.filter((c) => c.status === "Aktif" && monthKey(c.created_at) === key).length
-  })), [months, companies]);
-
-  // Chart 2 — Müşteri Büyüme Eğilimi (kümülatif toplam lead / aktif müşteri).
+  const leadMonthlyBar: SeriesPoint[] = useMemo(() => months.map((key) => ({ label: monthLabel(key), value: leads.filter((l) => monthKey(l.created_at) === key).length })), [months, leads]);
+  const customerMonthlyBar: SeriesPoint[] = useMemo(() => months.map((key) => ({ label: monthLabel(key), value: companies.filter((c) => c.status === "Aktif" && monthKey(c.created_at) === key).length })), [months, companies]);
   const growthLine: SeriesPoint[] = useMemo(() => {
     const leadBefore = leads.filter((l) => l.created_at && monthKey(l.created_at) < (months[0] || "")).length;
     const customerBefore = companies.filter((c) => c.status === "Aktif" && c.created_at && monthKey(c.created_at) < (months[0] || "")).length;
@@ -256,74 +269,63 @@ export function DashboardOverviewV2({
     return points;
   }, [months, leads, companies]);
 
-  // Chart 3 — Görev Durumları: 4 gerçek kategori (Yeşil/Sarı/Kırmızı/Mavi).
+  const taskStatusPeriod = usePeriod(headerPeriod);
   const taskStatusDonut = useMemo(() => {
-    const inRange = tasks.filter((t) => {
-      const key = dateOnly(t.due_date || t.created_at);
-      return key && key >= startDate && key <= endDate;
-    });
+    const inRange = tasks.filter((t) => { const key = dateOnly(t.due_date || t.created_at); return key && key >= taskStatusPeriod.startDate && key <= taskStatusPeriod.endDate; });
     const completed = inRange.filter((t) => t.status === "Tamamlandı").length;
     const overdue = inRange.filter((t) => t.status !== "Tamamlandı" && t.status !== "İptal" && t.due_date && dateOnly(t.due_date) < istanbulToday).length;
     const inProgress = inRange.filter((t) => t.status === "Devam Ediyor" && !(t.due_date && dateOnly(t.due_date) < istanbulToday)).length;
     const pending = inRange.filter((t) => ["Yapılacak", "Beklemede"].includes(t.status || "Yapılacak") && !(t.due_date && dateOnly(t.due_date) < istanbulToday)).length;
     return [
-      { label: "Tamamlanan", value: completed, color: "#059669" },
-      { label: "Bekleyen", value: pending, color: "#d97706" },
-      { label: "Geciken", value: overdue, color: "#dc2626" },
-      { label: "Devam Eden", value: inProgress, color: "#2563eb" }
+      { label: "Tamamlandı", value: completed, color: "#0AA66A" },
+      { label: "Bekliyor", value: pending, color: "#F4B400" },
+      { label: "Gecikti", value: overdue, color: "#E53935" },
+      { label: "Devam Ediyor", value: inProgress, color: "#1673F9" }
     ];
-  }, [tasks, startDate, endDate, istanbulToday]);
+  }, [tasks, taskStatusPeriod.startDate, taskStatusPeriod.endDate, istanbulToday]);
 
-  // Chart 4 — Lead Kaynakları.
+  const leadSourcePeriod = usePeriod(headerPeriod);
   const leadSourceDonut = useMemo(() => {
-    const inRange = leads.filter((l) => { const key = dateOnly(l.created_at); return key && key >= startDate && key <= endDate; });
+    const inRange = leads.filter((l) => { const key = dateOnly(l.created_at); return key && key >= leadSourcePeriod.startDate && key <= leadSourcePeriod.endDate; });
     return LEAD_SOURCE_OPTIONS.map((source, index) => ({
       label: source,
       value: inRange.filter((l) => (l.source || "Diğer") === source || (source === "Diğer" && !LEAD_SOURCE_OPTIONS.includes(l.source))).length,
       color: DONUT_PALETTE[index % DONUT_PALETTE.length]
     })).filter((d) => d.value > 0);
-  }, [leads, startDate, endDate]);
+  }, [leads, leadSourcePeriod.startDate, leadSourcePeriod.endDate]);
 
-  // Chart 5 — Kullanıcılara Göre Tamamlanan Görevler.
+  const tasksByUserPeriod = usePeriod(headerPeriod);
   const tasksByUserBar: SeriesPoint[] = useMemo(() => {
-    const completed = tasks.filter((t) => t.status === "Tamamlandı" && t.completed_at && dateOnly(t.completed_at) >= startDate && dateOnly(t.completed_at) <= endDate);
+    const completed = tasks.filter((t) => t.status === "Tamamlandı" && t.completed_at && dateOnly(t.completed_at) >= tasksByUserPeriod.startDate && dateOnly(t.completed_at) <= tasksByUserPeriod.endDate);
     const byUser = new Map<string, number>();
-    for (const task of completed) {
-      const label = assignedUserLabel(task, users);
-      byUser.set(label, (byUser.get(label) || 0) + 1);
-    }
-    return Array.from(byUser.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 10);
-  }, [tasks, users, startDate, endDate]);
+    for (const task of completed) { const label = assignedUserLabel(task, users); byUser.set(label, (byUser.get(label) || 0) + 1); }
+    return Array.from(byUser.entries()).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8);
+  }, [tasks, users, tasksByUserPeriod.startDate, tasksByUserPeriod.endDate]);
+
+  const proposalPeriod = usePeriod(headerPeriod);
+  const proposalDonut = useProposalStatusCounts(proposalPeriod.startDate, proposalPeriod.endDate);
 
   return (
     <div className="grid gap-5">
+      <DashboardHeaderBar periodKey={headerPeriod} onPeriodChange={setHeaderPeriod} />
       <StatCardsRow cards={statCards} onNavigate={onNavigate} />
       <TodayTasksTable tasks={todayTasks} companies={companies} leads={leads} users={users} completingIds={completingIds} onCompleteTask={onCompleteTask} onNavigate={onNavigate} />
 
-      <div className="admin-card rounded-[20px] p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-black" style={{ color: "var(--admin-text-primary)" }}>Analitik Özet</h2>
-            <p className="mt-1 text-sm" style={{ color: "var(--admin-text-secondary)" }}>Seçili tarih aralığına göre lead, müşteri, görev ve teklif eğilimleri.</p>
-          </div>
-          <AdminPeriodFilter value={periodKey} onChange={setPeriodKey} customStart={customStart} customEnd={customEnd} onCustomStartChange={setCustomStart} onCustomEndChange={setCustomEnd} />
-        </div>
-
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <AnalyticsBarChart
-            title="Aylık Lead ve Müşteri Sayıları" subtitle="Aylık karşılaştırma"
-            data={leadMonthlyBar} color="#0891b2" label="Yeni Lead"
-            compareData={customerMonthlyBar} compareColor="#059669" compareLabel="Kazanılan Müşteri"
-            height={260}
-          />
-          <AnalyticsLineChart title="Müşteri Büyüme Eğilimi" subtitle="Mavi: Toplam Lead (kümülatif) · Yeşil: Aktif Müşteri (kümülatif)" data={growthLine} color="#0891b2" height={280} />
-          <AnalyticsDonutChart title="Görev Durumları" subtitle="Seçili dönemde vadesi/oluşturulma tarihi düşen görevler" data={taskStatusDonut} height={260} />
-          <AnalyticsDonutChart title="Lead Kaynakları" subtitle="Seçili dönemde oluşturulan başvurular" data={leadSourceDonut} height={260} />
-          <AnalyticsBarChart title="Kullanıcılara Göre Tamamlanan Görevler" subtitle="Seçili dönemde tamamlanan görevler" data={tasksByUserBar} color="#2563eb" height={260} />
-          <ProposalStatusDonut createdFrom={startDate} createdTo={endDate} />
-        </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <AnalyticsBarChart
+          theme="light" height={240} title="Aylık Lead ve Müşteri Sayıları"
+          action={<span className="rounded-[8px] border px-2 py-1 text-[11px] font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>Son 6 ay</span>}
+          data={leadMonthlyBar} color="#1673F9" label="Yeni Lead"
+          compareData={customerMonthlyBar} compareColor="#0AA66A" compareLabel="Kazanılan Müşteri"
+        />
+        <AnalyticsLineChart theme="light" height={240} title="Müşteri Büyüme Eğilimi" data={growthLine} color="#1673F9"
+          action={<span className="rounded-[8px] border px-2 py-1 text-[11px] font-bold" style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-muted)" }}>Son 6 ay</span>}
+        />
+        <AnalyticsDonutChart theme="light" height={240} title="Görev Durumları" centerLabel="Toplam Görev" data={taskStatusDonut} action={taskStatusPeriod.select} />
+        <AnalyticsDonutChart theme="light" height={240} title="Lead Kaynakları" centerLabel="Toplam Lead" data={leadSourceDonut} action={leadSourcePeriod.select} />
+        <AnalyticsBarChart theme="light" height={240} title="Kullanıcılara Göre Tamamlanan Görevler" data={tasksByUserBar} color="#1673F9" action={tasksByUserPeriod.select} />
+        <AnalyticsDonutChart theme="light" height={240} title="Teklif Durumları" centerLabel="Toplam Teklif" data={proposalDonut.data} loading={proposalDonut.loading} action={proposalPeriod.select} />
       </div>
     </div>
   );
 }
-

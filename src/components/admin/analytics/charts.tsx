@@ -19,31 +19,74 @@ function formatNumber(value: number, unit?: string) {
   return value.toLocaleString("tr-TR", { maximumFractionDigits: 0 });
 }
 
-function ChartShell({ title, subtitle, height = 280, empty, loading, children }: { title?: string; subtitle?: string; height?: number; empty?: boolean; loading?: boolean; children: React.ReactNode }) {
+export type ChartTheme = "dark" | "light";
+
+// Both themes' values as LOCAL CSS custom properties (--chart-*), set via
+// inline style on this wrapper so they cascade to every descendant that
+// already references var(--chart-...) — the dark values are byte-for-byte
+// today's --analytics-* tokens (default theme="dark", every existing
+// caller — AnalyticsReportingCenter.tsx, PlatformViews.tsx — unaffected);
+// "light" is new, for a chart embedded in an otherwise white/light page
+// (HK Admin Dashboard V2) that must never show this panel's own
+// permanently-dark background.
+const THEME_VARS: Record<ChartTheme, Record<string, string>> = {
+  dark: {
+    "--chart-bg": "var(--analytics-panel-dark)",
+    "--chart-border": "var(--analytics-panel-border)",
+    "--chart-text": "var(--analytics-text-on-dark)",
+    "--chart-text-secondary": "var(--analytics-text-on-dark-secondary)",
+    "--chart-text-muted": "var(--analytics-text-on-dark-muted)",
+    "--chart-grid": "var(--analytics-chart-grid)",
+    "--chart-tooltip-bg": "var(--analytics-chart-tooltip-bg)",
+    "--chart-tooltip-text": "var(--analytics-chart-tooltip-text)"
+  },
+  light: {
+    "--chart-bg": "#ffffff",
+    "--chart-border": "#e6edf5",
+    "--chart-text": "#142238",
+    "--chart-text-secondary": "#475569",
+    "--chart-text-muted": "#64748b",
+    "--chart-grid": "#e6edf5",
+    "--chart-tooltip-bg": "#142238",
+    "--chart-tooltip-text": "#ffffff"
+  }
+};
+
+function ChartShell({ title, subtitle, height = 280, empty, loading, theme = "dark", action, children }: { title?: string; subtitle?: string; height?: number; empty?: boolean; loading?: boolean; theme?: ChartTheme; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="analytics-chart-panel rounded-[20px] p-5" style={{ boxShadow: "0 1px 2px rgba(2,6,23,.2), 0 12px 32px rgba(2,6,23,.28)" }}>
-      {(title || subtitle) && (
-        <div className="mb-4">
-          {/* text-[var(...)] (not style={{color}}) is deliberate: the shared
-              admin CSS force-overrides h1-h6/strong/label/th/.font-black/
-              .font-bold/p/span/etc with `!important`, which beats an inline
-              `style` color — but explicitly excludes any className
-              containing the literal `text-[#`/`text-[var(` substring (see
-              globals.css's --hk-force-text-color comment). This dark chart
-              panel needs its own fixed on-dark colors regardless of the
-              ambient admin theme, so every text node in it uses this
-              escape hatch, not a style prop. */}
-          {title && <h3 className="text-base font-black text-[var(--analytics-text-on-dark)]">{title}</h3>}
-          {subtitle && <p className="mt-0.5 text-xs text-[var(--analytics-text-on-dark-secondary)]">{subtitle}</p>}
+    <div
+      className="rounded-[16px] p-4"
+      style={{
+        background: "var(--chart-bg)", border: "1px solid var(--chart-border)", color: "var(--chart-text)",
+        boxShadow: theme === "light" ? "0 1px 2px rgba(20,34,56,.04)" : "0 1px 2px rgba(2,6,23,.2), 0 12px 32px rgba(2,6,23,.28)",
+        ...(THEME_VARS[theme] as React.CSSProperties)
+      }}
+    >
+      {(title || subtitle || action) && (
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div>
+            {/* text-[var(...)] (not style={{color}}) is deliberate: the shared
+                admin CSS force-overrides h1-h6/strong/label/th/.font-black/
+                .font-bold/p/span/etc with `!important`, which beats an inline
+                `style` color — but explicitly excludes any className
+                containing the literal `text-[#`/`text-[var(` substring (see
+                globals.css's --hk-force-text-color comment). This chart
+                panel needs its own fixed colors regardless of the ambient
+                admin theme, so every text node in it uses this escape
+                hatch, not a style prop. */}
+            {title && <h3 className="text-sm font-black text-[var(--chart-text)]">{title}</h3>}
+            {subtitle && <p className="mt-0.5 text-xs text-[var(--chart-text-secondary)]">{subtitle}</p>}
+          </div>
+          {action}
         </div>
       )}
       {loading ? (
         <div className="grid place-items-center" style={{ height }}>
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-cyan-400" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-600/20 border-t-cyan-600" />
         </div>
       ) : empty ? (
         <div className="grid place-items-center text-center" style={{ height }}>
-          <p className="text-sm font-bold text-[var(--analytics-text-on-dark-secondary)]">Seçili dönemde veri bulunamadı.</p>
+          <p className="text-sm font-bold text-[var(--chart-text-secondary)]">Seçili dönemde veri bulunamadı.</p>
         </div>
       ) : (
         children
@@ -55,8 +98,8 @@ function ChartShell({ title, subtitle, height = 280, empty, loading, children }:
 // Large, responsive area chart with an optional comparison-period overlay
 // (dashed line), hover tooltip and a start/end legend.
 export function AnalyticsAreaChart({
-  title, subtitle, data, color = "#0891b2", unit, height = 280, loading
-}: { title?: string; subtitle?: string; data: SeriesPoint[]; color?: string; unit?: string; height?: number; loading?: boolean }) {
+  title, subtitle, data, color = "#0891b2", unit, height = 280, loading, theme = "dark", action
+}: { title?: string; subtitle?: string; data: SeriesPoint[]; color?: string; unit?: string; height?: number; loading?: boolean; theme?: ChartTheme; action?: React.ReactNode }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const reactId = useId();
   const hasCompare = data.some((d) => d.compareValue !== undefined);
@@ -74,8 +117,8 @@ export function AnalyticsAreaChart({
   const areaPath = `M${pad},${h - pad} L${linePoints.split(" ").join(" L")} L${xFor(data.length - 1)},${h - pad} Z`;
 
   return (
-    <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading}>
-      <div className="flex items-center gap-4 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
+    <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading} theme={theme} action={action}>
+      <div className="flex items-center gap-4 text-xs font-bold text-[var(--chart-text-secondary)]">
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />Bu dönem</span>
         {hasCompare && <span className="flex items-center gap-1.5"><span className="h-0.5 w-3" style={{ background: color, opacity: 0.4 }} />Karşılaştırma</span>}
       </div>
@@ -87,7 +130,7 @@ export function AnalyticsAreaChart({
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <line x1={pad} x2={w - pad} y1={h - pad} y2={h - pad} stroke="var(--analytics-chart-grid)" strokeWidth="0.5" />
+          <line x1={pad} x2={w - pad} y1={h - pad} y2={h - pad} stroke="var(--chart-grid)" strokeWidth="0.5" />
           <path d={areaPath} fill={`url(#${chartId})`} stroke="none" />
           {hasCompare && <polyline fill="none" stroke={color} strokeOpacity="0.35" strokeDasharray="3,2" strokeWidth="1.5" points={comparePoints} />}
           <polyline fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" points={linePoints} />
@@ -101,17 +144,17 @@ export function AnalyticsAreaChart({
           ))}
         </svg>
         {hoverIndex !== null && data[hoverIndex] && (
-          <div className="pointer-events-none absolute top-0 rounded-[10px] px-3 py-2 text-xs font-bold shadow-lg" style={{ left: `${xFor(hoverIndex)}%`, transform: "translateX(-50%)", background: "var(--analytics-chart-tooltip-bg)" }}>
+          <div className="pointer-events-none absolute top-0 rounded-[10px] px-3 py-2 text-xs font-bold shadow-lg" style={{ left: `${xFor(hoverIndex)}%`, transform: "translateX(-50%)", background: "var(--chart-tooltip-bg)" }}>
             {/* Every <p> below needs its own text-[var(...)] — the shared
                 admin CSS force-overrides plain p/span/etc with `!important`
                 per-element, so a color set on the parent div is not enough. */}
-            <p className="text-[10px] font-black uppercase tracking-wide text-[var(--analytics-chart-tooltip-text)] opacity-80">{data[hoverIndex].label}</p>
-            <p className="text-[var(--analytics-chart-tooltip-text)]">{formatNumber(data[hoverIndex].value, unit)}</p>
-            {hasCompare && <p className="text-[var(--analytics-chart-tooltip-text)] opacity-80">Önceki: {formatNumber(data[hoverIndex].compareValue || 0, unit)}</p>}
+            <p className="text-[10px] font-black uppercase tracking-wide text-[var(--chart-tooltip-text)] opacity-80">{data[hoverIndex].label}</p>
+            <p className="text-[var(--chart-tooltip-text)]">{formatNumber(data[hoverIndex].value, unit)}</p>
+            {hasCompare && <p className="text-[var(--chart-tooltip-text)] opacity-80">Önceki: {formatNumber(data[hoverIndex].compareValue || 0, unit)}</p>}
           </div>
         )}
       </div>
-      <div className="mt-2 flex justify-between text-[11px] font-bold text-[var(--analytics-text-on-dark-secondary)]">
+      <div className="mt-2 flex justify-between text-[11px] font-bold text-[var(--chart-text-secondary)]">
         <span>{data[0]?.label}</span>
         <span>{data[data.length - 1]?.label}</span>
       </div>
@@ -130,17 +173,17 @@ export function AnalyticsLineChart(props: Parameters<typeof AnalyticsAreaChart>[
 // default behaviour unchanged).
 export function AnalyticsBarChart({
   title, subtitle, data, color = "#0891b2", unit, height = 280, loading,
-  compareData, compareColor = "#059669", label, compareLabel
+  compareData, compareColor = "#059669", label, compareLabel, theme = "dark", action
 }: {
   title?: string; subtitle?: string; data: SeriesPoint[]; color?: string; unit?: string; height?: number; loading?: boolean;
-  compareData?: SeriesPoint[]; compareColor?: string; label?: string; compareLabel?: string;
+  compareData?: SeriesPoint[]; compareColor?: string; label?: string; compareLabel?: string; theme?: ChartTheme; action?: React.ReactNode;
 }) {
   const hasCompare = Boolean(compareData?.length);
   const max = Math.max(...data.map((d) => d.value), ...(compareData || []).map((d) => d.value), 1);
   return (
-    <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading}>
+    <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading} theme={theme} action={action}>
       {hasCompare && (
-        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
+        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-[var(--chart-text-secondary)]">
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />{label || "Seri 1"}</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: compareColor }} />{compareLabel || "Seri 2"}</span>
         </div>
@@ -151,11 +194,11 @@ export function AnalyticsBarChart({
             <div className="relative flex w-full flex-1 items-end justify-center gap-1">
               <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, (d.value / max) * 100)}%`, background: color, opacity: 0.9 }} />
               {hasCompare && <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, ((compareData?.[i]?.value || 0) / max) * 100)}%`, background: compareColor, opacity: 0.9 }} />}
-              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] px-2 py-1 text-[11px] font-bold text-[var(--analytics-chart-tooltip-text)] group-hover:block" style={{ background: "var(--analytics-chart-tooltip-bg)" }}>
+              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] px-2 py-1 text-[11px] font-bold text-[var(--chart-tooltip-text)] group-hover:block" style={{ background: "var(--chart-tooltip-bg)" }}>
                 {hasCompare ? `${formatNumber(d.value, unit)} / ${formatNumber(compareData?.[i]?.value || 0, unit)}` : formatNumber(d.value, unit)}
               </div>
             </div>
-            <span className="max-w-[70px] truncate text-[11px] font-bold text-[var(--analytics-text-on-dark-secondary)]">{d.label}</span>
+            <span className="max-w-[70px] truncate text-[11px] font-bold text-[var(--chart-text-secondary)]">{d.label}</span>
           </div>
         ))}
       </div>
@@ -164,8 +207,8 @@ export function AnalyticsBarChart({
 }
 
 export function AnalyticsDonutChart({
-  title, subtitle, data, height = 280, loading
-}: { title?: string; subtitle?: string; data: Array<{ label: string; value: number; color: string }>; height?: number; loading?: boolean }) {
+  title, subtitle, data, height = 280, loading, theme = "dark", action, centerLabel
+}: { title?: string; subtitle?: string; data: Array<{ label: string; value: number; color: string }>; height?: number; loading?: boolean; theme?: ChartTheme; action?: React.ReactNode; centerLabel?: string }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -174,23 +217,33 @@ export function AnalyticsDonutChart({
   const cumulativeBefore: number[] = [];
   data.reduce((sum, d, i) => { cumulativeBefore[i] = sum; return sum + d.value; }, 0);
   return (
-    <ChartShell title={title} subtitle={subtitle} height={height} empty={!total} loading={loading}>
+    <ChartShell title={title} subtitle={subtitle} height={height} empty={!total} loading={loading} theme={theme} action={action}>
       <div className="flex items-center gap-6">
-        <svg viewBox="0 0 100 100" className="h-40 w-40 shrink-0 -rotate-90" role="img" aria-label={title || "dağılım grafiği"}>
-          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--analytics-chart-grid)" strokeWidth="14" />
-          {data.map((d, i) => {
-            const fraction = total ? d.value / total : 0;
-            const dash = fraction * circumference;
-            const offset = -((cumulativeBefore[i] / total) * circumference || 0);
-            return <circle key={i} cx="50" cy="50" r={radius} fill="none" stroke={d.color} strokeWidth="14" strokeDasharray={`${dash} ${circumference - dash}`} strokeDashoffset={offset} />;
-          })}
-        </svg>
+        <div className="relative shrink-0">
+          <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90" role="img" aria-label={title || "dağılım grafiği"}>
+            <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--chart-grid)" strokeWidth="14" />
+            {data.map((d, i) => {
+              const fraction = total ? d.value / total : 0;
+              const dash = fraction * circumference;
+              const offset = -((cumulativeBefore[i] / total) * circumference || 0);
+              return <circle key={i} cx="50" cy="50" r={radius} fill="none" stroke={d.color} strokeWidth="14" strokeDasharray={`${dash} ${circumference - dash}`} strokeDashoffset={offset} />;
+            })}
+          </svg>
+          {total > 0 && (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+              <span>
+                <span className="block text-lg font-black text-[var(--chart-text)]">{total.toLocaleString("tr-TR")}</span>
+                {centerLabel && <span className="block text-[9px] font-bold uppercase tracking-wide text-[var(--chart-text-muted)]">{centerLabel}</span>}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="grid gap-2">
           {data.map((d, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
+            <div key={i} className="flex items-center gap-2 text-xs font-bold text-[var(--chart-text-secondary)]">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
-              <span className="text-[var(--analytics-text-on-dark-secondary)]">{d.label}</span>
-              <span className="text-[var(--analytics-text-on-dark-muted)]">{total ? `%${Math.round((d.value / total) * 100)}` : "—"}</span>
+              <span className="text-[var(--chart-text-secondary)]">{d.label}</span>
+              <span className="text-[var(--chart-text-muted)]">{total ? `%${Math.round((d.value / total) * 100)}` : "—"}</span>
             </div>
           ))}
         </div>

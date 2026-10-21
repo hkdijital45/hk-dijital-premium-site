@@ -1,69 +1,24 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
-import { AlertTriangle, ArrowRight, Bot, Plus, Settings2, Sparkles } from "lucide-react";
-import { AdminCompactKpiStrip, type AdminCompactKpiItem } from "@/components/admin/workspace/AdminCompactKpiStrip";
-import { AdminActionBar } from "@/components/admin/workspace/AdminActionBar";
-import { DashboardCustomizePanel } from "./DashboardHero";
-import { DashboardPriorityActions } from "./DashboardPriorityActions";
-import { DashboardRecentActivity } from "./DashboardRecentActivity";
-import { DashboardUpcomingTasks } from "./DashboardUpcomingTasks";
-import { DashboardFinanceSummary } from "./DashboardFinanceSummary";
-import { DashboardSalesPipeline } from "./DashboardSalesPipeline";
-import { DashboardAdPerformance } from "./DashboardAdPerformance";
+// HK Admin "Genel Bakış" — Dashboard V3. Renders ONLY the pixel-close
+// rebuild (DashboardOverviewV2.tsx) against the supplied reference
+// screenshot: stat cards, "Bugün Yapılacaklar" and the 3x2 chart grid.
+//
+// The previous widget set (finance summary, sales pipeline, ad
+// performance, priority actions, AI insights, risky-customer alarm,
+// activity feed, AI Workforce teaser, customize-widgets panel, advanced
+// operations accordion) is intentionally NOT rendered here anymore — the
+// reference design has no equivalent of them on this screen. Their
+// components/files, the underlying data (still computed in
+// AdminDashboard.tsx for now, cheap since it's already in memory) and
+// every API/route they call are untouched; they are simply no longer
+// composed into this particular view. No functionality was deleted.
 import { DashboardOverviewV2 } from "./DashboardOverviewV2";
 import type { DashboardStatCard } from "./DashboardOverviewV2";
-import type {
-  DashboardActivityItem,
-  DashboardAiHealthDimension,
-  DashboardAutomationSuggestion,
-  DashboardKpiItem,
-  DashboardOverviewCard,
-  DashboardPipelineStage,
-  DashboardPriorityAction,
-  DashboardQuickAction,
-  DashboardRiskyCustomer,
-  DashboardUpcomingTask,
-  NavigateFn
-} from "./types";
+import type { NavigateFn } from "./types";
 
 export interface MissionControlProps {
   onNavigate: NavigateFn;
-  greeting: string;
-  userName: string;
-  isWidgetVisible: (id: string) => boolean;
-
-  quickActions: DashboardQuickAction[];
-
-  customizing: boolean;
-  onToggleCustomizing: () => void;
-  widgetOrder: string[];
-  widgetHidden: string[];
-  widgetLabels: Record<string, { label: string; description: string }>;
-  preferencesSaving: boolean;
-  onToggleWidget: (id: string) => void;
-  onResetPreferences: () => void;
-
-  dailyKpis: DashboardKpiItem[];
-  priorityActions: DashboardPriorityAction[];
-  commandPlan: string;
-  onGenerateDailyPlan: () => void;
-
-  riskyCustomers: DashboardRiskyCustomer[];
-  upcomingTasks: DashboardUpcomingTask[];
-  recentActivity: DashboardActivityItem[];
-  activityFilter: string;
-  onActivityFilterChange: (filter: string) => void;
-
-  overviewCards: DashboardOverviewCard[];
-  packageDistribution: { starter: number; pro: number; premium: number; none: number };
-  pipelineStages: DashboardPipelineStage[];
-
-  adPerformance: { riskyCustomerCount: number; latestCustomerName: string; averageScore: number | string };
-  aiHealthDimensions: DashboardAiHealthDimension[];
-  automationSuggestions: DashboardAutomationSuggestion[];
-
   overviewV2: {
     statCards: DashboardStatCard[];
     tasks: any[];
@@ -73,149 +28,19 @@ export interface MissionControlProps {
     onCompleteTask: (id: string) => void;
     completingIds: Set<string>;
   };
-
-  centerCards: unknown;
-
-  websiteAnalytics: ReactNode;
-  advanced: ReactNode;
-  allowedModules?: string[];
+  // Legacy MissionControl props — still accepted (AdminDashboard.tsx's
+  // call site is unchanged/minimal-diff) but intentionally unused by this
+  // view; kept optional so nothing upstream has to be rewired.
+  [legacyProp: string]: unknown;
 }
 
-const KPI_ICONS: ReactNode[] = [<Sparkles key="0" size={14} />, <AlertTriangle key="1" size={14} />];
-
-// Minimal, self-fetching widget — deliberately does not thread a new prop
-// through the whole AdminDashboard data pipeline for one small panel. Points
-// at the separate HK AI Workforce product (src/app/ai-workforce) rather than
-// rendering the AI roster inline, per the "AI Workforce stays a separate
-// app, not another AdminDashboard tab" requirement.
-function AiTeamWidget() {
-  const [state, setState] = useState<{ activeAgents: number; pendingApprovals: number; openRecommendations: number } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/ai-workforce/overview")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!cancelled && data) setState(data); })
-      .catch(() => null);
-    return () => { cancelled = true; };
-  }, []);
-
+export function MissionControl({ onNavigate, overviewV2 }: MissionControlProps) {
+  // No background override here — this renders inside AdminDashboard.tsx's
+  // existing "admin-dashboard-main" panel (its own border/padding/shadow,
+  // already provided), per the "occupy the existing main content area,
+  // don't replace its chrome" requirement.
   return (
-    <div className="mc-panel" style={{ padding: "var(--space-4)" }}>
-      <div className="mc-panel-head">
-        <div>
-          <p className="mc-panel-eyebrow">AI Team (Yapay Zekâ Ekibi)</p>
-          <h2 className="mc-panel-title">HK AI Workforce</h2>
-        </div>
-        <Bot size={18} />
-      </div>
-      {state ? (
-        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", fontSize: "var(--text-xs)", color: "var(--admin-text-secondary)" }}>
-          <span>Active Agents (Aktif Ajan): <strong>{state.activeAgents}</strong></span>
-          <span>Pending Approvals (Bekleyen Onay): <strong>{state.pendingApprovals}</strong></span>
-          <span>New Recommendations (Yeni Öneri): <strong>{state.openRecommendations}</strong></span>
-        </div>
-      ) : (
-        <p style={{ fontSize: "var(--text-xs)", color: "var(--admin-text-muted)" }}>Yükleniyor...</p>
-      )}
-      <Link href="/ai-workforce" className="hk-button hk-button-outline" style={{ marginTop: "var(--space-3)", display: "inline-flex", fontSize: "var(--text-xs)", padding: "8px 14px" }}>
-        Open AI Workforce (AI Workforce&apos;u Aç) <ArrowRight size={12} />
-      </Link>
-    </div>
-  );
-}
-
-export function MissionControl(props: MissionControlProps) {
-  const {
-    onNavigate,
-    greeting,
-    userName,
-    isWidgetVisible,
-    quickActions,
-    customizing,
-    onToggleCustomizing,
-    widgetOrder,
-    widgetHidden,
-    widgetLabels,
-    preferencesSaving,
-    onToggleWidget,
-    onResetPreferences,
-    dailyKpis,
-    priorityActions,
-    commandPlan,
-    onGenerateDailyPlan,
-    riskyCustomers,
-    upcomingTasks,
-    recentActivity,
-    activityFilter,
-    onActivityFilterChange,
-    overviewCards,
-    packageDistribution,
-    pipelineStages,
-    adPerformance,
-    aiHealthDimensions,
-    automationSuggestions,
-    overviewV2,
-    websiteAnalytics,
-    advanced,
-    allowedModules = []
-  } = props;
-
-  const kpiItems: AdminCompactKpiItem[] = dailyKpis.map((item, index) => ({
-    key: item.label,
-    label: item.label,
-    value: item.value,
-    icon: item.icon || KPI_ICONS[index % KPI_ICONS.length],
-    tone: item.tone,
-    onClick: () => onNavigate(item.target)
-  }));
-
-  const criticalActions = priorityActions.filter((item) => item.severity === "Kritik");
-  const alarmRows = [
-    ...criticalActions.slice(0, 3).map((item) => ({ key: `pa-${item.id}`, title: item.customer, detail: item.reason, target: item.target })),
-    ...riskyCustomers.slice(0, 3).map((item) => ({ key: `rc-${item.company.id}`, title: item.company.name || "Müşteri", detail: `Sağlık skoru ${item.health.score}/100`, target: "Müşteriler" }))
-  ].slice(0, 5);
-
-  const topSuggestion = automationSuggestions[0] as DashboardAutomationSuggestion | undefined;
-
-  return (
-    <div className="mc-shell">
-      <section className="mc-hero">
-        <div className="mc-hero-top">
-          <div>
-            <p className="mc-hero-eyebrow">{greeting}, {userName}</p>
-            <h1 className="mc-hero-title">Bugünkü Durum</h1>
-            <p className="mc-hero-sub">Operasyon, finans, reklam ve CRM sinyalleri tek ekranda — kritik olan en üstte.</p>
-          </div>
-          <div className="mc-hero-actions">
-            <details className="group relative">
-              <summary className="hk-button hk-button-primary hk-button-compact cursor-pointer list-none"><Plus size={14} /> Hızlı İşlem</summary>
-              <div className="admin-card absolute right-0 z-30 mt-2 grid w-[min(92vw,320px)] gap-1.5 rounded-[12px] p-2 shadow-2xl">
-                {quickActions.map((item) => (
-                  <button type="button" key={item.label} onClick={() => onNavigate(item.target)} className="hk-button hk-button-neutral hk-button-compact justify-start">
-                    {item.icon}
-                    {item.label}
-                    <ArrowRight className="ml-auto" size={14} />
-                  </button>
-                ))}
-              </div>
-            </details>
-            <button type="button" onClick={onToggleCustomizing} aria-pressed={customizing} className="hk-button hk-button-edit hk-button-compact"><Settings2 size={14} /> Görünümü Düzenle</button>
-          </div>
-        </div>
-
-        {isWidgetVisible("dailySummary") && <AdminCompactKpiStrip items={kpiItems} />}
-
-        {topSuggestion && (
-          <div className="mc-insight-banner">
-            <span className="mc-insight-banner-icon"><Sparkles size={17} /></span>
-            <div>
-              <strong>{topSuggestion.title}</strong>
-              <p>{topSuggestion.detail}</p>
-            </div>
-          </div>
-        )}
-      </section>
-
+    <div className="grid gap-5">
       <DashboardOverviewV2
         statCards={overviewV2.statCards}
         tasks={overviewV2.tasks}
@@ -226,121 +51,6 @@ export function MissionControl(props: MissionControlProps) {
         onCompleteTask={overviewV2.onCompleteTask}
         completingIds={overviewV2.completingIds}
       />
-
-      {customizing && (
-        <DashboardCustomizePanel
-          order={widgetOrder}
-          hidden={widgetHidden}
-          labels={widgetLabels}
-          saving={preferencesSaving}
-          onToggleWidget={onToggleWidget}
-          onReset={onResetPreferences}
-        />
-      )}
-
-      <div className="mc-grid">
-        <div className="mc-panel mc-panel-alarm">
-          <div className="mc-panel-head">
-            <div>
-              <p className="mc-panel-eyebrow">Kritik Alarm</p>
-              <h2 className="mc-panel-title">Şimdi müdahale gerekiyor</h2>
-            </div>
-          </div>
-          {alarmRows.map((row) => (
-            <button type="button" key={row.key} onClick={() => onNavigate(row.target)} className="mc-alarm-row" style={{ width: "100%", textAlign: "left" }}>
-              <span style={{ minWidth: 0 }}>
-                <strong style={{ display: "block" }}>{row.title}</strong>
-                <span>{row.detail}</span>
-              </span>
-              <ArrowRight size={14} />
-            </button>
-          ))}
-          {!alarmRows.length && <p style={{ fontSize: "var(--text-sm)", color: "var(--admin-text-secondary)" }}>Kritik uyarı yok — sistem sakin.</p>}
-        </div>
-
-        <div className="mc-panel-operation">
-          {isWidgetVisible("priorityActions") && (
-            <DashboardPriorityActions items={priorityActions} commandPlan={commandPlan} onGeneratePlan={onGenerateDailyPlan} onNavigate={onNavigate} />
-          )}
-        </div>
-
-        <div className="mc-panel mc-panel-insight">
-          <div className="mc-panel-head">
-            <div>
-              <p className="mc-panel-eyebrow">AI Insights</p>
-              <h2 className="mc-panel-title">Sağlık skoru</h2>
-            </div>
-          </div>
-          {isWidgetVisible("intelligence") && (
-            <div style={{ display: "grid", gap: "var(--space-2)" }}>
-              {aiHealthDimensions.map((item) => (
-                <div key={item.label} className="admin-card-soft" style={{ borderRadius: "var(--hk-radius-md)", padding: "var(--space-3)" }}>
-                  <p style={{ fontSize: "var(--text-xs)", fontWeight: 800, color: "var(--admin-text-primary)" }}>{item.label} · {item.score}/100 · {item.status}</p>
-                  <p style={{ fontSize: "var(--text-2xs)", color: "var(--admin-text-muted)", marginTop: 4 }}>{item.reason}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {allowedModules.includes("ai-workforce") && <AiTeamWidget />}
-
-        <div className="mc-panel-finance">
-          <DashboardFinanceSummary overviewCards={overviewCards} packageDistribution={packageDistribution} onNavigate={onNavigate} />
-        </div>
-
-        <div className="mc-panel-ad">
-          <DashboardAdPerformance {...adPerformance} onNavigate={onNavigate} />
-        </div>
-
-        <div className="mc-panel-crm">
-          <DashboardSalesPipeline stages={pipelineStages} onNavigate={onNavigate} />
-        </div>
-
-        <div className="mc-panel-calendar">
-          <DashboardUpcomingTasks items={upcomingTasks} onNavigate={onNavigate} />
-        </div>
-
-        <div className="mc-panel-activity">
-          {isWidgetVisible("activity") && (
-            <DashboardRecentActivity items={recentActivity} filter={activityFilter} onFilterChange={onActivityFilterChange} onNavigate={onNavigate} limit={5} />
-          )}
-        </div>
-
-        <div className="mc-panel mc-panel-actions">
-          <div className="mc-panel-head">
-            <div>
-              <p className="mc-panel-eyebrow">Hızlı İşlemler</p>
-              <h2 className="mc-panel-title">Bir tık uzakta</h2>
-            </div>
-          </div>
-          <div className="mc-quick-grid">
-            {quickActions.map((item) => (
-              <button type="button" key={item.label} onClick={() => onNavigate(item.target)} className="mc-quick-action">
-                <span className="mc-quick-action-icon">{item.icon}</span>
-                <strong>{item.label}</strong>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {websiteAnalytics}
-
-      <details className="group admin-card rounded-[14px]">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-black" style={{ color: "var(--admin-text-primary)" }}>
-          Gelişmiş operasyon panelleri (bildirimler, sistem sağlığı, başarılar, ajans haritası)
-        </summary>
-        <div className="border-t p-4" style={{ borderColor: "var(--admin-border)" }}>
-          {advanced}
-        </div>
-      </details>
-
-      <AdminActionBar statusText={`${criticalActions.length} kritik uyarı · ${riskyCustomers.length} riskli müşteri`}>
-        <button type="button" onClick={() => onNavigate("Müşteriler")} className="hk-button hk-button-info hk-button-compact">Yeni Müşteri</button>
-        <button type="button" onClick={() => onNavigate("Görevler")} className="hk-button hk-button-neutral hk-button-compact">Yeni Görev</button>
-        <button type="button" onClick={() => onNavigate("Raporlar")} className="hk-button hk-button-success hk-button-compact">Rapor Oluştur</button>
-      </AdminActionBar>
     </div>
   );
 }
