@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { isPublicTrackedPath, trackMetaContact, trackMetaCtaClick, trackMetaCustomEvent, trackMetaEvent, trackMetaLead } from "@/lib/meta-pixel";
 import { postAnalyticsEvent } from "@/lib/analytics-client";
-import { pushGaEvent, fireGoogleAdsConversion, GOOGLE_ADS_LEAD_CONVERSION_SEND_TO } from "@/lib/ga-events";
+import { pushGaEvent, fireGoogleAdsConversion, GOOGLE_ADS_LEAD_CONVERSION_SEND_TO, GOOGLE_TAG_LOADER_ID } from "@/lib/ga-events";
 import { consentSnapshot, subscribeConsent } from "@/lib/tracking-consent";
 
 type Props = {
@@ -123,7 +123,12 @@ export function TrackingPlaceholders({ ids }: Props) {
       } else {
         window.gtag("js", new Date());
         window.gtag("config", ga, { send_page_view: false });
-        script.src = `https://www.googletagmanager.com/gtag/js?id=${ga}`;
+        // The GA4 destination (`ga`) is a connected site tag under the
+        // primary Google tag — its own ID is not servable as a script
+        // loader (confirmed 404), so the <script> must load via the
+        // primary tag's ID while `gtag('config', ga, ...)` above still
+        // targets the real GA4 destination. See GOOGLE_TAG_LOADER_ID.
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_TAG_LOADER_ID}`;
       }
       document.head.appendChild(script);
     }

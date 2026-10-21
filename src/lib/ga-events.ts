@@ -32,6 +32,19 @@ export function pushGaEvent(name: string, params?: Record<string, unknown>) {
 // fabricated number here (see the final audit report).
 export const GOOGLE_ADS_LEAD_CONVERSION_SEND_TO = "AW-17670817544/cldVCND5xd4bEIiOjepB";
 
+// Google tag "connected site tags" setup (confirmed via GA4 Admin > Data
+// Streams > manual install instructions, and via direct HTTP checks on
+// 2026-10-21): the GA4 destination G-WN98CMWEZF and the Google Ads
+// destination AW-17670817544 are BOTH connected under one primary Google
+// tag, G-SMGL6PEYJ1 — only the primary tag's own ID is servable at
+// https://www.googletagmanager.com/gtag/js?id=... (verified HTTP 200);
+// loading the script with a connected destination's own ID 404s (verified
+// HTTP 404 for G-WN98CMWEZF), which is why no events were reaching GA4 at
+// all. The destination ID itself does NOT change — gtag('config', ...)
+// is still called with G-WN98CMWEZF exactly as before; only the <script>
+// src must use this primary loader ID.
+export const GOOGLE_TAG_LOADER_ID = "G-SMGL6PEYJ1";
+
 export function fireGoogleAdsConversion(sendTo: string) {
   if (typeof window === "undefined" || !hasMarketingConsent() || window.hkGaMode !== "direct" || typeof window.gtag !== "function") return;
   window.gtag("event", "conversion", { send_to: sendTo });
