@@ -7,6 +7,7 @@ import { PublicShell } from "@/components/public/Shell";
 import { MarketingCard, MarketingPageHero, MarketingReveal, MarketingSection } from "@/components/public/marketing/MarketingUI";
 import { MarketingNetworkBackground } from "@/components/public/marketing/MarketingVisualSystem";
 import { ContactForm } from "@/components/public/ContactForm";
+import { TrackedCtaLink } from "@/components/public/TrackedCtaLink";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,8 +33,8 @@ export default async function ContactPage() {
           <div className="mx-auto grid max-w-7xl gap-8 px-4 sm:px-6 lg:grid-cols-[1fr_.9fr] lg:px-8">
             <MarketingReveal><ContactForm /></MarketingReveal>
             <div className="grid gap-4">
-              {whatsappUrl && <MarketingCard className="p-6"><MessageCircle className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>WhatsApp ile Hızlı İletişim</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={whatsappUrl}>WhatsApp&apos;tan Yazın</a></MarketingCard>}
-              {hasRealInstagram && <MarketingCard className="p-6"><Camera className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Instagram&apos;da Takip Edin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={content.socials.instagram} target="_blank" rel="noreferrer">Instagram Profilimizi Ziyaret Edin</a></MarketingCard>}
+              {whatsappUrl && <MarketingCard className="p-6"><MessageCircle className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>WhatsApp ile Hızlı İletişim</h2><TrackedCtaLink kind="cta" label="İletişim Sayfası WhatsApp" href={whatsappUrl} target="_blank" rel="noreferrer" className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }}>WhatsApp&apos;tan Yazın</TrackedCtaLink></MarketingCard>}
+              {hasRealInstagram && <MarketingCard className="p-6"><Camera className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Instagram&apos;da Takip Edin</h2><TrackedCtaLink kind="social" platform="instagram" href={content.socials.instagram} target="_blank" rel="noreferrer" className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }}>Instagram Profilimizi Ziyaret Edin</TrackedCtaLink></MarketingCard>}
               <MarketingCard className="p-6"><Mail className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>E-posta Gönderin</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`mailto:${content.contact.email}`}>Teklif İçin Mail Gönderin</a></MarketingCard>
               {phoneHref && <MarketingCard className="p-6"><Phone className="text-[#107C73]" /><h2 className="mt-4 font-black" style={{ color: "var(--mk-ink)" }}>Bizi Arayın</h2><a className="mt-3 block text-sm font-bold" style={{ color: "var(--mk-violet)" }} href={`tel:${content.contact.phone.replace(/\s/g, "")}`}>{content.contact.phone}</a></MarketingCard>}
               {addressVisible && (

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pushGaEvent } from '../../src/lib/ga-events.ts';
+import { pushGaEvent, fireGoogleAdsConversion } from '../../src/lib/ga-events.ts';
 import { CONSENT_KEY, readConsent } from '../../src/lib/tracking-consent.ts';
 function browser(choice: unknown, mode?: 'gtm' | 'direct') {
   const calls: unknown[][] = [];
@@ -34,4 +34,20 @@ test('malformed storage fails closed and an uninitialized loader does not send',
   assert.equal(readConsent(),null);
   const {calls,layer}=browser({analytics:true,marketing:false,expires:Date.now()+10000});
   pushGaEvent('page_view'); assert.equal(calls.length,0); assert.equal(layer.length,0);
+});
+test('Google Ads conversion fires exactly once, only with marketing consent and direct mode', () => {
+  const sendTo = 'AW-17670817544/cldVCND5xd4bEIiOjepB';
+  const { calls } = browser({ analytics: true, marketing: true, expires: Date.now() + 10000 }, 'direct');
+  fireGoogleAdsConversion(sendTo);
+  assert.deepEqual(calls, [['event', 'conversion', { send_to: sendTo }]]);
+});
+test('Google Ads conversion never fires without marketing consent', () => {
+  const { calls } = browser({ analytics: true, marketing: false, expires: Date.now() + 10000 }, 'direct');
+  fireGoogleAdsConversion('AW-17670817544/cldVCND5xd4bEIiOjepB');
+  assert.equal(calls.length, 0);
+});
+test('Google Ads conversion never fires in GTM mode (direct-gtag only)', () => {
+  const { calls } = browser({ analytics: true, marketing: true, expires: Date.now() + 10000 }, 'gtm');
+  fireGoogleAdsConversion('AW-17670817544/cldVCND5xd4bEIiOjepB');
+  assert.equal(calls.length, 0);
 });

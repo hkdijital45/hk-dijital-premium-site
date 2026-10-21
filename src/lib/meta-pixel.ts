@@ -72,7 +72,15 @@ export function trackMetaCtaClick(label: string, href?: string, mirrorGa = true)
   // button's own label text and destination URL, never form field values.
   const gaParams = { cta_label: label, cta_location: label, destination_type: href || "" };
   if (lowerHref.includes("wa.me") || lowerHref.includes("whatsapp")) {
-    if (mirrorGa) pushGaEvent("whatsapp_click", gaParams);
+    if (mirrorGa) {
+      pushGaEvent("whatsapp_click", {
+        ...gaParams,
+        button_location: label,
+        link_type: lowerHref.includes("wa.me") ? "wa.me" : lowerHref.includes("api.whatsapp.com") ? "api.whatsapp.com" : "whatsapp",
+        destination_platform: "whatsapp",
+        page_path: typeof window !== "undefined" ? window.location.pathname : undefined
+      });
+    }
     trackMetaContact(payload);
     return;
   }

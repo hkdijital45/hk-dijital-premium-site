@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { isPublicTrackedPath, trackMetaContact, trackMetaCtaClick, trackMetaCustomEvent, trackMetaEvent, trackMetaLead } from "@/lib/meta-pixel";
 import { postAnalyticsEvent } from "@/lib/analytics-client";
-import { pushGaEvent } from "@/lib/ga-events";
+import { pushGaEvent, fireGoogleAdsConversion, GOOGLE_ADS_LEAD_CONVERSION_SEND_TO } from "@/lib/ga-events";
 import { consentSnapshot, subscribeConsent } from "@/lib/tracking-consent";
 
 type Props = {
@@ -33,13 +33,20 @@ export function trackEvent(name: string, payload?: Record<string, unknown>) {
   // ever in `payload` at any real call site (form_name/step/value/service
   // id/package id/href only — never name/email/phone/message body).
   const gaParams = { ...(payload as Record<string, unknown> | undefined) };
+  const currentPath = typeof window !== "undefined" ? window.location.pathname : undefined;
   if (name.includes("whatsapp")) {
-    pushGaEvent("whatsapp_click", { cta_location: name, ...gaParams });
+    pushGaEvent("whatsapp_click", { button_location: name, link_type: "wa.me", destination_platform: "whatsapp", page_path: currentPath, ...gaParams });
   } else if (name.includes("form_submitted")) {
     // Only reached after a real successful API response (see call sites) —
     // this is GA4's recommended "generate_lead" event, never fired on a
     // mere button press.
     pushGaEvent("generate_lead", { form_name: gaParams.form_name, ...gaParams });
+    // Google Ads "Potansiyel müşteri formu gönderimi" conversion — fired
+    // from this ONE already-success-gated branch only, so it can never
+    // double-count a single real submission or fire on a validation
+    // error/retry/open/step-advance (see ga-events.ts for the full
+    // reasoning and why no value/currency is attached).
+    fireGoogleAdsConversion(GOOGLE_ADS_LEAD_CONVERSION_SEND_TO);
   } else if (name.includes("wizard_started")) {
     // Only this one — QuoteWizard also fires a "pre_analysis_started"
     // event in the same breath as a distinct custom signal (unmapped,
@@ -52,7 +59,14 @@ export function trackEvent(name: string, payload?: Record<string, unknown>) {
   } else if (name.includes("service")) {
     pushGaEvent("service_click", gaParams);
     pushGaEvent("select_content", { content_type: "service", ...gaParams });
-  } else if (name.includes("cta") || name.includes("social_link")) {
+  } else if (name.includes("social_link")) {
+    // Dedicated, clearly-named event (distinct from GA4's own built-in
+    // automatic outbound-click "click" event) so a real social profile
+    // visit is never confused with GA4's generic click measurement —
+    // select_content below is kept too, for dashboards already built on it.
+    pushGaEvent("social_outbound_click", { platform: gaParams.platform, page_path: currentPath, link_location: name, ...gaParams });
+    pushGaEvent("select_content", { content_type: "cta", cta_location: name, ...gaParams });
+  } else if (name.includes("cta")) {
     pushGaEvent("select_content", { content_type: "cta", cta_location: name, ...gaParams });
   } else {
     // Step-progress and other custom milestones (quote_step_completed,
