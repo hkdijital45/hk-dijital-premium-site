@@ -123,18 +123,37 @@ export function AnalyticsLineChart(props: Parameters<typeof AnalyticsAreaChart>[
   return <AnalyticsAreaChart {...props} />;
 }
 
+// compareData/compareColor/compareLabel are optional — when present, each
+// category renders as TWO side-by-side bars (e.g. "Yeni Lead" vs
+// "Kazanılan Müşteri" per month) sharing one y-scale, with a small legend.
+// Every existing single-series caller is unaffected (props are optional,
+// default behaviour unchanged).
 export function AnalyticsBarChart({
-  title, subtitle, data, color = "#0891b2", unit, height = 280, loading
-}: { title?: string; subtitle?: string; data: SeriesPoint[]; color?: string; unit?: string; height?: number; loading?: boolean }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
+  title, subtitle, data, color = "#0891b2", unit, height = 280, loading,
+  compareData, compareColor = "#059669", label, compareLabel
+}: {
+  title?: string; subtitle?: string; data: SeriesPoint[]; color?: string; unit?: string; height?: number; loading?: boolean;
+  compareData?: SeriesPoint[]; compareColor?: string; label?: string; compareLabel?: string;
+}) {
+  const hasCompare = Boolean(compareData?.length);
+  const max = Math.max(...data.map((d) => d.value), ...(compareData || []).map((d) => d.value), 1);
   return (
     <ChartShell title={title} subtitle={subtitle} height={height} empty={!data.length} loading={loading}>
-      <div className="flex h-full items-end gap-2" style={{ height: height - 48 }}>
+      {hasCompare && (
+        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-[var(--analytics-text-on-dark-secondary)]">
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />{label || "Seri 1"}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: compareColor }} />{compareLabel || "Seri 2"}</span>
+        </div>
+      )}
+      <div className="flex h-full items-end gap-2" style={{ height: height - (hasCompare ? 68 : 48) }}>
         {data.map((d, i) => (
           <div key={i} className="group flex flex-1 flex-col items-center gap-2">
-            <div className="relative flex w-full flex-1 items-end justify-center">
+            <div className="relative flex w-full flex-1 items-end justify-center gap-1">
               <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, (d.value / max) * 100)}%`, background: color, opacity: 0.9 }} />
-              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] px-2 py-1 text-[11px] font-bold text-[var(--analytics-chart-tooltip-text)] group-hover:block" style={{ background: "var(--analytics-chart-tooltip-bg)" }}>{formatNumber(d.value, unit)}</div>
+              {hasCompare && <div className="w-full max-w-[42px] rounded-t-[8px] transition-all" style={{ height: `${Math.max(3, ((compareData?.[i]?.value || 0) / max) * 100)}%`, background: compareColor, opacity: 0.9 }} />}
+              <div className="pointer-events-none absolute -top-8 hidden rounded-[8px] px-2 py-1 text-[11px] font-bold text-[var(--analytics-chart-tooltip-text)] group-hover:block" style={{ background: "var(--analytics-chart-tooltip-bg)" }}>
+                {hasCompare ? `${formatNumber(d.value, unit)} / ${formatNumber(compareData?.[i]?.value || 0, unit)}` : formatNumber(d.value, unit)}
+              </div>
             </div>
             <span className="max-w-[70px] truncate text-[11px] font-bold text-[var(--analytics-text-on-dark-secondary)]">{d.label}</span>
           </div>

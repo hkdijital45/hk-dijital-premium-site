@@ -12,6 +12,8 @@ import { DashboardUpcomingTasks } from "./DashboardUpcomingTasks";
 import { DashboardFinanceSummary } from "./DashboardFinanceSummary";
 import { DashboardSalesPipeline } from "./DashboardSalesPipeline";
 import { DashboardAdPerformance } from "./DashboardAdPerformance";
+import { DashboardOverviewV2 } from "./DashboardOverviewV2";
+import type { DashboardStatCard } from "./DashboardOverviewV2";
 import type {
   DashboardActivityItem,
   DashboardAiHealthDimension,
@@ -61,6 +63,16 @@ export interface MissionControlProps {
   adPerformance: { riskyCustomerCount: number; latestCustomerName: string; averageScore: number | string };
   aiHealthDimensions: DashboardAiHealthDimension[];
   automationSuggestions: DashboardAutomationSuggestion[];
+
+  overviewV2: {
+    statCards: DashboardStatCard[];
+    tasks: any[];
+    companies: any[];
+    leads: any[];
+    users: any[];
+    onCompleteTask: (id: string) => void;
+    completingIds: Set<string>;
+  };
 
   centerCards: unknown;
 
@@ -142,6 +154,7 @@ export function MissionControl(props: MissionControlProps) {
     adPerformance,
     aiHealthDimensions,
     automationSuggestions,
+    overviewV2,
     websiteAnalytics,
     advanced,
     allowedModules = []
@@ -202,6 +215,17 @@ export function MissionControl(props: MissionControlProps) {
           </div>
         )}
       </section>
+
+      <DashboardOverviewV2
+        statCards={overviewV2.statCards}
+        tasks={overviewV2.tasks}
+        companies={overviewV2.companies}
+        leads={overviewV2.leads}
+        users={overviewV2.users}
+        onNavigate={onNavigate}
+        onCompleteTask={overviewV2.onCompleteTask}
+        completingIds={overviewV2.completingIds}
+      />
 
       {customizing && (
         <DashboardCustomizePanel

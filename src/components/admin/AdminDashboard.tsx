@@ -62,6 +62,8 @@ import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { MissionControl } from "@/components/admin/dashboard/MissionControl";
+import type { DashboardStatCard } from "@/components/admin/dashboard/DashboardOverviewV2";
+import { istanbulDateString } from "@/lib/analytics-time";
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
@@ -1300,7 +1302,7 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
           {!dashboardAliases.includes(active) && activeNavigationItem && <div className="hk-page-header mb-5 flex flex-wrap items-center justify-between gap-3 border border-[var(--admin-border)]"><div><span className="hk-page-eyebrow text-xs font-black uppercase tracking-[.14em]">{activeGroup?.label || "Modül"}</span><h2 className="mt-2 font-black text-[var(--admin-text-primary)] text-xl">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-[var(--admin-text-secondary)]">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="hk-button hk-button-secondary px-4 py-2.5 text-sm">? Yardım</Link></div>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
-          {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
+          {dashboardAliases.includes(active) && <Overview content={content} setContent={setContent} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
           {["HK Intelligence Kontrol Merkezi", "HK Intelligence Commander"].includes(active) && <><IntelligenceMvpPanel /><HKIntelligenceCommandCenter {...props} /></>}
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
@@ -2715,7 +2717,7 @@ function toExcelTable(rows: any[], columns: string[]) {
   return `<table><thead><tr>${columns.map((column) => `<th>${escape(column)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column) => `<td>${escape(row[column])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
-function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [], notify }: any) {
+function Overview({ content, setContent, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [], notify }: any) {
   const leads = useMemo(() => filterRecordsByVisibility(content.leads ?? [], "live"), [content.leads]);
   const companies = useMemo(() => filterRecordsByVisibility(content.companies ?? [], "live"), [content.companies]);
   const campaigns = useMemo(() => excludeTestCompanyRecords(content.campaigns ?? [], content.companies), [content.campaigns, content.companies]);
@@ -2733,6 +2735,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   const [preferences, setPreferences] = useState({ order: dashboardWidgetDefaults, hidden: [] });
   const [preferencesSaving, setPreferencesSaving] = useState(false);
   const [growthMode, setGrowthMode] = useState("Funnel Kur");
+  const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
   const [scenarioInput, setScenarioInput] = useState({ budget: 30000, price: 12000, conversionRate: 8, cpl: 220, closeRate: 18 });
   const today = new Date().toISOString().slice(0, 10);
   const month = today.slice(0, 7);
@@ -2811,6 +2814,34 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
     savePreferences({ ...preferences, hidden: preferences.hidden.includes(id) ? preferences.hidden.filter((item) => item !== id) : [...preferences.hidden, id] });
   }
 
+  // Dashboard V2 "Bugün Yapılacaklar" checkbox — reuses the SAME
+  // /api/admin/tasks/bulk PATCH endpoint (action: "complete") the real
+  // Görevler page's bulk toolbar already uses, so a task completed here
+  // is the exact same write, not a second task-completion code path.
+  // Optimistic local update only after the server confirms success — a
+  // failed request is reported via notify() and the checkbox never shows
+  // completed for a write that didn't actually happen.
+  async function completeTaskFromDashboard(taskId: string) {
+    setCompletingTaskIds((prev) => new Set(prev).add(taskId));
+    try {
+      const response = await fetch("/api/admin/tasks/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskIds: [taskId], action: "complete" })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.status === "error") throw new Error(payload.summary || payload.message || "Görev tamamlanamadı.");
+      updateCollection(content, setContent, "agencyTasks", (content.agencyTasks || []).map((task: any) =>
+        task.id === taskId ? { ...task, status: "Tamamlandı", completed_at: new Date().toISOString() } : task
+      ));
+      notify?.("Görev tamamlandı olarak işaretlendi.", "success");
+    } catch (error) {
+      notify?.(error instanceof Error ? error.message : "Görev tamamlanamadı.", "error");
+    } finally {
+      setCompletingTaskIds((prev) => { const next = new Set(prev); next.delete(taskId); return next; });
+    }
+  }
+
   const newLeads = leads.filter((lead) => (lead.status || "Yeni") === "Yeni");
   const moduleAliases: Record<string, string> = { "Müşteri Bulucu": "musteri-bulucu" };
   const canOpen = (label: string) => allowedModules.includes(moduleAliases[label] || adminNavigationItems.find((item) => item.label === label)?.module);
@@ -2871,6 +2902,21 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
   ].filter(([, target]) => canOpen(target as string));
   const openLeadCount = leads.filter((lead) => !isLeadDeleted(lead) && !["Kazanıldı", "Kaybedildi", "Dönüştürüldü", "Müşteri Oldu"].includes(pipelineStageForLead(lead))).length;
   const pendingProposalCount = leads.filter((lead) => ["Teklif Hazırlanıyor", "Teklif Gönderildi", "Teklif Görüntülendi", "Revize İstendi"].includes(lead.proposal_status || lead.status)).length;
+  // Dashboard V2 — "Geciken Görev" and the "Bugün Yapılacaklar" table must
+  // use the real Europe/Istanbul calendar day (agency_tasks.due_date has
+  // no time component, so "günün bitiminden sonra gecikmiş say" reduces to
+  // a date-only comparison) — deliberately NOT the `today` above (plain
+  // UTC toISOString, pre-existing elsewhere in this function) so this new
+  // card is never off-by-one around the UTC/Istanbul midnight boundary.
+  const istanbulToday = istanbulDateString(new Date());
+  const dashboardOverdueTasks = activeTasks.filter((item) => item.due_date && dateOnly(item.due_date) < istanbulToday && !["Tamamlandı", "İptal"].includes(item.status));
+  const dashboardStatCards: DashboardStatCard[] = [
+    { label: "Yeni Lead", value: newLeads.length, hint: "Durumu 'Yeni' olan başvurular", icon: <UsersRound size={18} />, tone: "info", target: "Lead Merkezi" },
+    { label: "Aktif Müşteri", value: activeCustomers.length, hint: "Hizmeti devam eden firmalar", icon: <Building2 size={18} />, tone: "success", target: "Müşteriler" },
+    { label: "Bekleyen Teklif", value: pendingProposalCount, hint: "Karar veya revize bekleyen teklifler", icon: <FileBarChart size={18} />, tone: "warning", target: "Lead Merkezi" },
+    { label: "Geciken Görev", value: dashboardOverdueTasks.length, hint: "Süresi geçmiş, tamamlanmamış görevler", icon: <AlertTriangle size={18} />, tone: "danger", target: "Görevler" },
+    { label: "Aylık Gelir", value: `${paidRevenue.toLocaleString("tr-TR")} TL`, hint: "Bu ay tahsil edilen toplam", icon: <CircleCheck size={18} />, tone: "success", target: "Tahsilat" }
+  ];
   const lightOverviewCards = [
     ["Bu Ay Tahsil Edilen", `${paidRevenue.toLocaleString("tr-TR")} TL`, "Ödenen toplam", <CircleCheck size={20} />, "bg-green-50 text-green-700"],
     ["Bekleyen Tahsilatlar", `${pendingRevenue.toLocaleString("tr-TR")} TL`, "Bu ay kapanmamış ödemeler", <Gauge size={20} />, "bg-orange-50 text-orange-700"],
@@ -3323,6 +3369,15 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         }}
         aiHealthDimensions={aiHealthDimensions}
         automationSuggestions={automationSuggestions}
+        overviewV2={{
+          statCards: dashboardStatCards,
+          tasks: activeTasks,
+          companies,
+          leads,
+          users: content.users || [],
+          onCompleteTask: completeTaskFromDashboard,
+          completingIds: completingTaskIds
+        }}
         centerCards={centerCards}
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
