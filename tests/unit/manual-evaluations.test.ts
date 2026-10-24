@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   validateManualEvaluationInput,
+  normalizeManualEvaluationInput,
   calculateAdDoctorMetrics,
   calculateInstagramMetrics,
   calculateDerivedMetrics,
@@ -38,8 +39,72 @@ test("validateManualEvaluationInput: rejects a value outside a select field's op
   assert.match(validateManualEvaluationInput("ad-doctor", { platform: "Snapchat" }) ?? "", /geçersiz seçim/);
 });
 
+test("validateManualEvaluationInput: an invalid select error names the field key, the submitted value and the full accepted list (regression — a caller must be able to self-correct from the error alone, found missing after a real save silently dropped fields instead of retrying)", () => {
+  const error = validateManualEvaluationInput("instagram", { profilePhotoQuality: "Yüksek kalite" }) ?? "";
+  assert.match(error, /profilePhotoQuality/);
+  assert.match(error, /Yüksek kalite/);
+  assert.match(error, /İyi, Orta, Zayıf, Bilinmiyor/);
+});
+
 test("validateManualEvaluationInput: accepts a valid, fully-populated payload", () => {
   assert.equal(validateManualEvaluationInput("ad-doctor", { platform: "Meta", spend: 1000, startDate: "2026-01-01" }), null);
+});
+
+// ---- normalizeManualEvaluationInput (Instagram Değerlendirme synonym fix —
+// root cause of a real save silently losing qualitative fields: the caller
+// could not guess the exact canonical strings and gave up on those keys) ----
+
+test("normalizeManualEvaluationInput: maps common quality synonyms to the canonical İyi/Orta/Zayıf/Bilinmiyor options", () => {
+  const out = normalizeManualEvaluationInput("instagram", {
+    profilePhotoQuality: "Yüksek", usernameClarity: "güçlü", nameFieldQuality: "düşük", bioQuality: "kötü", visualConsistency: "ortalama", contactAccessibility: "belirsiz"
+  });
+  assert.equal(out.profilePhotoQuality, "İyi");
+  assert.equal(out.usernameClarity, "İyi");
+  assert.equal(out.nameFieldQuality, "Zayıf");
+  assert.equal(out.bioQuality, "Zayıf");
+  assert.equal(out.visualConsistency, "Orta");
+  assert.equal(out.contactAccessibility, "Bilinmiyor");
+  assert.equal(validateManualEvaluationInput("instagram", out), null, "normalized output must itself pass validation");
+});
+
+test("normalizeManualEvaluationInput: is case-insensitive (Turkish locale) against the real options, with no synonym map needed", () => {
+  const out = normalizeManualEvaluationInput("instagram", { profilePhotoQuality: "iyi", visualConsistency: "ZAYIF" });
+  assert.equal(out.profilePhotoQuality, "İyi");
+  assert.equal(out.visualConsistency, "Zayıf");
+});
+
+test("normalizeManualEvaluationInput: whatsappAvailable accepts boolean-shaped synonyms (true/false/var/yok) as well as Evet/Hayır", () => {
+  assert.equal(normalizeManualEvaluationInput("instagram", { whatsappAvailable: "true" }).whatsappAvailable, "Evet");
+  assert.equal(normalizeManualEvaluationInput("instagram", { whatsappAvailable: "var" }).whatsappAvailable, "Evet");
+  assert.equal(normalizeManualEvaluationInput("instagram", { whatsappAvailable: "false" }).whatsappAvailable, "Hayır");
+  assert.equal(normalizeManualEvaluationInput("instagram", { whatsappAvailable: "yok" }).whatsappAvailable, "Hayır");
+});
+
+test("normalizeManualEvaluationInput: isExistingCustomer's verbose canonical 'Hayır' string is reachable from the values a caller would naturally send (Hayır, false, Aday, Potansiyel müşteri) — this exact mismatch (unguessable canonical string) was found in production", () => {
+  for (const raw of ["Hayır", "hayır", "false", "Aday", "Potansiyel müşteri", "lead"]) {
+    assert.equal(normalizeManualEvaluationInput("instagram", { isExistingCustomer: raw }).isExistingCustomer, "Hayır (Aday / Halka Açık Profil)", `input '${raw}' should normalize`);
+  }
+  assert.equal(normalizeManualEvaluationInput("instagram", { isExistingCustomer: "Evet" }).isExistingCustomer, "Evet");
+  assert.equal(normalizeManualEvaluationInput("instagram", { isExistingCustomer: "true" }).isExistingCustomer, "Evet");
+});
+
+test("normalizeManualEvaluationInput: never silently defaults an unrecognized value — an unmapped synonym is left untouched and still fails validation with a clear error (unknown values must never be coerced to 'Hayır')", () => {
+  const out = normalizeManualEvaluationInput("instagram", { isExistingCustomer: "belki" });
+  assert.equal(out.isExistingCustomer, "belki", "must be left unchanged, not silently coerced");
+  assert.match(validateManualEvaluationInput("instagram", out) ?? "", /geçersiz seçim/);
+});
+
+test("normalizeManualEvaluationInput: a hedged/compound value (e.g. 'İyi/Orta') is never guessed — left unchanged and still rejected", () => {
+  const out = normalizeManualEvaluationInput("instagram", { bioQuality: "İyi/Orta" });
+  assert.equal(out.bioQuality, "İyi/Orta");
+  assert.match(validateManualEvaluationInput("instagram", out) ?? "", /geçersiz seçim/);
+});
+
+test("normalizeManualEvaluationInput: non-select fields and fields with no value pass through untouched", () => {
+  const out = normalizeManualEvaluationInput("instagram", { businessName: "Opus Sanat Akademi", followers: 1237, profilePhotoQuality: undefined });
+  assert.equal(out.businessName, "Opus Sanat Akademi");
+  assert.equal(out.followers, 1237);
+  assert.equal(out.profilePhotoQuality, undefined);
 });
 
 // Phase 5 — derived metrics only ever computed when BOTH the numerator and

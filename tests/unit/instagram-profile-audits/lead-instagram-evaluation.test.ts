@@ -100,6 +100,40 @@ test("AdInsightsCenter's lead prompt references the real get_lead_instagram_eval
 
 // --- Live, self-provisioning integration coverage (real Supabase, disposable QA-prefixed data only) ---
 
+// Regression for a real production save (Opus Sanat Akademi, 2026-10-23)
+// that lost several qualitative fields: the caller sent natural values
+// ("Hayır" for isExistingCustomer, "Yüksek" for a quality field) that did
+// not exactly match the rigid canonical option strings, got a vague error,
+// and gave up on those fields rather than retry correctly. Confirms the
+// actual save path (not just the pure normalize function) now accepts and
+// correctly canonicalizes these exact real-world values end-to-end.
+test("saveLeadInstagramEvaluation — naturally-phrased select values are normalized and persisted as the exact canonical strings, not rejected or silently dropped", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const { saveLeadInstagramEvaluation } = await import("../../../src/lib/instagram-intelligence/lead-evaluation.ts");
+
+  const unique = `QA Lead IG Synonyms ${Date.now()}`;
+  const [lead] = await supabaseRest<Array<{ id: string }>>("leads", { method: "POST", body: JSON.stringify({ company: unique, status: "yeni" }) });
+  const leadId = lead.id;
+
+  try {
+    const saved = await saveLeadInstagramEvaluation({
+      leadId,
+      data: {
+        businessName: unique,
+        isExistingCustomer: "Hayır",
+        profilePhotoQuality: "Yüksek",
+        whatsappAvailable: "false"
+      }
+    });
+    assert.equal(saved.data.isExistingCustomer, "Hayır (Aday / Halka Açık Profil)", "the verbose canonical string must be reachable from the natural 'Hayır'");
+    assert.equal(saved.data.profilePhotoQuality, "İyi");
+    assert.equal(saved.data.whatsappAvailable, "Hayır");
+  } finally {
+    await supabaseRest(`manual_evaluations?lead_id=eq.${leadId}`, { method: "DELETE" });
+    await supabaseRest(`leads?id=eq.${leadId}`, { method: "DELETE" });
+  }
+});
+
 test("Lead Instagram Değerlendirme — full context/save/update/list/get cycle against a disposable test lead", { skip: hasSupabase ? false : skipReason }, async () => {
   const { supabaseRest } = await import("../../../src/lib/supabase.ts");
   const { getLeadInstagramEvaluationContext, saveLeadInstagramEvaluation, LeadInstagramEvaluationNotFoundError } = await import("../../../src/lib/instagram-intelligence/lead-evaluation.ts");

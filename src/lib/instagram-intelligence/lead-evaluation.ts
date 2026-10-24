@@ -27,7 +27,7 @@ import {
   ManualEvaluationNotFoundError,
   type ManualEvaluationRecord
 } from "@/lib/manual-evaluations";
-import { validateManualEvaluationInput, ManualEvaluationValidationError } from "@/lib/manual-evaluations-shared";
+import { validateManualEvaluationInput, normalizeManualEvaluationInput, ManualEvaluationValidationError } from "@/lib/manual-evaluations-shared";
 import { assertUnitLinkedTo, getBusinessUnit, listLinkedBusinesses, BusinessRelationshipNotFoundError } from "@/lib/business-relationships";
 import { BusinessRelationshipValidationError } from "@/lib/business-relationships-shared";
 
@@ -176,7 +176,12 @@ export type SaveLeadInstagramEvaluationInput = {
 export async function saveLeadInstagramEvaluation(input: SaveLeadInstagramEvaluationInput): Promise<ManualEvaluationRecord> {
   if (!input.leadId) throw new ManualEvaluationValidationError("leadId zorunludur.");
 
-  const data = input.data && typeof input.data === "object" ? input.data : {};
+  // Normalize BEFORE this early validation — createManualEvaluation/
+  // updateManualEvaluation normalize again too (idempotent), but this
+  // function's own pre-check must not reject a naturally-phrased value
+  // (e.g. "Hayır", "Yüksek") before normalization ever runs. Found as a
+  // real regression while testing the fix for the Opus Sanat Akademi save.
+  const data = normalizeManualEvaluationInput("instagram", input.data && typeof input.data === "object" ? input.data : {});
   const validationError = validateManualEvaluationInput("instagram", data);
   if (validationError) throw new ManualEvaluationValidationError(validationError);
 

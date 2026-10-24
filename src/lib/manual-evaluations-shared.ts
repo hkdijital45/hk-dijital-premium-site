@@ -37,6 +37,28 @@ export type FieldConfig = {
   unit?: string;
   options?: string[];
   placeholder?: string;
+  /** select fields only: alternate values (lowercased, Turkish-locale) that
+   * normalize to one of `options` before validation — e.g. a caller writing
+   * "Yüksek" or `true` instead of the exact canonical string. Keys are
+   * matched case-insensitively (tr locale); unmapped/unrecognized values
+   * are left untouched and still rejected by validateManualEvaluationInput
+   * with a clear error — this NEVER silently coerces an unknown value to
+   * a default like "Hayır" (see normalizeSelectValue). */
+  synonyms?: Record<string, string>;
+};
+
+// Shared across every "İyi/Orta/Zayıf/Bilinmiyor" quality-rating select
+// field (profilePhotoQuality, usernameClarity, nameFieldQuality, bioQuality,
+// visualConsistency, contactAccessibility) — a caller (human or Claude)
+// naturally describes quality with many near-synonyms; these are the
+// unambiguous ones. Deliberately excludes vaguer terms ("yok", hedges like
+// "İyi/Orta") that could map to more than one canonical option — those must
+// still fail validation with a clear error rather than be guessed.
+const QUALITY_SYNONYMS: Record<string, string> = {
+  "iyi": "İyi", "yüksek": "İyi", "güçlü": "İyi", "mükemmel": "İyi", "çok iyi": "İyi",
+  "orta": "Orta", "ortalama": "Orta", "vasat": "Orta",
+  "zayıf": "Zayıf", "düşük": "Zayıf", "kötü": "Zayıf", "yetersiz": "Zayıf",
+  "bilinmiyor": "Bilinmiyor", "belirsiz": "Bilinmiyor", "veri yok": "Bilinmiyor"
 };
 export type FieldGroup = { title: string; fields: FieldConfig[] };
 
@@ -189,7 +211,7 @@ const INSTAGRAM_GROUPS: FieldGroup[] = [
       { key: "posts", label: "Toplam Gönderi", type: "number" },
       { key: "profileCategory", label: "Profil Kategorisi", type: "text" },
       { key: "contactButtons", label: "İletişim Butonları", type: "text" },
-      { key: "whatsappAvailable", label: "WhatsApp Mevcut mu", type: "select", options: ["Evet", "Hayır", "Bilinmiyor"] },
+      { key: "whatsappAvailable", label: "WhatsApp Mevcut mu", type: "select", options: ["Evet", "Hayır", "Bilinmiyor"], synonyms: { "true": "Evet", "var": "Evet", "false": "Hayır", "yok": "Hayır" } },
       { key: "locationInfo", label: "Konum Bilgisi", type: "text" }
     ]
   },
@@ -235,23 +257,30 @@ const INSTAGRAM_GROUPS: FieldGroup[] = [
   {
     title: "Profil Denetimi",
     fields: [
-      { key: "profilePhotoQuality", label: "Profil Fotoğrafı Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
-      { key: "usernameClarity", label: "Kullanıcı Adı Netliği", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
-      { key: "nameFieldQuality", label: "Ad Alanı Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
-      { key: "bioQuality", label: "Biyografi Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
+      { key: "profilePhotoQuality", label: "Profil Fotoğrafı Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
+      { key: "usernameClarity", label: "Kullanıcı Adı Netliği", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
+      { key: "nameFieldQuality", label: "Ad Alanı Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
+      { key: "bioQuality", label: "Biyografi Kalitesi", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
       { key: "linkStructure", label: "Bağlantı Yapısı", type: "text" },
       { key: "highlights", label: "Öne Çıkanlar", type: "textarea" },
       { key: "pinnedPosts", label: "Sabitlenmiş Gönderiler", type: "textarea" },
-      { key: "visualConsistency", label: "Görsel Tutarlılık", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
+      { key: "visualConsistency", label: "Görsel Tutarlılık", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
       { key: "trustSignals", label: "Güven Sinyalleri", type: "textarea" },
-      { key: "contactAccessibility", label: "İletişime Geçilebilirlik", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"] },
+      { key: "contactAccessibility", label: "İletişime Geçilebilirlik", type: "select", options: ["İyi", "Orta", "Zayıf", "Bilinmiyor"], synonyms: QUALITY_SYNONYMS },
       { key: "conversionPath", label: "Dönüşüm Yolu", type: "text" }
     ]
   },
   {
     title: "Kaynak (Mode B — Mevcut Müşteri Değil)",
     fields: [
-      { key: "isExistingCustomer", label: "Mevcut Müşteri mi?", type: "select", options: ["Evet", "Hayır (Aday / Halka Açık Profil)"] }
+      // The "Hayır" option's canonical string is deliberately verbose (it
+      // doubles as a UI label explaining WHY: no connected account, public
+      // research only) but that exact string is unguessable from the field
+      // label/key alone — a caller naturally writes "Hayır", `false`, or
+      // "Aday/Potansiyel müşteri" instead. These are the one true meaning
+      // (this tool is ONLY for leads, i.e. not-yet-customers) so mapping
+      // them is safe; anything else still fails validation explicitly.
+      { key: "isExistingCustomer", label: "Mevcut Müşteri mi?", type: "select", options: ["Evet", "Hayır (Aday / Halka Açık Profil)"], synonyms: { "hayır": "Hayır (Aday / Halka Açık Profil)", "false": "Hayır (Aday / Halka Açık Profil)", "no": "Hayır (Aday / Halka Açık Profil)", "aday": "Hayır (Aday / Halka Açık Profil)", "potansiyel müşteri": "Hayır (Aday / Halka Açık Profil)", "lead": "Hayır (Aday / Halka Açık Profil)", "true": "Evet", "yes": "Evet" } }
     ]
   }
 ];
@@ -276,6 +305,32 @@ function num(data: Record<string, unknown>, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Normalizes select-field values to their exact canonical `options` string
+ * before validation/persistence: case-insensitive (Turkish-locale) match
+ * against the real options first, then the field's own `synonyms` map.
+ * Returns the value UNCHANGED when neither matches — never invents or
+ * silently defaults an unrecognized value, so validateManualEvaluationInput
+ * still rejects it with a clear error. Non-select fields pass through
+ * untouched. Call this on the FULL data object before validating/saving so
+ * HK Admin, the API, the database and every MCP tool always end up storing
+ * the exact same canonical option strings, however the value was phrased. */
+export function normalizeManualEvaluationInput(module: ManualEvaluationModule, data: Record<string, unknown>): Record<string, unknown> {
+  const fieldByKey = new Map(MODULE_FIELD_GROUPS[module].flatMap((g) => g.fields.map((f) => [f.key, f] as const)));
+  const next: Record<string, unknown> = { ...data };
+  for (const key of Object.keys(next)) {
+    const field = fieldByKey.get(key);
+    if (!field || field.type !== "select" || !field.options) continue;
+    const raw = next[key];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const str = String(raw).trim();
+    const exact = field.options.find((opt) => opt.toLocaleLowerCase("tr") === str.toLocaleLowerCase("tr"));
+    if (exact) { next[key] = exact; continue; }
+    const synonym = field.synonyms?.[str.toLocaleLowerCase("tr")];
+    if (synonym) next[key] = synonym;
+  }
+  return next;
+}
+
 export function validateManualEvaluationInput(module: ManualEvaluationModule, data: Record<string, unknown>): string | null {
   const groups = MODULE_FIELD_GROUPS[module];
   const validKeys = new Set(groups.flatMap((g) => g.fields.map((f) => f.key)));
@@ -288,7 +343,9 @@ export function validateManualEvaluationInput(module: ManualEvaluationModule, da
       if (raw === undefined || raw === null || raw === "") continue; // all non-essential fields optional
       if (field.type === "number" && Number.isNaN(Number(raw))) return `${field.label} sayısal bir değer olmalı.`;
       if (field.type === "date" && Number.isNaN(Date.parse(String(raw)))) return `${field.label} geçerli bir tarih olmalı.`;
-      if (field.type === "select" && field.options && !field.options.includes(String(raw))) return `${field.label} için geçersiz seçim.`;
+      if (field.type === "select" && field.options && !field.options.includes(String(raw))) {
+        return `${field.label} (${field.key}) için geçersiz seçim: '${String(raw)}' gönderildi. Kabul edilen değerler: ${field.options.join(", ")}.`;
+      }
     }
   }
   return null;

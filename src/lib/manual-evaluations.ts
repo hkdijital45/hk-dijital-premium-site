@@ -4,6 +4,7 @@ import { supabaseRest } from "@/lib/supabase";
 import {
   calculateDerivedMetrics,
   validateManualEvaluationInput,
+  normalizeManualEvaluationInput,
   hasExclusiveEntityOwnership,
   ManualEvaluationValidationError,
   MANUAL_EVALUATIONS_TABLE,
@@ -27,6 +28,7 @@ export {
   calculateAdEvaluationMetrics,
   calculateInstagramMetrics,
   MANUAL_EVALUATIONS_TABLE,
+  normalizeManualEvaluationInput,
   type ManualEvaluationModule,
   type ManualEvaluationRecord,
   type FieldConfig,
@@ -74,10 +76,14 @@ export type CreateManualEvaluationInput = {
 
 export async function createManualEvaluation(input: CreateManualEvaluationInput): Promise<ManualEvaluationRecord> {
   if (!hasExclusiveEntityOwnership(input.companyId, input.leadId)) throw new ManualEvaluationValidationError("Bir değerlendirme aynı anda hem müşteriye hem adaya bağlanamaz.");
-  const validationError = validateManualEvaluationInput(input.module, input.data);
+  // Normalize BEFORE validating/persisting so HK Admin's own form, the API
+  // and every MCP caller (e.g. Claude) end up storing the exact same
+  // canonical select-option strings, however the value was phrased.
+  const normalizedData = normalizeManualEvaluationInput(input.module, input.data);
+  const validationError = validateManualEvaluationInput(input.module, normalizedData);
   if (validationError) throw new ManualEvaluationValidationError(validationError);
 
-  const derivedMetrics = calculateDerivedMetrics(input.module, input.data);
+  const derivedMetrics = calculateDerivedMetrics(input.module, normalizedData);
   const [row] = await supabaseRest<ManualEvaluationRecord[]>(MANUAL_EVALUATIONS_TABLE, {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -89,7 +95,7 @@ export async function createManualEvaluation(input: CreateManualEvaluationInput)
       target_label: input.targetLabel || "",
       title: input.title || "",
       status: input.status || "draft",
-      data: input.data,
+      data: normalizedData,
       derived_metrics: derivedMetrics,
       source: input.source || "manual",
       claude_import: input.claudeImportText ? { text: input.claudeImportText, importedAt: new Date().toISOString() } : null,
@@ -104,7 +110,7 @@ export type UpdateManualEvaluationInput = Partial<Pick<CreateManualEvaluationInp
 
 export async function updateManualEvaluation(id: string, patch: UpdateManualEvaluationInput): Promise<ManualEvaluationRecord> {
   const existing = await getManualEvaluation(id);
-  const nextData = patch.data ? { ...existing.data, ...patch.data } : existing.data;
+  const nextData = patch.data ? normalizeManualEvaluationInput(existing.module, { ...existing.data, ...patch.data }) : existing.data;
   if (patch.data) {
     const validationError = validateManualEvaluationInput(existing.module, nextData);
     if (validationError) throw new ManualEvaluationValidationError(validationError);
