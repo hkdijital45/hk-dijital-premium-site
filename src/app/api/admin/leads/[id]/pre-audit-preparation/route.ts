@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     const preparation = await getOrCreatePreparation(id);
     const lead = await loadLeadPreAuditSnapshot(id);
-    return NextResponse.json({ preparation, prompt: buildLeadPreAuditPrompt(id, lead) });
+    return NextResponse.json({ preparation, prompt: buildLeadPreAuditPrompt(id, lead, preparation) });
   } catch (error) {
     if (error instanceof LeadNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });
     return NextResponse.json({ error: error instanceof Error ? error.message : "Hazırlık verisi alınamadı." }, { status: 500 });
@@ -26,12 +26,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
   const patch: Record<string, unknown> = {};
-  for (const field of ["social_observations", "business_notes", "advertising_status", "potential_reason", "focus_notes", "competitor_reference", "status"]) {
+  for (const field of ["social_observations", "business_notes", "advertising_status", "potential_reason", "focus_notes", "competitor_reference", "status", "requested_by", "requested_by_detail"]) {
     if (field in body) patch[field] = body[field];
   }
   try {
     const preparation = await savePreparation(id, patch as never);
-    return NextResponse.json({ preparation });
+    // Rebuild the prompt with the just-saved values so the client's displayed
+    // AND copied prompt are always the one just persisted — previously the
+    // client only fetched the prompt once on open, so every save (including
+    // "Hazır Olarak İşaretle") left it showing/copying stale text.
+    const lead = await loadLeadPreAuditSnapshot(id);
+    return NextResponse.json({ preparation, prompt: buildLeadPreAuditPrompt(id, lead, preparation) });
   } catch (error) {
     if (error instanceof LeadPreAuditPrepValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
     if (error instanceof LeadNotFoundError) return NextResponse.json({ error: error.message }, { status: 404 });

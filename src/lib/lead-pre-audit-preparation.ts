@@ -22,11 +22,31 @@ export const LEAD_PRE_AUDIT_PREP_STATUS_LABELS: Record<LeadPreAuditPrepStatus, s
 export const LEAD_ADVERTISING_STATUSES = ["yes", "no", "unknown"] as const;
 export type LeadAdvertisingStatus = (typeof LEAD_ADVERTISING_STATUSES)[number];
 
+// "Who asked for this pre-audit" — deliberately separate from
+// leads.source (the lead's own acquisition channel): a lead that came in
+// via "Website" can still have HK Dijital itself initiate the pre-audit,
+// and conflating the two would silently misrepresent who asked for it.
+export const LEAD_PRE_AUDIT_REQUESTED_BY = ["", "customer", "hk_dijital", "business_owner", "referral", "other"] as const;
+export type LeadPreAuditRequestedBy = (typeof LEAD_PRE_AUDIT_REQUESTED_BY)[number];
+export const LEAD_PRE_AUDIT_REQUESTED_BY_LABELS: Record<Exclude<LeadPreAuditRequestedBy, "">, string> = {
+  customer: "Müşteri kendisi talep etti",
+  hk_dijital: "HK Dijital tarafından önerildi / başlatıldı",
+  business_owner: "İşletme yetkilisi talep etti",
+  referral: "Referans / üçüncü kişi talep etti",
+  other: "Diğer"
+};
+
 export type LeadPreAuditPreparation = {
   id: string; lead_id: string;
   social_observations: string; business_notes: string;
   advertising_status: LeadAdvertisingStatus;
   potential_reason: string; focus_notes: string; competitor_reference: string;
+  // Optional at the TYPE level (not just runtime) because a production
+  // database that hasn't run the 20261112 migration yet simply omits these
+  // keys from a `select=*` response — never a crash, never a fabricated
+  // default pretending the column exists.
+  requested_by?: LeadPreAuditRequestedBy;
+  requested_by_detail?: string;
   status: LeadPreAuditPrepStatus;
   created_at: string; updated_at: string;
 };
@@ -68,9 +88,15 @@ export async function getOrCreatePreparation(leadId: string): Promise<LeadPreAud
 export type LeadPreAuditPrepPatch = Partial<{
   social_observations: string; business_notes: string; advertising_status: LeadAdvertisingStatus;
   potential_reason: string; focus_notes: string; competitor_reference: string; status: LeadPreAuditPrepStatus;
+  requested_by: LeadPreAuditRequestedBy; requested_by_detail: string;
 }>;
 
 const EDITABLE_FIELDS = ["social_observations", "business_notes", "advertising_status", "potential_reason", "focus_notes", "competitor_reference", "status"] as const;
+// Saved in a SEPARATE patch call below (not merged into EDITABLE_FIELDS)
+// so a production database that hasn't run the 20261112 migration yet
+// still saves every OTHER field normally instead of failing the whole
+// save on an unknown-column error.
+const REQUESTED_BY_FIELDS = ["requested_by", "requested_by_detail"] as const;
 
 export async function savePreparation(leadId: string, patch: LeadPreAuditPrepPatch): Promise<LeadPreAuditPreparation> {
   await assertLeadExists(leadId);
@@ -80,17 +106,39 @@ export async function savePreparation(leadId: string, patch: LeadPreAuditPrepPat
   if (patch.status && !(LEAD_PRE_AUDIT_PREP_STATUSES as readonly string[]).includes(patch.status)) {
     throw new LeadPreAuditPrepValidationError(`Geçersiz hazırlık durumu: ${patch.status}.`);
   }
+  if (patch.requested_by !== undefined && !(LEAD_PRE_AUDIT_REQUESTED_BY as readonly string[]).includes(patch.requested_by)) {
+    throw new LeadPreAuditPrepValidationError(`Geçersiz talep eden: ${patch.requested_by}.`);
+  }
   const body: Record<string, unknown> = {};
   for (const field of EDITABLE_FIELDS) if (field in patch) body[field] = (patch as Record<string, unknown>)[field];
-  req(Object.keys(body).length > 0, "Güncellenecek en az bir alan belirtilmelidir.");
+  const requestedByBody: Record<string, unknown> = {};
+  for (const field of REQUESTED_BY_FIELDS) if (field in patch) requestedByBody[field] = (patch as Record<string, unknown>)[field];
+  req(Object.keys(body).length > 0 || Object.keys(requestedByBody).length > 0, "Güncellenecek en az bir alan belirtilmelidir.");
 
   // Ensure the row exists first (1:1, created lazily on first open) so a
   // PATCH never silently no-ops against a missing row.
   await getOrCreatePreparation(leadId);
-  const rows = await supabaseRest<LeadPreAuditPreparation[]>(
-    `${LEAD_PRE_AUDIT_PREP_TABLE}?lead_id=eq.${encodeURIComponent(leadId)}&select=*`,
-    { method: "PATCH", body: JSON.stringify(body) }
-  );
+  let rows: LeadPreAuditPreparation[] = [];
+  if (Object.keys(body).length > 0) {
+    rows = await supabaseRest<LeadPreAuditPreparation[]>(
+      `${LEAD_PRE_AUDIT_PREP_TABLE}?lead_id=eq.${encodeURIComponent(leadId)}&select=*`,
+      { method: "PATCH", body: JSON.stringify(body) }
+    );
+  }
+  if (Object.keys(requestedByBody).length > 0) {
+    try {
+      rows = await supabaseRest<LeadPreAuditPreparation[]>(
+        `${LEAD_PRE_AUDIT_PREP_TABLE}?lead_id=eq.${encodeURIComponent(leadId)}&select=*`,
+        { method: "PATCH", body: JSON.stringify(requestedByBody) }
+      );
+    } catch {
+      throw new LeadPreAuditPrepValidationError(
+        rows.length
+          ? "Ön incelemeyi talep eden alanı henüz veritabanında mevcut değil (migration uygulanmadı); diğer alanlar kaydedildi."
+          : "Ön incelemeyi talep eden alanı henüz veritabanında mevcut değil (migration uygulanmadı)."
+      );
+    }
+  }
   if (!rows.length) throw new LeadNotFoundError(`Hazırlık kaydı güncellenemedi: ${leadId}`);
   return rows[0];
 }
@@ -99,7 +147,13 @@ function req(cond: unknown, message: string) {
   if (!cond) throw new LeadPreAuditPrepValidationError(message);
 }
 
-const LEAD_SNAPSHOT_COLUMNS = "company,business_type,address,instagram,website,goal,budget,requested_platforms,message";
+// source/google_maps_url added: both were already shown to staff in this
+// same panel's own info cards but never reached the actual Claude prompt —
+// the same bug class as the preparation notes themselves. phone/email/name
+// remain deliberately excluded (see pre-audit-lead-prompt.ts's own comment
+// and its test coverage) — the prompt leaves the app boundary, and that
+// privacy rule predates and is independent of this fix.
+const LEAD_SNAPSHOT_COLUMNS = "company,business_type,address,instagram,website,goal,budget,requested_platforms,message,source,google_maps_url";
 
 /** Reads the lead fields the pre-audit prompt uses. pre_analysis is selected
  * separately and only when its column exists, so older schemas keep working. */
@@ -117,6 +171,6 @@ export async function loadLeadPreAuditSnapshot(leadId: string): Promise<PreAudit
   };
 }
 
-export function buildLeadPreAuditPrompt(leadId: string, lead: PreAuditLeadSnapshot): string {
-  return buildPreAuditLeadPrompt(leadId, lead);
+export function buildLeadPreAuditPrompt(leadId: string, lead: PreAuditLeadSnapshot, prep?: LeadPreAuditPreparation | null): string {
+  return buildPreAuditLeadPrompt(leadId, lead, prep);
 }

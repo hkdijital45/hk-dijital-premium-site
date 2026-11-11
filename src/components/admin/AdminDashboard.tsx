@@ -7087,12 +7087,36 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setMessage(data.error || "Kaydedilemedi."); return; }
       setPrep(data.preparation);
+      // The server rebuilds the prompt from the just-saved values on every
+      // PATCH — refresh it here too, otherwise the displayed/copied prompt
+      // kept showing stale text from the initial GET (the exact bug this
+      // revision fixes: "Hazır Olarak İşaretle" and "Notları Kaydet" not
+      // reflecting the latest data).
+      if (typeof data.prompt === "string") setPrompt(data.prompt);
       if (note) setMessage(note);
     } catch {
       setMessage("Kaydedilemedi.");
     } finally {
       setSaving(false);
     }
+  }
+
+  // Shared by both buttons so "Hazır Olarak İşaretle" always saves the
+  // form's current values first — previously it sent ONLY {status:"ready"},
+  // silently discarding any edits made since the last "Notları Kaydet".
+  function currentFieldsPatch() {
+    const patch: any = {
+      social_observations: prep.social_observations, business_notes: prep.business_notes,
+      advertising_status: prep.advertising_status, potential_reason: prep.potential_reason,
+      focus_notes: prep.focus_notes, competitor_reference: prep.competitor_reference
+    };
+    // Only included once genuinely set — on a production database that
+    // hasn't run the 20261112 migration yet, prep.requested_by is simply
+    // absent (never "", see LeadPreAuditPreparation's own type comment),
+    // so omitting it here keeps every EXISTING save working unaffected by
+    // the still-pending migration, never erroring on every single save.
+    if (prep.requested_by) { patch.requested_by = prep.requested_by; patch.requested_by_detail = prep.requested_by_detail || ""; }
+    return patch;
   }
 
   async function copyPrompt() {
@@ -7149,6 +7173,19 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
       </div>
 
       <div className="mt-4 grid gap-3">
+        <SelectField
+          label="Ön incelemeyi kim talep etti?"
+          value={prep.requested_by ? (LEAD_PRE_AUDIT_REQUESTED_BY_LABELS[prep.requested_by] || "") : ""}
+          onChange={(v) => {
+            const next = Object.entries(LEAD_PRE_AUDIT_REQUESTED_BY_LABELS).find(([, label]) => label === v)?.[0] || "";
+            setPrep({ ...prep, requested_by: next, requested_by_detail: next === "other" ? prep.requested_by_detail : "" });
+          }}
+          options={Object.values(LEAD_PRE_AUDIT_REQUESTED_BY_LABELS)}
+          placeholder="Seçiniz"
+        />
+        {prep.requested_by === "other" && (
+          <Field label="Talep eden / Açıklama" value={prep.requested_by_detail || ""} onChange={(v) => setPrep({ ...prep, requested_by_detail: v })} />
+        )}
         <TextArea label="Sosyal medya gözlemlerim" value={prep.social_observations} onChange={(v) => setPrep({ ...prep, social_observations: v })} />
         <TextArea label="İşletme hakkında notlarım" value={prep.business_notes} onChange={(v) => setPrep({ ...prep, business_notes: v })} />
         <SelectField label="Reklam veriyor mu?" value={prep.advertising_status === "unknown" ? "" : prep.advertising_status === "yes" ? "Evet" : "Hayır"} onChange={(v) => setPrep({ ...prep, advertising_status: v === "Evet" ? "yes" : v === "Hayır" ? "no" : "unknown" })} options={["Evet", "Hayır"]} placeholder="Bilinmiyor" />
@@ -7158,8 +7195,8 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button onClick={() => save({ social_observations: prep.social_observations, business_notes: prep.business_notes, advertising_status: prep.advertising_status, potential_reason: prep.potential_reason, focus_notes: prep.focus_notes, competitor_reference: prep.competitor_reference, status: prep.status === "not_prepared" ? "preparing" : prep.status }, "Hazırlık notları kaydedildi.")} disabled={saving} className="hk-button hk-button-neutral">{saving ? "Kaydediliyor..." : "Notları Kaydet"}</button>
-        {prep.status !== "completed" && <button onClick={() => save({ status: "ready" })} disabled={saving} className="hk-button hk-button-success">Hazır Olarak İşaretle</button>}
+        <button onClick={() => save({ ...currentFieldsPatch(), status: prep.status === "not_prepared" ? "preparing" : prep.status }, "Hazırlık notları kaydedildi.")} disabled={saving} className="hk-button hk-button-neutral">{saving ? "Kaydediliyor..." : "Notları Kaydet"}</button>
+        {prep.status !== "completed" && <button onClick={() => save({ ...currentFieldsPatch(), status: "ready" }, "Hazır olarak işaretlendi.")} disabled={saving} className="hk-button hk-button-success">Hazır Olarak İşaretle</button>}
       </div>
 
       <div className="mt-5 rounded-[8px] border border-cyan-200 bg-cyan-50 p-3">
@@ -7183,6 +7220,17 @@ function LeadPreAuditPrepPanel({ lead, close, setPreAuditInitialLeadId, setActiv
 const LEAD_PRE_AUDIT_PREP_STATUS_LABELS: Record<string, string> = {
   not_prepared: "Hazırlanmadı", preparing: "Hazırlanıyor", ready: "Hazır",
   sent_to_claude: "Claude'a Gönderildi", completed: "Tamamlandı", failed: "Başarısız"
+};
+// Duplicated here (not imported) because lib/lead-pre-audit-preparation.ts
+// is "server-only" and cannot be imported into this client component —
+// same reason LEAD_PRE_AUDIT_PREP_STATUS_LABELS above is duplicated rather
+// than imported. Keep in sync with that file's own copy.
+const LEAD_PRE_AUDIT_REQUESTED_BY_LABELS: Record<string, string> = {
+  customer: "Müşteri kendisi talep etti",
+  hk_dijital: "HK Dijital tarafından önerildi / başlatıldı",
+  business_owner: "İşletme yetkilisi talep etti",
+  referral: "Referans / üçüncü kişi talep etti",
+  other: "Diğer"
 };
 const LEAD_PRE_AUDIT_PREP_STATUS_CLASS: Record<string, string> = {
   not_prepared: "bg-[var(--admin-surface-soft)] text-[var(--admin-text-secondary)]",

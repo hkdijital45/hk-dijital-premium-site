@@ -159,6 +159,21 @@ test("getOrCreatePreparation / savePreparation: lazy-creates a 1:1 row, persists
     assert.equal(saved.status, "preparing");
 
     await assert.rejects(() => savePreparation(leadId, { advertising_status: "maybe" as never }), LeadPreAuditPrepValidationError);
+
+    // "Ön incelemeyi kim talep etti?" — invalid enum value rejected before
+    // any DB write is attempted, so this holds even if the 20261112
+    // migration (requested_by/requested_by_detail columns) is not yet
+    // applied to this database.
+    await assert.rejects(() => savePreparation(leadId, { requested_by: "someone_else" as never }), LeadPreAuditPrepValidationError);
+
+    // A valid requested_by only round-trips once the migration is applied —
+    // reported, not silently treated as a hard failure, if it isn't yet.
+    try {
+      const withRequester = await savePreparation(leadId, { requested_by: "customer" });
+      assert.equal(withRequester.requested_by, "customer");
+    } catch (error) {
+      assert.ok(error instanceof LeadPreAuditPrepValidationError && /migration uygulanmadı/.test(error.message), "only an unmigrated-column error is tolerated here");
+    }
   } finally {
     await cleanupLead(leadId);
   }
