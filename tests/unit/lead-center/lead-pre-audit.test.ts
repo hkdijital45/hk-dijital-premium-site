@@ -52,6 +52,78 @@ test("normalizeDomain: strips protocol, www, and path so different URL forms of 
   assert.equal(normalizeDomain("http://example.com/iletisim"), bare);
 });
 
+// REGRESSION — production root cause (2026-11-21): İlera Jewelry
+// (shopier.com/ilerajewelry) was flagged as an exact duplicate of the
+// unrelated Şehrazat Pet (shopier.com/sehrazatpet) because normalizeDomain
+// used to discard the whole path, collapsing every seller on a shared
+// marketplace host to the same bare "shopier.com" string.
+test("normalizeDomain: two different sellers on the same shared marketplace (Shopier/Etsy/Trendyol) never collapse to the same value", async () => {
+  const { normalizeDomain } = await import("../../../src/lib/lead-duplicate-check.ts");
+  assert.notEqual(normalizeDomain("https://www.shopier.com/ilerajewelry"), normalizeDomain("https://www.shopier.com/sehrazatpet"));
+  assert.notEqual(normalizeDomain("https://etsy.com/shop/storeA"), normalizeDomain("https://etsy.com/shop/storeB"));
+  assert.notEqual(normalizeDomain("https://www.trendyol.com/magaza/storea-m1"), normalizeDomain("https://www.trendyol.com/magaza/storeb-m2"));
+});
+
+test("normalizeDomain: the SAME shared-marketplace store still matches across casing/www/trailing-slash/query differences", async () => {
+  const { normalizeDomain } = await import("../../../src/lib/lead-duplicate-check.ts");
+  const bare = normalizeDomain("shopier.com/ilerajewelry");
+  assert.equal(normalizeDomain("https://www.shopier.com/IleraJewelry/"), bare);
+  assert.equal(normalizeDomain("https://shopier.com/ilerajewelry?ref=instagram"), bare);
+});
+
+test("normalizeDomain: a bare shared-marketplace homepage (no store slug) carries no match evidence at all, never falls back to the host", async () => {
+  const { normalizeDomain } = await import("../../../src/lib/lead-duplicate-check.ts");
+  assert.equal(normalizeDomain("https://www.shopier.com"), "");
+  assert.equal(normalizeDomain("https://www.shopier.com/"), "");
+});
+
+test("normalizeDomain: a business's own distinct domain is unaffected by the shared-marketplace carve-out", async () => {
+  const { normalizeDomain } = await import("../../../src/lib/lead-duplicate-check.ts");
+  const bare = normalizeDomain("ilerajewelry.com");
+  assert.equal(normalizeDomain("https://www.ilerajewelry.com/urun/kolye"), bare);
+});
+
+test("checkLeadDuplicate: two different Shopier sellers (same host, different store slug) never produce an exact match", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { checkLeadDuplicate } = await import("../../../src/lib/lead-duplicate-check.ts");
+  const storeA = `qa-shopier-a-${Date.now()}`;
+  const storeB = `qa-shopier-b-${Date.now()}`;
+  const leadId = await makeFixtureLead("ShopierSellerA", { website: `https://www.shopier.com/${storeA}` });
+  try {
+    const result = await checkLeadDuplicate({ website: `https://www.shopier.com/${storeB}` });
+    assert.equal(result.exactMatch, null, "a different seller on the same shared marketplace host must never be reported as an exact duplicate");
+  } finally {
+    await cleanupLead(leadId);
+  }
+});
+
+test("checkLeadDuplicate: the SAME Shopier seller, written differently, still produces an exact domain match", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { checkLeadDuplicate } = await import("../../../src/lib/lead-duplicate-check.ts");
+  const store = `qa-shopier-same-${Date.now()}`;
+  const leadId = await makeFixtureLead("ShopierSameStore", { website: `https://www.shopier.com/${store}` });
+  try {
+    const result = await checkLeadDuplicate({ website: `https://shopier.com/${store}?ref=instagram` });
+    assert.equal(result.exactMatch?.id, leadId);
+  } finally {
+    await cleanupLead(leadId);
+  }
+});
+
+// Read-only against the REAL production record this bug was found on
+// (Şehrazat Pet, already an existing customer) — never creates, modifies
+// or deletes anything, per the task's explicit prohibition on touching
+// real customer data for testing.
+test("PRODUCTION REGRESSION (read-only) — the real İlera Jewelry input no longer exact-matches the real Şehrazat Pet record", { skip: hasSupabase ? false : skipReason }, async () => {
+  const { checkLeadDuplicate } = await import("../../../src/lib/lead-duplicate-check.ts");
+  const { supabaseRest } = await import("../../../src/lib/supabase.ts");
+  const sehrazat = await supabaseRest<Array<{ id: string }>>(`leads?select=id&company=ilike.*ehrazat*&deleted_at=is.null&limit=1`);
+  assert.ok(sehrazat.length, "this regression test targets the real Şehrazat Pet record and found none — environment may differ from production");
+  const result = await checkLeadDuplicate({
+    company: "İlera Jewelry", instagram: "https://www.instagram.com/ilerajewelry", phone: "05058159617", website: "https://www.shopier.com/ilerajewelry"
+  });
+  assert.notEqual(result.exactMatch?.id, sehrazat[0].id, "İlera Jewelry must never be reported as an exact duplicate of the unrelated Şehrazat Pet");
+  assert.equal(result.exactMatch, null, "İlera Jewelry has no genuine duplicate in production and must report none");
+});
+
 // --- duplicate check (live, real leads table) ---
 
 test("checkLeadDuplicate: exact phone match blocks, exact instagram match blocks, exact domain match blocks", { skip: hasSupabase ? false : skipReason }, async () => {

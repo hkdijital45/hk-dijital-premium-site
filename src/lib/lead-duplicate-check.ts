@@ -22,9 +22,42 @@ export function normalizeInstagram(value: string | null | undefined): string {
   return value.trim().toLocaleLowerCase("en").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/^@/, "").replace(/\/.*$/, "").replace(/\?.*$/, "");
 }
 
+// Shared marketplace hosts — the hostname alone identifies the PLATFORM,
+// not the seller. Confirmed in production (2026-11-21): İlera Jewelry
+// (shopier.com/ilerajewelry) was flagged as an exact duplicate of the
+// unrelated Şehrazat Pet (shopier.com/sehrazatpet) because the old
+// normalizeDomain() discarded the path entirely, collapsing every
+// Shopier/Etsy/Trendyol seller to the same bare host. Shopify stores are
+// NOT listed here: each one already has its own distinct host
+// (storename.myshopify.com or a custom domain), so the existing bare-host
+// comparison is already correct for them.
+//
+// The store slug isn't always the first path segment: Etsy/Trendyol URLs
+// have a fixed literal segment ("shop"/"mağaza") before the real store
+// identifier (etsy.com/shop/storeName, trendyol.com/magaza/storeName-123)
+// — listed here so it's skipped rather than mistaken for the identifier
+// itself. Shopier has no such prefix; the slug is the first segment.
+const SHARED_ECOMMERCE_HOST_PREFIXES: Record<string, string[]> = {
+  "shopier.com": [],
+  "etsy.com": ["shop"],
+  "trendyol.com": ["magaza", "mağaza"]
+};
+
 export function normalizeDomain(value: string | null | undefined): string {
   if (!value) return "";
-  return value.trim().toLocaleLowerCase("en").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+  const cleaned = value.trim().toLocaleLowerCase("en").replace(/^https?:\/\//, "").replace(/^www\./, "");
+  const slashIndex = cleaned.indexOf("/");
+  const host = slashIndex === -1 ? cleaned : cleaned.slice(0, slashIndex);
+  const prefixSegments = SHARED_ECOMMERCE_HOST_PREFIXES[host];
+  if (prefixSegments === undefined) return host;
+  // For a shared platform, the seller-specific store slug is the real
+  // identity signal — without one (a bare platform homepage/host), there
+  // is no business-specific evidence at all, so this must NOT fall back
+  // to matching on the bare host (every seller on the platform would
+  // collide again).
+  const segments = (slashIndex === -1 ? "" : cleaned.slice(slashIndex + 1)).split(/[?#]/)[0].split("/").filter(Boolean);
+  const slug = segments.length && prefixSegments.includes(segments[0]) ? segments[1] || "" : segments[0] || "";
+  return slug ? `${host}/${slug}` : "";
 }
 
 function normalizeName(value: string | null | undefined): string {

@@ -6988,6 +6988,15 @@ function LeadEditModal({ lead, close, save }: any) {
   return <div onMouseDown={close} className="fixed inset-0 z-[70] grid place-items-center bg-[var(--admin-surface)]/70 p-4 "><div onMouseDown={(event) => event.stopPropagation()} className="admin-modal-panel max-h-[92vh] w-full max-w-4xl overflow-auto rounded-[8px] border border-[var(--admin-border)] bg-[var(--admin-surface)] p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.16em] text-cyan-700">CRM Başvuru Yönetimi</p><h2 className="mt-1 text-2xl font-black text-[var(--admin-text-primary)]">Başvuruyu Düzenle</h2></div><button onClick={close} className="grid size-10 place-items-center rounded-full border border-[var(--admin-border)]"><X size={18} /></button></div><div className="grid gap-4 md:grid-cols-2"><SelectField label="Kaynak" value={form.source} onChange={(source) => update({ source })} options={leadSourceOptions} /><SelectField label="Durum" value={form.status} onChange={(status) => update({ status })} options={crmActiveStatuses} /><Field label="Ad Soyad" value={form.name} onChange={(name) => update({ name })} /><Field label="Firma" value={form.company} onChange={(company) => update({ company })} /><Field label="Telefon" value={form.phone} onChange={(phone) => update({ phone })} /><Field label="E-posta" value={form.email} onChange={(email) => update({ email })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => update({ instagram })} /><Field label="Web sitesi" value={form.website} onChange={(website) => update({ website })} /><OtherSelectField label="Sektör" value={form.business_type} onChange={(business_type) => update({ business_type })} options={sectorOptions} manualLabel="Sektörü yazın" /><Field label="Bütçe" value={form.budget} onChange={(budget) => update({ budget })} /><Field label="Önerilen paket" value={form.recommended_package} onChange={(recommended_package) => update({ recommended_package })} /><Field label="Takip tarihi" type="date" value={form.follow_up_date} onChange={(follow_up_date) => update({ follow_up_date })} /><div className="md:col-span-2"><TextArea label="Hedef" value={form.goal} onChange={(goal) => update({ goal })} /></div><div className="md:col-span-2"><TextArea label="Mesaj" value={form.message} onChange={(message) => update({ message })} /></div><div className="md:col-span-2"><TextArea label="Dahili notlar" value={form.notes} onChange={(notes) => update({ notes })} /></div><div className="md:col-span-2"><TextArea rows={3} label="Red nedeni" value={form.rejection_reason} onChange={(rejection_reason) => update({ rejection_reason })} /></div></div><div className="mt-6 flex flex-wrap justify-end gap-2"><button onClick={close} className="rounded-full border border-[var(--admin-border)] px-4 py-2 text-sm">Vazgeç</button><button onClick={() => save(form)} className="rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-[var(--admin-text-primary)]">Değişiklikleri Kaydet</button></div></div></div>;
 }
 
+// Duplicated here (not imported) because lib/lead-duplicate-check.ts is
+// "server-only". Mirrors LeadDuplicateMatch["matchedOn"] there.
+const DUPLICATE_MATCH_REASON_LABELS: Record<string, string> = {
+  phone: "Bu telefon numarasıyla kayıtlı bir işletme bulundu.",
+  instagram: "Bu Instagram hesabıyla kayıtlı bir işletme bulundu.",
+  domain: "Bu web sitesi/mağaza bağlantısıyla kayıtlı bir işletme bulundu.",
+  name_district: "Benzer isimli bir işletme kaydı bulundu."
+};
+
 // "+ Yeni Lead" — the sole manual-entry path. source is always forced to
 // "Manuel Giriş" server-side (api/admin/leads POST); this form never lets
 // the admin pick a different source, by design (section 2 of the task).
@@ -7002,7 +7011,7 @@ function CreateLeadModal({ close, onCreated, onFindExisting }: any) {
     if (saving) return;
     setSaving(true);
     setError("");
-    setDuplicate(null);
+    if (!force) setDuplicate(null);
     try {
       const response = await fetch("/api/admin/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, force }) });
       const data = await response.json().catch(() => ({}));
@@ -7036,9 +7045,16 @@ function CreateLeadModal({ close, onCreated, onFindExisting }: any) {
       </div>
       {duplicate && (
         <div className="mt-4 rounded-[8px] border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          <p className="font-black">Bu işletme Lead Merkezi&apos;nde zaten bulunuyor olabilir.</p>
+          <p className="font-black">{DUPLICATE_MATCH_REASON_LABELS[duplicate.matchedOn] || "Bu işletme Lead Merkezi'nde zaten bulunuyor olabilir."}</p>
           <p className="mt-1">{duplicate.company || duplicate.name || "Kayıt"} · {duplicate.source || "-"} · {duplicate.status || "-"}</p>
-          <button type="button" onClick={() => onFindExisting?.(duplicate.company || duplicate.name || "")} className="mt-2 rounded-full border border-amber-300 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-amber-800">Mevcut Kaydı Bul</button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onFindExisting?.(duplicate.company || duplicate.name || "")} className="rounded-full border border-amber-300 bg-[var(--admin-surface)] px-3 py-1.5 text-xs font-black text-amber-800">Mevcut Kaydı Bul</button>
+            {/* Confirmed match type ≠ confirmed same business (e.g. a shared
+                phone used by two real businesses) — never a hard block
+                with no way out; the server already accepts force:true,
+                only the UI never exposed it. */}
+            <button type="button" onClick={() => submit(true)} disabled={saving} className="rounded-full border border-amber-300 px-3 py-1.5 text-xs font-black text-amber-800 disabled:opacity-60">{saving ? "Oluşturuluyor..." : "Farklı İşletme, Yine de Oluştur"}</button>
+          </div>
         </div>
       )}
       {error && <p className="mt-4 rounded-[8px] border border-red-300/20 bg-red-500/10 p-3 text-sm text-red-700">{error}</p>}
