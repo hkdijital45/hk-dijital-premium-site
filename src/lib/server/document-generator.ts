@@ -10,6 +10,7 @@ import type { ProfessionalReportPayload } from "@/lib/report-export";
 import { isDocumentLink } from "@/lib/document-model";
 import type { DocumentLink, DocumentCell, DocumentTable, DocumentSection, DocumentPayload, DocumentMetric, DocumentChart, DocumentCallout, DocumentTimelinePhase, DocumentLogo, DocumentTone } from "@/lib/document-model";
 import { renderPremiumPdf } from "@/lib/server/premium-pdf";
+import { renderPremiumPdfWide } from "@/lib/server/premium-pdf-wide";
 import { formatChartValue, sanitizeChartData } from "@/lib/report-design";
 
 // Canonical document generation service — the single place every real
@@ -124,6 +125,14 @@ function stripStatusEmoji(cellText: string): string {
 export async function generatePdfBuffer(payload: DocumentPayload): Promise<Buffer> {
   // V3.2: validated charts from the report's own structured tables.
   return renderPremiumPdf(withAutomaticCharts(payload));
+}
+
+/** Landscape 16:9 "presentation" PDF — same payload, same auto-chart
+ * derivation, a different (wide, slide-deck-style) renderer. Opt-in only:
+ * every existing caller of generatePdfBuffer is unaffected. Currently used
+ * by Ön İnceleme Merkezi's internal/customer report exports. */
+export async function generatePremiumWidePdfBuffer(payload: DocumentPayload): Promise<Buffer> {
+  return renderPremiumPdfWide(withAutomaticCharts(payload));
 }
 
 function buildDocxTable(table: DocumentTable): Table {

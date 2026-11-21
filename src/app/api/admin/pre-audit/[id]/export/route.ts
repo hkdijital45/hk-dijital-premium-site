@@ -4,7 +4,7 @@ import { getSafeSupabaseError } from "@/lib/supabase";
 import { resolveReportDisplayName } from "@/lib/report-identity";
 import { getPreAuditReportById } from "@/lib/pre-audit/reports";
 import { buildPreAuditDocumentPayload, buildPreAuditFileName } from "@/lib/pre-audit/document";
-import { generateDocxBuffer, generatePdfBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
+import { generateDocxBuffer, generatePremiumWidePdfBuffer, DOCUMENT_MIME_TYPES } from "@/lib/server/document-generator";
 import { resolveReportClientLogo } from "@/lib/business-logos";
 
 // Branded PDF/DOCX export for a single, already-saved Ön İnceleme report.
@@ -38,7 +38,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     payload.clientLogo = await resolveReportClientLogo({ companyId: report.company_id, leadId: report.lead_id, businessUnitId: report.business_unit_id || null });
     const filename = buildPreAuditFileName(report, companyDisplayName, format);
 
-    const buffer = format === "pdf" ? await generatePdfBuffer(payload) : await generateDocxBuffer(payload);
+    // PDF exports render as the premium 16:9 presentation deck (same
+    // payload/privacy rules as DOCX); DOCX stays a flowing document.
+    const buffer = format === "pdf" ? await generatePremiumWidePdfBuffer(payload) : await generateDocxBuffer(payload);
     return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
