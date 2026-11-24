@@ -5,6 +5,7 @@ import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, supabaseRest } from "@/lib/supabase";
 import { uuidPattern } from "@/lib/meta-pixel-admin";
 import { checkOperationalCustomer } from "@/lib/server/customer-visibility";
+import { TASK_NOTE_MAX, TASK_TITLE_MAX, isValidIsoDate } from "@/lib/task-planner";
 
 async function staffSession() {
   const session = await getSession();
@@ -14,7 +15,27 @@ async function staffSession() {
 export async function GET(request: Request) {
   const session = await staffSession();
   if (!session) return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 403 });
-  const companyId = new URL(request.url).searchParams.get("companyId") || "";
+  const params = new URL(request.url).searchParams;
+  const companyId = params.get("companyId") || "";
+  if (params.get("scope") === "planner") {
+    // Dashboard "Bugünün Planı": tüm müşteriler, filtreler veritabanı seviyesinde.
+    const from = params.get("from") || "";
+    const to = params.get("to") || "";
+    if ((companyId && !uuidPattern.test(companyId)) || (from && !isValidIsoDate(from)) || (to && !isValidIsoDate(to))) return NextResponse.json({ error: "Geçersiz filtre." }, { status: 400 });
+    const query = [
+      "archived_at=is.null", "deleted_at=is.null", "parent_task_id=is.null", "status=neq.%C4%B0ptal",
+      companyId && `company_id=eq.${companyId}`,
+      from && `due_date=gte.${from}`,
+      to && `due_date=lte.${to}`,
+      "select=*", "order=due_date.asc.nullslast", "order=created_at.asc", "limit=1000"
+    ].filter(Boolean).join("&");
+    try {
+      return NextResponse.json({ tasks: await supabaseRest<any[]>(`agency_tasks?${query}`) });
+    } catch (error) {
+      const safe = getSafeSupabaseError(error);
+      return NextResponse.json({ error: safe.title, detail: safe.detail }, { status: 500 });
+    }
+  }
   if (!uuidPattern.test(companyId)) return NextResponse.json({ error: "Geçerli bir müşteri seçin." }, { status: 400 });
   try {
     const [payments, tasks] = await Promise.all([
@@ -42,6 +63,9 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     if (resource === "payment" && (!Number.isFinite(Number(item.amount)) || Number(item.amount) <= 0)) return NextResponse.json({ error: "Tahsilat tutarı sıfırdan büyük olmalıdır." }, { status: 400 });
     if (resource === "task" && !String(item.title || "").trim()) return NextResponse.json({ error: "Görev başlığı zorunludur." }, { status: 400 });
+    if (resource === "task" && String(item.title).trim().length > TASK_TITLE_MAX) return NextResponse.json({ error: `Görev başlığı en fazla ${TASK_TITLE_MAX} karakter olabilir.` }, { status: 400 });
+    if (resource === "task" && String(item.description || item.notes || "").length > TASK_NOTE_MAX) return NextResponse.json({ error: `Açıklama en fazla ${TASK_NOTE_MAX} karakter olabilir.` }, { status: 400 });
+    if (resource === "task" && item.due_date && !isValidIsoDate(String(item.due_date).slice(0, 10))) return NextResponse.json({ error: "Geçerli bir görev tarihi seçin." }, { status: 400 });
     const isExistingRecord = Boolean(item.id && uuidPattern.test(String(item.id)) && !item._draft && !item.isNew);
     if (!isExistingRecord) {
       const customerCheck = await checkOperationalCustomer(item.company_id);

@@ -15,6 +15,7 @@
 // composed into this particular view. No functionality was deleted.
 import { DashboardOverviewV2 } from "./DashboardOverviewV2";
 import type { DashboardStatCard } from "./DashboardOverviewV2";
+import type { ReactNode } from "react";
 import type { NavigateFn } from "./types";
 
 export interface MissionControlProps {
@@ -28,19 +29,21 @@ export interface MissionControlProps {
     onCompleteTask: (id: string) => void;
     completingIds: Set<string>;
   };
+  dailyPlan?: ReactNode;
   // Legacy MissionControl props — still accepted (AdminDashboard.tsx's
   // call site is unchanged/minimal-diff) but intentionally unused by this
   // view; kept optional so nothing upstream has to be rewired.
   [legacyProp: string]: unknown;
 }
 
-export function MissionControl({ onNavigate, overviewV2 }: MissionControlProps) {
+export function MissionControl({ onNavigate, overviewV2, dailyPlan }: MissionControlProps) {
   // No background override here — this renders inside AdminDashboard.tsx's
   // existing "admin-dashboard-main" panel (its own border/padding/shadow,
   // already provided), per the "occupy the existing main content area,
   // don't replace its chrome" requirement.
   return (
     <div className="grid gap-5">
+      {dailyPlan}
       <DashboardOverviewV2
         statCards={overviewV2.statCards}
         tasks={overviewV2.tasks}

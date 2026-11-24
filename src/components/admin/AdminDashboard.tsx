@@ -65,6 +65,7 @@ import { MissionControl } from "@/components/admin/dashboard/MissionControl";
 import type { DashboardStatCard } from "@/components/admin/dashboard/DashboardOverviewV2";
 import { monthOverMonthTrend } from "@/lib/dashboard-overview-helpers";
 import { istanbulDateString } from "@/lib/analytics-time";
+import { DashboardDailyPlan } from "@/components/admin/dashboard/DashboardDailyPlan";
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
@@ -3394,6 +3395,7 @@ function Overview({ content, setContent, setActive, supabaseConfigured, systemSt
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
         allowedModules={allowedModules}
+        dailyPlan={<DashboardDailyPlan content={content} setContent={setContent} notify={notify} />}
       />
   );
 }

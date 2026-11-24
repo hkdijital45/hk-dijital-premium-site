@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/purity */
 
 import { useMemo, useState } from "react";
+import { istanbulToday } from "@/lib/task-planner";
 import { AdminButton } from "@/components/admin/ui/AdminButton";
 import { AdminStatusBadge } from "@/components/admin/ui/AdminStatusBadge";
 import { AdminWorkspace } from "@/components/admin/workspace/AdminWorkspace";
@@ -133,7 +134,7 @@ export function CustomerProfileTasks({ company, content, setContent, items, noti
     .sort((a: any, b: any) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
 
   function add() {
-    const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title: "", description: "", notes: "", status: "Yapılacak", priority: "Orta", due_date: new Date().toISOString().slice(0, 10), assigned_user_id: "", visible_to_customer: false, sort_order: (items || []).length + 1, recurring_rule: "", reminder_at: "", metadata: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const draft = { id: createLocalId(), _draft: true, isNew: true, company_id: company.id, title: "", description: "", notes: "", status: "Yapılacak", priority: "Orta", due_date: istanbulToday(), assigned_user_id: "", visible_to_customer: false, sort_order: (items || []).length + 1, recurring_rule: "", reminder_at: "", metadata: {}, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setContent((current: any) => ({ ...current, agencyTasks: [draft, ...(current.agencyTasks || [])] }));
     setSelectedTaskId(draft.id);
     notify?.("Görev taslağı açıldı. Başlık girip Kaydet düğmesine basın.", "info");
