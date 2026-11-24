@@ -49,6 +49,7 @@ import { AiProviderSelector } from "@/components/admin/AiProviderSelector";
 import { HKAssistantWidget } from "@/components/shared/HKAssistantWidget";
 import { Logo } from "@/components/public/Logo";
 import { DashboardOverview } from "@/components/admin/dashboard/DashboardOverview";
+import { DashboardDailyPlan } from "@/components/admin/dashboard/DashboardDailyPlan";
 import type { DashboardOverviewCard } from "@/components/admin/dashboard/types";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui/AdminPageHeader";
 import { AdminSearchInput, AdminFilterBar } from "@/components/admin/ui/AdminSearchInput";
@@ -822,7 +823,7 @@ export function AdminDashboard({
           {status && <p className={`mb-5 rounded-[8px] border p-3 text-sm ${status.includes("Kaydedilemedi") ? "border-red-300/30 bg-red-500/10 text-red-100" : "border-cyan-200/20 bg-cyan-200/10 text-cyan-700"}`}>{status}</p>}
           {!dashboardAliases.includes(active) && activeNavigationItem && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-cyan-200 bg-cyan-50 p-4"><div><p className="mb-1 text-xs font-black uppercase tracking-[.14em] text-cyan-700">Admin / {activeGroup?.label || "Modül"} / {activeNavigationItem.label}</p><h2 className="font-black text-slate-950">{withAdminEmoji(activeNavigationItem.label)}</h2><p className="mt-1 text-sm text-slate-600">{activeNavigationItem.description}</p></div><Link href={`/hk-admin/sistem-rehberi?topic=${activeNavigationItem.slug}`} className="rounded-[10px] bg-white px-4 py-2.5 text-sm font-black text-cyan-700 shadow-sm ring-1 ring-cyan-200">? Yardım</Link></div>}
           {showCustomerFilter && <div className="mb-5"><AdminCustomerSelector companies={content.companies || []} value={pendingCompanyId} appliedValue={selectedCompanyId} onChange={setPendingCompanyId} onApply={applyCompanyFilter} onClear={clearCompanyFilter} /></div>}
-          {dashboardAliases.includes(active) && <Overview content={content} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
+          {dashboardAliases.includes(active) && <Overview content={content} setContent={setContent} setActive={setActive} supabaseConfigured={supabaseConfigured} systemStatus={systemStatus} currentSession={currentSession} allowedModules={allowedModules} notify={notify} />}
           {active === "HK Intelligence CEO" && <HKAutonomousAgencyCenter content={content} setActive={setActive} notify={notify} />}
           {["HK Intelligence Kontrol Merkezi", "HK Intelligence Commander"].includes(active) && <><IntelligenceMvpPanel /><HKIntelligenceCommandCenter {...props} /></>}
           {active === "Risk Merkezi" && <HKIntelligenceCommandCenter {...props} initialView="risk" />}
@@ -2257,7 +2258,7 @@ function toExcelTable(rows: any[], columns: string[]) {
   return `<table><thead><tr>${columns.map((column) => `<th>${escape(column)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${columns.map((column) => `<td>${escape(row[column])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
-function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [], notify }: any) {
+function Overview({ content, setContent, setActive, supabaseConfigured, systemStatus = {}, currentSession, allowedModules = [], notify }: any) {
   const leads = useMemo(() => filterRecordsByVisibility(content.leads ?? [], "live"), [content.leads]);
   const companies = useMemo(() => filterRecordsByVisibility(content.companies ?? [], "live"), [content.companies]);
   const campaigns = useMemo(() => excludeTestCompanyRecords(content.campaigns ?? [], content.companies), [content.campaigns, content.companies]);
@@ -2856,6 +2857,7 @@ function Overview({ content, setActive, supabaseConfigured, systemStatus = {}, c
         centerCards={centerCards}
         websiteAnalytics={<WebsiteAnalyticsSummaryCards onOpen={() => setActive("Web Site Analitiği")} />}
         advanced={advancedSection}
+        dailyPlan={<DashboardDailyPlan content={content} setContent={setContent} notify={notify} />}
       />
     </Panel>
   );

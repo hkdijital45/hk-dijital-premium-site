@@ -68,6 +68,7 @@ export interface DashboardOverviewProps {
 
   websiteAnalytics: ReactNode;
   advanced: ReactNode;
+  dailyPlan?: ReactNode;
 }
 
 const KPI_ICONS: ReactNode[] = [<Gauge key="0" size={14} />, <TrendingUp key="1" size={14} />, <Sparkles key="2" size={14} />];
@@ -103,7 +104,8 @@ export function DashboardOverview(props: DashboardOverviewProps) {
     aiHealthDimensions,
     automationSuggestions,
     websiteAnalytics,
-    advanced
+    advanced,
+    dailyPlan
   } = props;
 
   const kpiItems: AdminCompactKpiItem[] = dailyKpis.map((item, index) => ({
@@ -181,6 +183,8 @@ export function DashboardOverview(props: DashboardOverviewProps) {
       )}
 
       <div className="grid min-w-0 gap-4">
+        {dailyPlan}
+
         {isWidgetVisible("priorityActions") && (
           <DashboardPriorityActions items={priorityActions} commandPlan={commandPlan} onGeneratePlan={onGenerateDailyPlan} onNavigate={onNavigate} />
         )}
