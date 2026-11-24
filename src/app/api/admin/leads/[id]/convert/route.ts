@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { recordActionFailure, recordActivity } from "@/lib/activity-log";
 import { getSafeSupabaseError, hasSupabaseConfig, supabaseRest } from "@/lib/supabase";
+import { fillBlankFields, resolveConversionCompany } from "@/lib/lead-conversion";
 
 function temporaryPassword() {
   return `Hk!${randomBytes(9).toString("base64url")}9`;
@@ -31,24 +32,20 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const lead = leads[0];
     if (!lead) return NextResponse.json({ error: "Başvuru bulunamadı." }, { status: 404 });
 
-    let company;
-    if (lead.company_id) {
-      const rows = await supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(lead.company_id)}&select=*&limit=1`);
-      company = rows[0];
-    }
-    if (!company && lead.company) {
-      const rows = await supabaseRest<any[]>(`companies?name=ilike.${encodeURIComponent(lead.company)}&select=*&limit=1`);
-      company = rows[0];
-    }
-    if (!company && lead.phone) {
-      const rows = await supabaseRest<any[]>(`companies?phone=eq.${encodeURIComponent(lead.phone)}&select=*&limit=1`);
-      company = rows[0];
-    }
-    if (!company) {
+    // Şirket eşleştirmesi YALNIZCA işletme adına göre yapılır (telefon/e-posta ile birleştirme yok).
+    const [allCompanies, sourceCustomers] = await Promise.all([
+      supabaseRest<any[]>("companies?select=*&limit=5000"),
+      supabaseRest<any[]>(`customers?source_lead_id=eq.${encodeURIComponent(lead.id)}&select=*`)
+    ]);
+    const resolution = resolveConversionCompany(lead, allCompanies, sourceCustomers);
+    let company: any;
+    if (resolution.action === "reuse") {
+      company = resolution.company;
+    } else {
       const rows = await supabaseRest<any[]>("companies", {
         method: "POST",
         body: JSON.stringify({
-          name: lead.company || `${lead.name || "Yeni"} Müşterisi`,
+          name: String(lead.company || "").trim() || `${lead.name || "Yeni"} Müşterisi`,
           sector: lead.business_type || "",
           website: lead.website || "",
           instagram: lead.instagram || "",
@@ -60,15 +57,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       });
       company = rows[0];
     }
+    if (!company?.id) throw new Error("Müşteri (şirket) kaydı oluşturulamadı.");
 
     let profile = null;
     let generatedPassword = "";
+    let sharedOwnerNote = "";
     const email = String(lead.email || "").trim().toLowerCase();
     if (email) {
       const byEmail = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
       if (byEmail[0] && !["customer", "musteri"].includes(byEmail[0].role)) {
         return NextResponse.json({ error: "Bu e-posta adresi ekip hesabı olarak kullanılıyor. Müşteri hesabı için farklı bir e-posta girin." }, { status: 409 });
       }
+      if (byEmail[0]?.company_id && byEmail[0].company_id !== company.id) {
+        // Aynı işletme sahibinin başka işletmesine bağlı hesap: yeniden bağlama / şifre sıfırlama yapma.
+        profile = byEmail[0];
+        sharedOwnerNote = "Bu e-posta başka bir işletmenin müşteri hesabına bağlı. Mevcut hesap korundu, yeni müşteri ayrı kayıt olarak oluşturuldu.";
+      }
+    }
+    if (email && !profile) {
+      const byEmail = await supabaseRest<any[]>(`users?email=eq.${encodeURIComponent(email)}&select=*&limit=1`);
       let authUser = await findSupabaseAuthUserByEmail(email);
       if (!authUser || !byEmail[0]) generatedPassword = temporaryPassword();
       authUser = authUser
@@ -110,8 +117,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       updated_at: new Date().toISOString()
     };
     const customerRows = existingCustomers[0]
-      ? await supabaseRest<any[]>(`customers?id=eq.${existingCustomers[0].id}`, { method: "PATCH", body: JSON.stringify(customerPayload) })
+      ? await supabaseRest<any[]>(`customers?id=eq.${existingCustomers[0].id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ ...fillBlankFields(existingCustomers[0], customerPayload), updated_at: customerPayload.updated_at })
+      })
       : await supabaseRest<any[]>("customers", { method: "POST", body: JSON.stringify(customerPayload) });
+    if (!customerRows[0]) throw new Error("Müşteri kaydı oluşturulamadı.");
 
     const visibilityRows = await supabaseRest<any[]>(
       `customer_visibility_settings?company_id=eq.${encodeURIComponent(company.id)}&select=id&limit=1`
@@ -170,10 +181,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
     }
 
+    // Lead, müşteri kaydı doğrulanmadan "Müşteri Oldu" yapılmaz.
+    const [verifiedCompany, verifiedCustomer] = await Promise.all([
+      supabaseRest<any[]>(`companies?id=eq.${encodeURIComponent(company.id)}&select=id&limit=1`),
+      supabaseRest<any[]>(`customers?id=eq.${encodeURIComponent(customerRows[0].id)}&select=id&limit=1`)
+    ]);
+    if (!verifiedCompany[0] || !verifiedCustomer[0]) throw new Error("Müşteri kaydı doğrulanamadı.");
     const updatedLeads = await supabaseRest<any[]>(`leads?id=eq.${encodeURIComponent(lead.id)}`, {
       method: "PATCH",
       body: JSON.stringify({ company_id: company.id, status: "Müşteri Oldu", pipeline_stage: "Kazanıldı", updated_at: new Date().toISOString() })
     });
+    if (!updatedLeads[0]) throw new Error("Lead durumu güncellenemedi.");
 
     await recordActivity({
       session,
@@ -186,7 +204,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     return NextResponse.json({
       ok: true,
-      message: "Başvuru başarıyla müşteriye dönüştürüldü.",
+      message: resolution.action === "create" && resolution.reason === "stale-link"
+        ? "Başvuru yanlış bir müşteri kaydına bağlıydı; ayrı müşteri kaydı oluşturuldu ve ilişki düzeltildi."
+        : "Başvuru başarıyla müşteriye dönüştürüldü.",
+      note: sharedOwnerNote || undefined,
       company,
       customer: customerRows[0],
       user: profile,
@@ -197,6 +218,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const safeError = getSafeSupabaseError(error);
     console.error("Başvuru dönüştürme Supabase hatası:", safeError.detail);
     await recordActionFailure({ session, entity: "Satış Hunisi", action: "Lead müşteriye dönüştürme", error, entityId: id }).catch(() => null);
-    return NextResponse.json({ error: safeError.title, supabaseError: safeError.detail }, { status: 500 });
+    return NextResponse.json({ error: "Müşteriye dönüştürme tamamlanamadı. Başvuru durumu değiştirilmedi, işlemi tekrar deneyebilirsiniz.", supabaseError: safeError.detail }, { status: 500 });
   }
 }

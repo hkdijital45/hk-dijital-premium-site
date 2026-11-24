@@ -6791,7 +6791,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
       return;
     }
     onConverted(data);
-    setConversionMessage(data.temporaryPassword ? `${data.message} Tek seferlik geçici şifre: ${data.temporaryPassword}` : data.message);
+    setConversionMessage([data.message, data.note, data.temporaryPassword && `Tek seferlik geçici şifre: ${data.temporaryPassword}`].filter(Boolean).join(" "));
   }
   async function analyze(aiProvider = "auto") {
     setAnalyzing(true);
@@ -6928,6 +6928,7 @@ function LeadDrawer({ lead, update, persistLead, permanentDelete, canPermanently
         <button onClick={openProposalForLead} className="hk-button hk-button-warning">Teklif Oluştur</button>
         <button onClick={() => setProposalOpen(true)} className="hk-button hk-button-ai">Teklif Motoru</button>
         <button onClick={() => setAutoProposalOpen(true)} className="hk-button hk-button-ai">Otomatik Teklif Hazırla</button>
+        {["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) && <button onClick={convert} disabled={converting} title="Müşteri kaydının bu işletmeye doğru bağlandığını doğrular; yanlış bağlıysa ayrı müşteri kaydı oluşturup düzeltir." className="hk-button hk-button-info">{converting ? "Doğrulanıyor..." : "Müşteri bağlantısını doğrula / onar"}</button>}
         <button onClick={convert} disabled={converting || ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status)} className="hk-button hk-button-success">{converting ? "Dönüştürülüyor..." : ["Dönüştürüldü", "Müşteri Oldu"].includes(lead.status) ? "Müşteri oldu" : "Başvuruyu müşteriye dönüştür"}</button>
         <button onClick={() => persistLead(lead.id, { status: "Takipte", follow_up_date: lead.follow_up_date || new Date().toISOString().slice(0, 10) }, "Takip görevi oluşturuldu.")} className="hk-button hk-button-neutral">Takip görevi oluştur</button>
         <button onClick={() => askAiProvider(analyze)} disabled={analyzing || String(lead.id).startsWith("lead-")} className="hk-button hk-button-ai"><Sparkles size={15} /> {analyzing ? "Analiz hazırlanıyor..." : "Yapay zekâ analizi oluştur"}</button>
